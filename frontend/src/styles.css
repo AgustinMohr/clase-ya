@@ -1,0 +1,161 @@
+:root {
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: #1f2937;
+}
+
+body {
+  margin: 0;
+  background: #f3f4f6;
+}
+
+.app {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+.hero {
+  background: linear-gradient(135deg, #2563eb, #1e40af);
+  color: #fff;
+  border-radius: 16px;
+  padding: 28px 24px;
+}
+
+.hero h1 { margin: 0 0 4px; }
+.hero p { margin: 0 0 14px; opacity: 0.9; }
+
+.search { display: flex; gap: 8px; }
+.search input {
+  flex: 1;
+  padding: 12px;
+  border: 0;
+  border-radius: 10px;
+  font-size: 15px;
+}
+.search button {
+  padding: 12px 22px;
+  border: 0;
+  border-radius: 10px;
+  background: #10b981;
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
+.chip {
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  border-radius: 999px;
+  padding: 6px 14px;
+  cursor: pointer;
+}
+
+.count { color: #475569; margin: 4px 0 12px; }
+.error { color: #b91c1c; font-weight: 600; }
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.card {
+  background: #fff;
+  border-radius: 14px;
+  padding: 16px;
+  cursor: pointer;
+  border: 1px solid #e5e7eb;
+  transition: transform 0.08s ease, box-shadow 0.08s ease;
+}
+.card:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08); }
+
+.avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #dbeafe;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  color: #1d4ed8;
+}
+.avatar.big { width: 96px; height: 96px; font-size: 28px; }
+
+.card h3 { margin: 10px 0 2px; }
+.stars { color: #d97706; font-size: 13px; }
+.meta { display: flex; justify-content: space-between; gap: 8px; color: #334155; font-size: 14px; margin: 6px 0; }
+.price { font-weight: 700; color: #047857; }
+.mods { color: #475569; font-size: 13px; margin: 2px 0; }
+.subs { color: #6b7280; font-size: 12px; margin: 2px 0; }
+
+.detail {
+  background: #fff;
+  border-radius: 16px;
+  padding: 24px;
+  max-width: 760px;
+  margin: 16px auto;
+}
+.detail-head { display: flex; gap: 16px; align-items: flex-start; }
+.detail h2 { margin: 0 0 4px; }
+.back { border: 0; background: #e5e7eb; border-radius: 8px; padding: 6px 12px; cursor: pointer; margin-bottom: 14px; }
+.avail { background: #ecfdf5; border-radius: 8px; padding: 8px 12px; color: #047857; }
+.cta {
+  margin-top: 16px;
+  border: 0;
+  border-radius: 10px;
+  background: #2563eb;
+  color: #fff;
+  padding: 12px 20px;
+  font-weight: 700;
+}
+.cta:disabled { background: #93c5fd; cursor: not-allowed; }
+.cta.secondary { background: #475569; }
+.hint { color: #6b7280; font-size: 12px; }
+.footer { text-align: center; color: #9ca3af; padding: 20px 0; font-size: 13px; }
+
+/* session / header */
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 4px 16px;
+}
+.topbar strong { color: #1d4ed8; font-size: 18px; }
+.session { display: flex; align-items: center; gap: 12px; color: #334155; }
+.link { border: 0; background: transparent; color: #1d4ed8; font-weight: 700; cursor: pointer; }
+
+/* modal */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  z-index: 20;
+}
+.modal {
+  background: #fff;
+  border-radius: 16px;
+  padding: 24px;
+  width: 100%;
+  max-width: 440px;
+  max-height: 90vh;
+  overflow: auto;
+}
+.modal.detail { max-width: 680px; }
+.form { display: flex; flex-direction: column; gap: 6px; }
+.form label { font-size: 13px; color: #475569; margin-top: 6px; }
+.form input, .form textarea, .form select {
+  padding: 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font: inherit;
+}
+.divider { display: flex; align-items: center; gap: 10px; margin: 16px 0; color: #94a3b8; }
+.divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: #e2e8f0; }
+.google-btn { display: flex; justify-content: center; }
+.role-choice { display: flex; flex-direction: column; gap: 8px; }
+.ok { color: #047857; font-weight: 700; }

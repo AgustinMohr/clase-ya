@@ -1,0 +1,5 @@
+docker run --name claseya-pg -e POSTGRES_USER=claseya -e POSTGRES_PASSWORD=claseya -e POSTGRES_DB=claseya -p 5432:5432 -d postgres:16
+
+mvn -DskipTests spring-boot:run
+
+npm run dev

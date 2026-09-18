@@ -1,0 +1,50 @@
+spring:
+  application:
+    name: clase-ya
+
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/claseya}
+    username: ${DB_USERNAME:claseya}
+    password: ${DB_PASSWORD:claseya}
+
+  jpa:
+    hibernate:
+      # Never auto-generate DDL. The schema is owned by Flyway.
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+  jackson:
+    default-property-inclusion: non_null
+
+# JWT configuration.
+# JWT_SECRET must be overridden in any non-development environment. The default
+# value below is a development-only placeholder and must never be used in prod.
+jwt:
+  secret: ${JWT_SECRET:dev-only-change-me-9f8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d0e9f8a}
+  expiration: ${JWT_EXPIRATION:3600}
+
+cors:
+  # FRONTEND_URL may be a comma-separated list. Dev default includes the Vite port.
+  allowed-origins: ${FRONTEND_URL:http://localhost:3000,http://localhost:5173}
+
+# Google OAuth (id_token validation). client-id is REQUIRED in any real
+# environment and must match the SPA's VITE_GOOGLE_CLIENT_ID. Never hardcode a
+# real client id here; pass it via the GOOGLE_CLIENT_ID environment variable.
+oauth:
+  google:
+    issuer: ${GOOGLE_ISSUER:https://accounts.google.com}
+    client-id: ${GOOGLE_CLIENT_ID:}
+
+# DEVELOPMENT ONLY: seed demo catalog + verified teachers + a student on startup
+# (so `spring-boot:run` shows a populated UI). Must be false in real environments.
+app:
+  demo-seed:
+    enabled: ${DEMO_SEED:true}
