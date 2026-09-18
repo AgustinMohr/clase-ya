@@ -1,0 +1,17 @@
+# Keep the backend image small and deterministic.
+target/
+frontend/
+node_modules/
+.agents/
+.atl/
+.git/
+.gitignore
+docs/
+scripts/
+.env.local
+.neon
+neon.ts
+package.json
+package-lock.json
+skills-lock.json
+*.md
