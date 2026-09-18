@@ -68,6 +68,12 @@ export interface LoginResponse {
 const TOKEN_KEY = 'claseya.token';
 export const UNAUTHORIZED_EVENT = 'claseya:unauthorized';
 
+/**
+ * Backend base URL. Empty in dev (Vite proxies /api to localhost:8080); in
+ * production set VITE_API_URL to the deployed backend origin.
+ */
+const API_BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/+$/, '');
+
 export class ApiError extends Error {
   status: number;
   body?: unknown;
@@ -96,7 +102,11 @@ async function request<T>(method: string, url: string, body?: unknown, auth = fa
     const token = getToken();
     if (token) headers.Authorization = `Bearer ${token}`;
   }
-  const res = await fetch(url, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+  const res = await fetch(`${API_BASE}${url}`, {
+    method,
+    headers,
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
 
   if (res.status === 401 && auth) {
     clearToken();

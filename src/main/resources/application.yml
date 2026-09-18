@@ -1,3 +1,7 @@
+# Bind the port injected by the hosting platform (Railway/Render/Heroku), 8080 locally.
+server:
+  port: ${PORT:8080}
+
 spring:
   application:
     name: clase-ya
