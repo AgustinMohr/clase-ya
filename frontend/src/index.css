@@ -57,6 +57,24 @@
   }
 }
 
+/*
+ * Light/dark swap animation. The class is applied to <html> only while the theme
+ * changes (see ThemeProvider), so first paint and the timing of hover/state
+ * transitions elsewhere are untouched. Duration is inside the design system's
+ * 150-250ms range. No `!important`: the prefers-reduced-motion block below still
+ * overrides the duration.
+ */
+.theme-transition,
+.theme-transition *,
+.theme-transition *::before,
+.theme-transition *::after {
+  transition:
+    color 200ms ease,
+    background-color 200ms ease,
+    border-color 200ms ease,
+    box-shadow 200ms ease;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
