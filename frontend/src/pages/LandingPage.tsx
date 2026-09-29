@@ -62,7 +62,9 @@ export default function LandingPage({ onSearch, onOpenTeacher, onToggleFavorite,
           <p className="mb-3 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-sm font-semibold">
             <Sparkles className="h-4 w-4" aria-hidden="true" /> Profesores cerca tuyo, en Santa Fe
           </p>
-          <h1 className="max-w-3xl font-display text-4xl leading-tight sm:text-6xl">
+          {/* text-white explícito: el hero es el único heading sobre superficie oscura y
+              el `h1..h4 { text-content }` de index.css pisa el blanco heredado. */}
+          <h1 className="max-w-3xl font-display text-4xl leading-tight text-white sm:text-6xl">
             Encontrá tu profesor particular
           </h1>
           <p className="mt-4 max-w-2xl text-lg text-primary-50/90">
