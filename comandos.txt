@@ -1,5 +1,106 @@
+# ============================================================================
+# ClaseYa - comandos de desarrollo (Windows / PowerShell)
+# ============================================================================
+# Requisitos: Docker Desktop activo, Java 17, Maven, Node 18+.
+#
+# Config local (Google client id, etc.): src/main/resources/application-local.yml
+#   -> archivo GITIGNORED; se activa con el perfil `local` (ver seccion 2).
+#   -> las env vars siguen pisandolo, asi que produccion no se ve afectada.
+
+# ----------------------------------------------------------------------------
+# 1) BASE DE DATOS LOCAL (Postgres en Docker)
+# ----------------------------------------------------------------------------
+# Primera vez (crea el contenedor):
 docker run --name claseya-pg -e POSTGRES_USER=claseya -e POSTGRES_PASSWORD=claseya -e POSTGRES_DB=claseya -p 5432:5432 -d postgres:16
 
-mvn -DskipTests spring-boot:run
+docker start claseya-pg        # siguientes veces
+docker stop claseya-pg         # al terminar
+docker logs claseya-pg         # si algo no conecta
 
-npm run dev
+# ----------------------------------------------------------------------------
+# 2) BACKEND (:8080)
+# ----------------------------------------------------------------------------
+# IMPORTANTE: que DB_URL / DB_USERNAME / DB_PASSWORD NO esten seteadas en la terminal.
+# Si lo estan, el backend local escribe en NEON (PRODUCCION). Verificar y limpiar:
+$env:DB_URL; $env:DB_USERNAME; $env:DB_PASSWORD
+Remove-Item Env:DB_URL, Env:DB_USERNAME, Env:DB_PASSWORD -ErrorAction SilentlyContinue
+
+# Levantar con el perfil local (el timezone es obligatorio en Windows, ver seccion 7):
+mvn spring-boot:run "-Dspring-boot.run.profiles=local" "-Dspring-boot.run.jvmArguments=-Duser.timezone=UTC"
+
+# Variante sin tests (arranque mas rapido en el loop diario):
+mvn -DskipTests spring-boot:run "-Dspring-boot.run.profiles=local" "-Dspring-boot.run.jvmArguments=-Duser.timezone=UTC"
+
+# En el arranque tiene que decir:  The following 1 profile is active: "local"
+# Health check y datos (el 401 de "/" es ESPERADO: "/" no es un endpoint):
+#   http://localhost:8080/api/test/public
+#   http://localhost:8080/api/subjects?size=5
+#   http://localhost:8080/api/teachers?page=0&size=24
+
+# ----------------------------------------------------------------------------
+# 3) FRONTEND (:5173, proxy /api -> :8080)
+# ----------------------------------------------------------------------------
+cd frontend
+npm install                    # primera vez
+npm run dev                    # http://localhost:5173
+# En local NO se define VITE_API_URL: api.ts usa URL relativa y el proxy de Vite
+# manda /api a :8080, asi que en local NO hay CORS.
+
+# ----------------------------------------------------------------------------
+# 4) TESTS Y VERIFICACION
+# ----------------------------------------------------------------------------
+mvn -B clean test              # suite completa (unit + integracion; requiere Docker)
+scripts\test.ps1               # preflight de Docker + mvn -B clean test
+scripts\verify.ps1             # verificacion reproducible (reporta PASS/FAIL)
+# desde la raiz:
+cd frontend; npm run build     # tsc + vite: atrapa errores de tipos
+
+# ----------------------------------------------------------------------------
+# 5) DATOS DEMO
+# ----------------------------------------------------------------------------
+# Se siembran solos al arrancar el backend (DEMO_SEED default = true).
+# Forzarlos a mano (con el contenedor claseya-pg corriendo):
+scripts\seed-demo.ps1
+# Profesores: ana.profe@claseya.dev | bruno.profe@claseya.dev |
+#             carla.profe@claseya.dev | diego.profe@claseya.dev
+# Estudiante: student@claseya.dev
+# Password (todos): Password123
+
+# ----------------------------------------------------------------------------
+# 6) DEPLOY (Render backend + Vercel frontend + Neon)
+# ----------------------------------------------------------------------------
+# Render (Web Service, Language Docker, Dockerfile ./Dockerfile,
+#         Health Check Path /api/test/public). Env vars:
+#   DB_URL=jdbc:postgresql://<host-neon>/neondb?sslmode=require&prepareThreshold=0
+#   DB_USERNAME=neondb_owner
+#   DB_PASSWORD=<password de Neon>
+#   JWT_SECRET=<>=32 chars>        JWT_EXPIRATION=3600
+#   GOOGLE_CLIENT_ID=<EL MISMO que VITE_GOOGLE_CLIENT_ID>
+#   FRONTEND_URL=https://<dominio-vercel>    (origin exacto, SIN barra final)
+#   DEMO_SEED=false                          (en produccion real)
+#
+# Vercel: Root Directory=frontend | build "npm run build" | output "dist"
+#   VITE_API_URL=https://<dominio-render>    (SIN barra final)
+#   VITE_GOOGLE_CLIENT_ID=<client id>
+#   -> cambiar una VITE_* exige REDEPLOY: Vite las incrusta durante el build.
+#
+# Google Cloud > Credentials > OAuth Client > Authorized JavaScript origins:
+#   http://localhost:5173  y  https://<dominio-vercel>   (sin path, sin wildcard)
+#   Los preview URLs de Vercel son origins distintos: no estan autorizados.
+
+# ----------------------------------------------------------------------------
+# 7) TROUBLESHOOTING
+# ----------------------------------------------------------------------------
+# FATAL: invalid value for parameter "TimeZone": "America/Buenos_Aires" (22023)
+#   -> falta -Duser.timezone=UTC (ya incluido en los comandos de la seccion 2).
+#      No hay fix por parametros de URL JDBC.
+# PowerShell rompe los args de Maven ("Unknown lifecycle phase .run.profiles=local")
+#   -> pasa cada -D entre comillas, como en la seccion 2.
+# Vercel: deploy colgado y sin logs
+#   -> Hobby permite 1 build a la vez: cancela el deployment anterior trabado.
+# Google: "Error 400: origin_mismatch"
+#   -> falta el origin exacto en Authorized JavaScript origins.
+# Backend: [400] "Invalid Google token audience"
+#   -> GOOGLE_CLIENT_ID no coincide con el client id del frontend (o esta vacia).
+# Landing sin datos pero /api/subjects devuelve datos
+#   -> CORS: FRONTEND_URL en Render debe ser el origin exacto (https, sin barra final).

@@ -22,6 +22,9 @@ bin/
 .DS_Store
 Thumbs.db
 
+### Local developer config (per-developer, never committed) ###
+src/main/resources/application-local.yml
+
 ### Node (Neon CLI tooling at repo root) ###
 node_modules/
 
