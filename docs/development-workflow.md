@@ -1,10 +1,62 @@
 # ClaseYa — Workflow de desarrollo
 
-Proceso obligatorio para TODO cambio de comportamiento en este repositorio. El agente actúa como
+Proceso obligatorio para todo cambio de comportamiento en este repositorio. El agente actúa como
 implementador y revisor técnico; el humano (arquitecto/director) aprueba specs, planes y cambios
 de arquitectura.
 
+**La profundidad del proceso depende del nivel del cambio** (ver "Niveles de cambio"). El ciclo
+completo aplica a features de producto; los cambios chicos y los no funcionales tienen un camino
+corto, para no gastar esfuerzo donde no aporta.
+
+## Niveles de cambio
+
+| Nivel | Qué incluye | Proceso exigido |
+|-------|-------------|-----------------|
+| **0 — No funcional** | docs, tooling, scripts, configuración de entorno/plataforma, typos, copy de UI sin cambio de comportamiento | Sin spec ni plan. Implementación directa. Se reporta qué se tocó y cómo se verificó. |
+| **1 — Cambio chico de comportamiento** | bugfix, ajuste de UI, validación, filtro o parámetro acotado, refactor interno sin cambio de contrato | Sin spec formal. Change budget de 3 líneas + test de regresión + verificación determinista. |
+| **2 — Feature de producto** | capacidad nueva, endpoint o campo de contrato nuevo, migración, regla de negocio, seguridad o visibilidad | Ciclo completo: spec (`docs/specs/README.md`) + REVIEW humano + PLAN + change budget. ADR si decide arquitectura. |
+
+**Economía de artefactos:** no se produce ningún artefacto (spec, plan, ADR) que el nivel no pida.
+En Nivel 0 y 1 el reporte va en el chat, no en archivos.
+
+### Ciclos por nivel
+
+- **Nivel 0**: `IMPLEMENT → VERIFY → DONE`
+- **Nivel 1**: `IMPLEMENT → TEST → VERIFY → DONE` (el change budget de 3 líneas reemplaza a SPEC/PLAN/REVIEW)
+- **Nivel 2**: ciclo completo (ver "Ciclo")
+
+### Cómo se decide el nivel
+
+1. El agente **propone el nivel** en su primera respuesta, en una línea y con la justificación mínima.
+2. El humano **confirma o corrige**. Ante duda entre dos niveles, se elige el **mayor**.
+3. Un cambio **sube a Nivel 2 siempre** —aunque el diff sea de tres líneas— si toca: seguridad,
+   autenticación/autorización/visibilidad, schema o migraciones, contrato de API pública,
+   dependencias nuevas, o una decisión de arquitectura.
+
+### Límites de Nivel 0 y 1
+
+- No pueden introducir **requisitos de producto nuevos**. Si aparece uno: se reporta y se convierte
+  en Nivel 2, o queda fuera de alcance.
+- No eximen de las reglas 3, 5, 6 y 10 de más abajo (ADR, dependencias, seguridad, ambigüedad
+  arquitectónica) ni de la regla de "no silent fixes".
+- El comportamiento esperado de un Nivel 1 sin spec se **acuerda en el chat** y queda fijado por el
+  test de regresión.
+
+### Ejemplos
+
+| Pedido | Nivel |
+|--------|-------|
+| Corregir un README o actualizar `comandos.txt` | 0 |
+| Cambiar una variable de entorno de despliegue | 0 |
+| Un filtro devuelve resultados vacíos (bug) | 1 |
+| Corregir el orden o el formato de las tarjetas | 1 |
+| "Agregar reseñas de profesores" | 2 |
+| Nuevo endpoint o exponer un campo nuevo | 2 |
+| Cambiar quién puede ver un perfil | 2 |
+
 ## Ciclo
+
+Ciclo completo, exigible a **Nivel 2**. Los ciclos cortos están en "Ciclos por nivel".
 
 ```
 SPEC

@@ -139,10 +139,13 @@ scripts/verify.ps1         # verificación reproducible (igual que test, reporta
 
 Un cambio está terminado solo si se cumplen todas:
 
-- [ ] Impulsado por una spec aprobada (o una tarea explícita no funcional: docs/tooling).
-- [ ] No se inventó ningún requisito que no esté en la spec.
+- [ ] Impulsado por el nivel correcto de cambio: **Nivel 2** → spec aprobada; **Nivel 1** → change
+      budget + test de regresión; **Nivel 0** (docs/tooling) → sin spec.
+- [ ] No se inventó ningún requisito: todo sale de la spec (Nivel 2) o de lo acordado en el chat
+      (Nivel 1).
 - [ ] Arquitectura/seguridad/schema/API/contratos sin cambios más allá del change budget aprobado.
-- [ ] El comportamiento nuevo tiene tests, y `mvn -B clean test` está en verde.
+- [ ] El comportamiento nuevo tiene tests (Nivel 1 y 2) y `mvn -B clean test` está en verde cuando
+      el cambio toca código.
 - [ ] Migraciones (si las hay) como `V{n+1}` nueva con justificación.
 - [ ] Docs afectados actualizados (API, ADR cuando cambia una decisión).
 - [ ] El cambio no excede el scope declarado (ver Change Budget).
@@ -150,7 +153,9 @@ Un cambio está terminado solo si se cumplen todas:
 
 ## Change budget (declarar antes de implementar)
 
-Toda implementación debe declarar desde el inicio:
+El presupuesto es **proporcional al nivel** (ver "Niveles de cambio" en
+`docs/development-workflow.md`): en **Nivel 0 y 1** alcanza una declaración de tres líneas en el
+chat —sin generar archivos—; en **Nivel 2** se declaran los cuatro puntos completos:
 
 - **Scope**: qué se hará y qué no.
 - **Archivos esperados**: archivos a crear/modificar.
@@ -174,7 +179,7 @@ modificación de seguridad, modificación del schema, dependencia nueva o cambio
 
 ## Límites del agente / prohibiciones
 
-- Nunca implementes una feature de producto sin spec aprobada.
+- Nunca implementes una feature de producto (Nivel 2) sin spec aprobada.
 - Nunca cambies la arquitectura sin un ADR.
 - Nunca crees/modifiques una migración sin justificación, y nunca edites las históricas.
 - Nunca agregues una dependencia sin justificación (motivo documentado).
@@ -190,5 +195,6 @@ modificación de seguridad, modificación del schema, dependencia nueva o cambio
 
 ## Workflow
 
-Ver `docs/development-workflow.md`: SPEC → REVIEW → PLAN → IMPLEMENT → TEST → VERIFY → REVIEW →
-DONE. Las ambigüedades con impacto arquitectónico se reportan, no se adivinan.
+Ver `docs/development-workflow.md`: el ciclo completo (SPEC → REVIEW → PLAN → IMPLEMENT → TEST →
+VERIFY → REVIEW → DONE) es exigible a features de producto (**Nivel 2**); los **Niveles 0 y 1**
+tienen ciclos cortos. Las ambigüedades con impacto arquitectónico se reportan, no se adivinan.

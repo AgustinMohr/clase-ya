@@ -1,7 +1,11 @@
 # docs/specs — Especificaciones de producto
 
-Este directorio gobierna las specs de funcionalidad. **No se implementa ninguna feature sin una
-spec aprobada** (ver `docs/development-workflow.md`).
+Este directorio gobierna las specs de funcionalidad. **No se implementa ninguna feature de
+producto sin una spec aprobada** (ver `docs/development-workflow.md`).
+
+Una spec se exige **solo para cambios de Nivel 2 (feature de producto)**. Los cambios de Nivel 0
+(no funcionales) y Nivel 1 (cambios chicos de comportamiento) tienen camino corto y **no generan
+archivos**: el nivel se decide con la tabla de "Niveles de cambio" en `docs/development-workflow.md`.
 
 ## Carpetas
 
@@ -11,8 +15,8 @@ spec aprobada** (ver `docs/development-workflow.md`).
 
 ## Formato obligatorio de una spec
 
-Cada spec es un archivo `SPEC-XXX-slug-corto.md` en `active/` (o `completed/`). Secciones
-obligatorias:
+Aplica a toda spec que se escriba (Nivel 2). Cada spec es un archivo `SPEC-XXX-slug-corto.md` en
+`active/` (o `completed/`). Secciones obligatorias:
 
 1. **ID** — `SPEC-XXX` (número correlativo) y título.
 2. **Objetivo** — qué problema resuelve, en una o dos frases.
@@ -31,6 +35,8 @@ obligatorias:
 
 ## Reglas
 
+- El nivel del cambio define si hace falta spec: Nivel 2 **sí**; Nivel 0 y 1 **no** (ver
+  `docs/development-workflow.md`).
 - No inventar requisitos: toda decisión debe ser trazable a esta spec (o a un ADR si es técnica).
 - Si una spec necesita cambiar arquitectura/seguridad/schema/contrato fuera de su alcance, se
   reporta antes de seguir.
