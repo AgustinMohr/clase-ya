@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, FilterX, SearchX } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ArrowLeft, ChevronLeft, ChevronRight, FilterX, SearchX } from 'lucide-react';
 import { api, type Subject, type TeacherSummary } from '../api';
 import SearchInput from '../components/ui/SearchInput';
 import { Button } from '../components/ui/Button';
 import { Chip, EmptyState, Skeleton } from '../components/ui/primitives';
+import PriceRange, { type PriceValue } from '../components/ui/PriceRange';
 import { TeacherCard } from '../components/teacher/TeacherCard';
 
 interface Props {
@@ -17,17 +18,42 @@ interface Props {
 
 type Modality = 'ONLINE' | 'IN_PERSON';
 
+interface Filters {
+  subjectId: string | null;
+  modality: Modality | null;
+  minRating: number | null;
+  price: PriceValue;
+}
+
+const NO_FILTERS: Filters = { subjectId: null, modality: null, minRating: null, price: { min: null, max: null } };
+
+/** A typed pair can be inverted; order it before querying (SEARCH-001). */
+function normalizePrice(price: PriceValue): PriceValue {
+  const { min, max } = price;
+  return min != null && max != null && min > max ? { min: max, max: min } : price;
+}
+
+function activeFilterCount(filters: Filters): number {
+  return [filters.subjectId, filters.modality, filters.minRating, filters.price.min, filters.price.max]
+    .filter((value) => value != null).length;
+}
+
 export default function SearchPage({ initialTerm, subjects, onBack, onOpenTeacher, onToggleFavorite, favorites }: Props) {
   const [term, setTerm] = useState(initialTerm);
-  const [subjectId, setSubjectId] = useState<string | null>(null);
-  const [modality, setModality] = useState<Modality | null>(null);
-  const [minRating, setMinRating] = useState<number | null>(null);
-  const [priceMax, setPriceMax] = useState<number | null>(null);
+  /** What the controls show. Changing it fires nothing. */
+  const [draft, setDraft] = useState<Filters>(NO_FILTERS);
+  /** What the results reflect. Only the explicit actions below update it. */
+  const [applied, setApplied] = useState<Filters>(NO_FILTERS);
   const [results, setResults] = useState<TeacherSummary[]>([]);
   const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [unmatchedTerm, setUnmatchedTerm] = useState('');
+  // Skeletons are for the very first load only: replacing a full page of results with
+  // skeletons collapses the document (the footer jumps into view) on every filter apply.
+  const [hasSearched, setHasSearched] = useState(false);
   const requestSeq = useRef(0);
 
   const resolveSubject = useCallback(
@@ -36,7 +62,7 @@ export default function SearchPage({ initialTerm, subjects, onBack, onOpenTeache
   );
 
   const runSearch = useCallback(
-    async (value: string, filters: { subjectId: string | null; modality: Modality | null; minRating: number | null }) => {
+    async (value: string, filters: Filters, nextPage = 0) => {
       const seq = ++requestSeq.current;
       setLoading(true);
       setError('');
@@ -49,26 +75,36 @@ export default function SearchPage({ initialTerm, subjects, onBack, onOpenTeache
           setUnmatchedTerm(trimmed);
           setResults([]);
           setTotal(0);
+          setTotalPages(0);
           setLoading(false);
           return;
         }
       }
       setUnmatchedTerm('');
-      setSubjectId(subjectToUse);
+      const effective: Filters = { ...filters, subjectId: subjectToUse };
+      setApplied(effective);
 
       try {
-        const page = await api.teachers({
+        const result = await api.teachers({
           subjectId: subjectToUse ?? undefined,
-          modality: filters.modality ?? undefined,
-          minRating: filters.minRating ?? undefined,
+          modality: effective.modality ?? undefined,
+          minRating: effective.minRating ?? undefined,
+          minPrice: effective.price.min ?? undefined,
+          maxPrice: effective.price.max ?? undefined,
+          page: nextPage,
         });
         if (seq !== requestSeq.current) return; // stale response
-        setResults(page.content);
-        setTotal(page.totalElements);
+        setResults(result.content);
+        setTotal(result.totalElements);
+        setTotalPages(result.totalPages);
+        setPage(result.page);
+        setHasSearched(true);
       } catch {
         if (seq !== requestSeq.current) return;
         setError('No pudimos buscar profesores. Revisá tu conexión e intentá de nuevo.');
         setResults([]);
+        setTotal(0);
+        setTotalPages(0);
       } finally {
         if (seq === requestSeq.current) setLoading(false);
       }
@@ -76,31 +112,44 @@ export default function SearchPage({ initialTerm, subjects, onBack, onOpenTeache
     [resolveSubject],
   );
 
+  /**
+   * `runSearch` changes identity when the subject list loads, so the initial search
+   * is keyed on the term only (a filter change must never trigger a request). The ref
+   * also absorbs StrictMode's double effect invocation in development, which would
+   * otherwise fire the same search twice on mount; it resets on remount, so landing
+   * with the same term again still searches.
+   */
+  const runSearchRef = useRef(runSearch);
   useEffect(() => {
-    void runSearch(initialTerm, { subjectId: null, modality: null, minRating: null });
-  }, [initialTerm, runSearch]);
+    runSearchRef.current = runSearch;
+  }, [runSearch]);
 
-  function applyFilters(next: { modality?: Modality | null; minRating?: number | null }) {
-    const nextModality = next.modality !== undefined ? next.modality : modality;
-    const nextRating = next.minRating !== undefined ? next.minRating : minRating;
-    setModality(nextModality);
-    setMinRating(nextRating);
-    void runSearch(term, { subjectId, modality: nextModality, minRating: nextRating });
+  const initialTermSearched = useRef<string | null>(null);
+  useEffect(() => {
+    if (initialTermSearched.current === initialTerm) return;
+    initialTermSearched.current = initialTerm;
+    void runSearchRef.current(initialTerm, NO_FILTERS, 0);
+  }, [initialTerm]);
+
+  function updateDraft(next: Partial<Filters>) {
+    setDraft((current) => ({ ...current, ...next }));
+  }
+
+  /** The only path that turns selected filters into a query (explicit user action). */
+  function applyFilters() {
+    const next: Filters = { ...draft, price: normalizePrice(draft.price) };
+    setDraft(next);
+    setApplied(next);
+    void runSearch(term, next, 0);
   }
 
   function clearFilters() {
-    setModality(null);
-    setMinRating(null);
-    setPriceMax(null);
-    void runSearch(term, { subjectId, modality: null, minRating: null });
+    setDraft(NO_FILTERS);
+    setApplied(NO_FILTERS);
+    void runSearch(term, NO_FILTERS, 0);
   }
 
-  const visible = useMemo(
-    () => (priceMax == null ? results : results.filter((t) => t.pricePerHour == null || t.pricePerHour <= priceMax)),
-    [results, priceMax],
-  );
-
-  const hasFilters = Boolean(subjectId || modality || minRating || priceMax);
+  const selected = activeFilterCount(draft);
 
   return (
     <div className="container-page py-8">
@@ -116,7 +165,7 @@ export default function SearchPage({ initialTerm, subjects, onBack, onOpenTeache
         <SearchInput
           value={term}
           onChange={setTerm}
-          onSubmit={(value) => void runSearch(value, { subjectId: null, modality, minRating })}
+          onSubmit={(value) => void runSearch(value, { ...applied, subjectId: null }, 0)}
           suggestions={subjects}
           popular={subjects}
           loading={loading}
@@ -128,7 +177,7 @@ export default function SearchPage({ initialTerm, subjects, onBack, onOpenTeache
         <aside aria-label="Filtros" className="space-y-6 rounded-2xl border border-border bg-surface p-5 lg:sticky lg:top-24 lg:self-start">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-bold">Filtros</h2>
-            {hasFilters && (
+            {selected > 0 && (
               <Button variant="link" size="sm" onClick={clearFilters}>
                 <FilterX className="h-4 w-4" aria-hidden="true" /> Limpiar
               </Button>
@@ -138,10 +187,10 @@ export default function SearchPage({ initialTerm, subjects, onBack, onOpenTeache
           <div>
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-content-muted">Modalidad</p>
             <div className="flex flex-wrap gap-2">
-              <Chip active={modality === 'ONLINE'} onClick={() => applyFilters({ modality: modality === 'ONLINE' ? null : 'ONLINE' })}>
+              <Chip active={draft.modality === 'ONLINE'} onClick={() => updateDraft({ modality: draft.modality === 'ONLINE' ? null : 'ONLINE' })}>
                 Online
               </Chip>
-              <Chip active={modality === 'IN_PERSON'} onClick={() => applyFilters({ modality: modality === 'IN_PERSON' ? null : 'IN_PERSON' })}>
+              <Chip active={draft.modality === 'IN_PERSON'} onClick={() => updateDraft({ modality: draft.modality === 'IN_PERSON' ? null : 'IN_PERSON' })}>
                 Presencial
               </Chip>
             </div>
@@ -151,7 +200,7 @@ export default function SearchPage({ initialTerm, subjects, onBack, onOpenTeache
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-content-muted">Calificación</p>
             <div className="flex flex-wrap gap-2">
               {[4, 4.5].map((rating) => (
-                <Chip key={rating} active={minRating === rating} onClick={() => applyFilters({ minRating: minRating === rating ? null : rating })}>
+                <Chip key={rating} active={draft.minRating === rating} onClick={() => updateDraft({ minRating: draft.minRating === rating ? null : rating })}>
                   {rating}+ ★
                 </Chip>
               ))}
@@ -159,42 +208,38 @@ export default function SearchPage({ initialTerm, subjects, onBack, onOpenTeache
           </div>
 
           <div>
-            <label htmlFor="price-max" className="mb-2 block text-xs font-semibold uppercase tracking-wide text-content-muted">
-              Precio máximo (beta)
-            </label>
-            <select
-              id="price-max"
-              value={priceMax ?? ''}
-              onChange={(e) => setPriceMax(e.target.value ? Number(e.target.value) : null)}
-              className="w-full rounded-xl border border-border bg-surface px-3 py-2 text-sm"
-            >
-              <option value="">Sin límite</option>
-              <option value="5000">Hasta $5.000/h</option>
-              <option value="8000">Hasta $8.000/h</option>
-              <option value="12000">Hasta $12.000/h</option>
-            </select>
-            <p className="mt-1 text-[11px] text-content-muted">El precio se filtra en el navegador (límite del backend actual).</p>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-content-muted">Precio por hora</p>
+            <PriceRange value={draft.price} onChange={(price) => updateDraft({ price })} />
+          </div>
+
+          <div className="border-t border-border pt-4">
+            <Button block onClick={applyFilters}>
+              Aplicar filtros{selected > 0 ? ` (${selected})` : ''}
+            </Button>
+            <p className="mt-2 text-[11px] text-content-muted">
+              Los filtros se aplican solo al tocar el botón.
+            </p>
           </div>
         </aside>
 
         {/* RESULTADOS */}
-        <section aria-live="polite">
-          {loading ? (
+        <section aria-live="polite" aria-busy={loading}>
+          {loading && !hasSearched ? (
             <div className="grid gap-5 sm:grid-cols-2">
               {Array.from({ length: 4 }).map((_, i) => (
                 <Skeleton key={i} className="h-64" />
               ))}
             </div>
           ) : error ? (
-            <EmptyState title="Algo salió mal" description={error} action={<Button onClick={() => runSearch(term, { subjectId, modality, minRating })}>Reintentar</Button>} />
+            <EmptyState title="Algo salió mal" description={error} action={<Button onClick={() => runSearch(term, applied, page)}>Reintentar</Button>} />
           ) : unmatchedTerm ? (
             <EmptyState
               icon={<SearchX className="h-6 w-6" aria-hidden="true" />}
               title={`No encontramos "${unmatchedTerm}"`}
               description="Probá eligiendo una materia de las sugerencias."
-              action={<Button variant="outline" onClick={() => runSearch('', { subjectId: null, modality, minRating })}>Ver todos los profesores</Button>}
+              action={<Button variant="outline" onClick={() => runSearch('', { ...applied, subjectId: null }, 0)}>Ver todos los profesores</Button>}
             />
-          ) : visible.length === 0 ? (
+          ) : results.length === 0 ? (
             <EmptyState
               icon={<SearchX className="h-6 w-6" aria-hidden="true" />}
               title="Sin resultados con estos filtros"
@@ -202,10 +247,12 @@ export default function SearchPage({ initialTerm, subjects, onBack, onOpenTeache
               action={<Button variant="outline" onClick={clearFilters}>Limpiar filtros</Button>}
             />
           ) : (
-            <>
-              <p className="mb-4 text-sm text-content-muted">{visible.length} profesor(es) encontrados</p>
+            <div className={loading ? 'opacity-50 transition-opacity duration-200' : 'transition-opacity duration-200'}>
+              <p className="mb-4 text-sm text-content-muted">
+                {total} profesor{total === 1 ? '' : 'es'} encontrado{total === 1 ? '' : 's'}
+              </p>
               <div className="grid gap-5 sm:grid-cols-2">
-                {visible.map((teacher) => (
+                {results.map((teacher) => (
                   <TeacherCard
                     key={teacher.id}
                     teacher={teacher}
@@ -215,10 +262,29 @@ export default function SearchPage({ initialTerm, subjects, onBack, onOpenTeache
                   />
                 ))}
               </div>
-              {total > visible.length && (
-                <p className="mt-4 text-xs text-content-muted">Mostrando {visible.length} de {total} resultados.</p>
+
+              {totalPages > 1 && (
+                <nav className="mt-6 flex items-center justify-between gap-3" aria-label="Paginación de resultados">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={page === 0 || loading}
+                    onClick={() => void runSearch(term, applied, page - 1)}
+                  >
+                    <ChevronLeft className="h-4 w-4" aria-hidden="true" /> Anterior
+                  </Button>
+                  <p className="text-sm text-content-muted">Página {page + 1} de {totalPages}</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={page + 1 >= totalPages || loading}
+                    onClick={() => void runSearch(term, applied, page + 1)}
+                  >
+                    Siguiente <ChevronRight className="h-4 w-4" aria-hidden="true" />
+                  </Button>
+                </nav>
               )}
-            </>
+            </div>
           )}
         </section>
       </div>

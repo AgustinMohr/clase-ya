@@ -204,6 +204,112 @@ class TeacherSearchIntegrationTest extends AbstractWebIntegrationTest {
         getJson("/api/teachers/" + verified.getId(), null, 200);
     }
 
+    // ------------------------------------------------------------------ price filter (SEARCH-001)
+
+    private TeacherProfile withPrice(TeacherProfile profile, String price) {
+        profile.setPricePerHour(new BigDecimal(price));
+        return teacherProfileRepository.saveAndFlush(profile);
+    }
+
+    @Test
+    void priceFilter_returnsOnlyTeachersInsideTheRange() throws Exception {
+        Catalog cat = seedCatalog();
+        withPrice(seedTeacher("Barato", UserStatus.ACTIVE, VerificationStatus.VERIFIED,
+                new BigDecimal("4.0"), 1, null, null, List.of(cat.csA), TeachingModality.ONLINE), "4000");
+        withPrice(seedTeacher("Medio", UserStatus.ACTIVE, VerificationStatus.VERIFIED,
+                new BigDecimal("4.0"), 1, null, null, List.of(cat.csA), TeachingModality.ONLINE), "7000");
+        withPrice(seedTeacher("Caro", UserStatus.ACTIVE, VerificationStatus.VERIFIED,
+                new BigDecimal("4.0"), 1, null, null, List.of(cat.csA), TeachingModality.ONLINE), "20000");
+
+        JsonNode page = search("?minPrice=5000&maxPrice=9000");
+        assertThat(contentNames(page)).containsExactly("Medio");
+        assertThat(page.get("totalElements").asLong()).isEqualTo(1);
+    }
+
+    @Test
+    void priceFilter_worksWithOnlyOneBound() throws Exception {
+        Catalog cat = seedCatalog();
+        withPrice(seedTeacher("A", UserStatus.ACTIVE, VerificationStatus.VERIFIED,
+                new BigDecimal("4.0"), 1, null, null, List.of(cat.csA), TeachingModality.ONLINE), "3000");
+        withPrice(seedTeacher("B", UserStatus.ACTIVE, VerificationStatus.VERIFIED,
+                new BigDecimal("4.0"), 1, null, null, List.of(cat.csA), TeachingModality.ONLINE), "8000");
+        withPrice(seedTeacher("C", UserStatus.ACTIVE, VerificationStatus.VERIFIED,
+                new BigDecimal("4.0"), 1, null, null, List.of(cat.csA), TeachingModality.ONLINE), "25000");
+
+        assertThat(contentNames(search("?minPrice=5000"))).containsExactlyInAnyOrder("B", "C");
+        assertThat(contentNames(search("?maxPrice=5000"))).containsExactly("A");
+    }
+
+    @Test
+    void priceFilter_excludesTeachersWithoutPublishedPriceButOnlyWhenFiltering() throws Exception {
+        Catalog cat = seedCatalog();
+        seedTeacher("Sin Precio", UserStatus.ACTIVE, VerificationStatus.VERIFIED,
+                new BigDecimal("4.0"), 1, null, null, List.of(cat.csA), TeachingModality.ONLINE);
+        withPrice(seedTeacher("Con Precio", UserStatus.ACTIVE, VerificationStatus.VERIFIED,
+                new BigDecimal("4.0"), 1, null, null, List.of(cat.csA), TeachingModality.ONLINE), "5000");
+
+        // Sin filtro de precio, el perfil sin precio publicado sigue apareciendo.
+        assertThat(contentNames(search(""))).containsExactlyInAnyOrder("Sin Precio", "Con Precio");
+        // Con filtro, queda excluido (SEARCH-001, D1).
+        assertThat(contentNames(search("?maxPrice=10000"))).containsExactly("Con Precio");
+    }
+
+    @Test
+    void priceFilter_acceptsTheUpperBoundAndEmptyRanges() throws Exception {
+        Catalog cat = seedCatalog();
+        withPrice(seedTeacher("Tope", UserStatus.ACTIVE, VerificationStatus.VERIFIED,
+                new BigDecimal("4.0"), 1, null, null, List.of(cat.csA), TeachingModality.ONLINE), "30000");
+
+        assertThat(contentNames(search("?maxPrice=30000"))).containsExactly("Tope");
+
+        JsonNode empty = search("?minPrice=20000&maxPrice=28000");
+        assertThat(empty.get("content").size()).isZero();
+        assertThat(empty.get("totalElements").asLong()).isZero();
+        assertThat(empty.get("totalPages").asInt()).isZero();
+    }
+
+    @Test
+    void priceFilter_rejectsInvalidBounds() throws Exception {
+        seedCatalog();
+
+        getJson("/api/teachers?minPrice=9000&maxPrice=4000", null, 400);
+        getJson("/api/teachers?minPrice=-1", null, 400);
+        getJson("/api/teachers?maxPrice=-1", null, 400);
+        getJson("/api/teachers?minPrice=30001", null, 400);
+        getJson("/api/teachers?maxPrice=30001", null, 400);
+    }
+
+    @Test
+    void priceFilter_combinesWithSubjectAndModality() throws Exception {
+        Catalog cat = seedCatalog();
+        withPrice(seedTeacher("Match", UserStatus.ACTIVE, VerificationStatus.VERIFIED,
+                new BigDecimal("4.0"), 1, null, null, List.of(cat.csA), TeachingModality.ONLINE), "6000");
+        withPrice(seedTeacher("Otra Materia", UserStatus.ACTIVE, VerificationStatus.VERIFIED,
+                new BigDecimal("4.0"), 1, null, null, List.of(cat.csB), TeachingModality.ONLINE), "6000");
+        withPrice(seedTeacher("Otra Modalidad", UserStatus.ACTIVE, VerificationStatus.VERIFIED,
+                new BigDecimal("4.0"), 1, null, null, List.of(cat.csA), TeachingModality.IN_PERSON), "6000");
+
+        JsonNode page = search("?subjectId=" + cat.subject1.getId()
+                + "&modality=ONLINE&minPrice=5000&maxPrice=7000");
+        assertThat(contentNames(page)).containsExactly("Match");
+        assertThat(page.get("totalElements").asLong()).isEqualTo(1);
+    }
+
+    @Test
+    void priceFilter_neverExposesHiddenTeachers() throws Exception {
+        Catalog cat = seedCatalog();
+        withPrice(seedTeacher("Pendiente", UserStatus.ACTIVE, VerificationStatus.PENDING,
+                new BigDecimal("4.0"), 1, null, null, List.of(cat.csA), TeachingModality.ONLINE), "6000");
+        withPrice(seedTeacher("Rechazado", UserStatus.ACTIVE, VerificationStatus.REJECTED,
+                new BigDecimal("4.0"), 1, null, null, List.of(cat.csA), TeachingModality.ONLINE), "6000");
+        withPrice(seedTeacher("Inactivo", UserStatus.INACTIVE, VerificationStatus.VERIFIED,
+                new BigDecimal("4.0"), 1, null, null, List.of(cat.csA), TeachingModality.ONLINE), "6000");
+
+        JsonNode page = search("?minPrice=5000&maxPrice=7000");
+        assertThat(page.get("content").size()).isZero();
+        assertThat(page.get("totalElements").asLong()).isZero();
+    }
+
     // ------------------------------------------------------------------ academic filters
 
     @Test

@@ -1,6 +1,6 @@
 # ClaseYa — Teacher Discovery & Search (Phase 4)
 
-Public, backend-enforced discovery of verified teachers with academic, modality, rating and
+Public, backend-enforced discovery of verified teachers with academic, modality, rating, price and
 proximity filters, stable ordering and pagination. No auth required to read; visibility rules
 (VERIFIED + ACTIVE) are applied server-side. Migration `V3__add_display_name_and_search_indexes.sql`
 adds `users.name` (public display name) and search-support indexes.
@@ -25,6 +25,7 @@ the public `GET /api/teachers/{id}` wildcard applies.
 | `universityId` | UUID | teachers teaching subjects of careers under this University |
 | `modality` | `ONLINE`/`IN_PERSON` | teachers offering this modality |
 | `minRating` | 0..5 | `ratingAverage >= minRating` |
+| `minPrice` / `maxPrice` | ARS por hora, 0..30000 | rango de precio (SEARCH-001); **excluye a los profesores sin precio publicado** cuando se aplica al menos un límite |
 | `latitude` / `longitude` | double | geo search; must come together |
 | `radius` | km 0<r<=100 | required when geo |
 | `page` | int >= 0 | default 0 |
@@ -112,7 +113,8 @@ so pagination is stable.
 ## Error handling
 
 Reuses `GlobalExceptionHandler` + `ApiError`. 400 for: size/page out of range, invalid sort,
-`minRating` outside 0..5, incomplete/invalid coordinates, invalid radius, `sort=distance` without
+`minRating` outside 0..5, `minPrice`/`maxPrice` negative or above 30000 or `minPrice > maxPrice`,
+incomplete/invalid coordinates, invalid radius, `sort=distance` without
 location. 404 for a non-public teacher detail. No stack traces or SQL leak.
 
 ## Future (documented, not implemented)

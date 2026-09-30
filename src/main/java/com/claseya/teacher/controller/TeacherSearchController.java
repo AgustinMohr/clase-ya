@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 
 /**
@@ -35,6 +36,8 @@ public class TeacherSearchController {
             @RequestParam(required = false) UUID universityId,
             @RequestParam(required = false) TeachingModality modality,
             @RequestParam(required = false) Double minRating,
+            @RequestParam(required = false) BigDecimal minPrice,
+            @RequestParam(required = false) BigDecimal maxPrice,
             @RequestParam(required = false) Double latitude,
             @RequestParam(required = false) Double longitude,
             @RequestParam(required = false) Double radius,
@@ -43,7 +46,7 @@ public class TeacherSearchController {
             @RequestParam(defaultValue = "rating") String sort) {
 
         TeacherSearchCriteria criteria = new TeacherSearchCriteria(
-                subjectId, careerId, universityId, modality, minRating,
+                subjectId, careerId, universityId, modality, minRating, minPrice, maxPrice,
                 latitude, longitude, radius, page, size, sort);
         return teacherSearchService.search(criteria);
     }

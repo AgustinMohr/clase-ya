@@ -35,6 +35,8 @@ public class TeacherSearchService {
     private static final int DEFAULT_SIZE = 20;
     private static final int MAX_SIZE = 50;
     private static final double MAX_RADIUS_KM = 100.0;
+    /** Upper bound for the price filter, in ARS per hour (see SEARCH-001, D4). */
+    private static final BigDecimal MAX_PRICE = new BigDecimal("30000");
 
     private final TeacherProfileRepository teacherProfileRepository;
     private final TeacherEducationRepository teacherEducationRepository;
@@ -113,6 +115,9 @@ public class TeacherSearchService {
         if (criteria.minRating() != null) {
             parts.add(TeacherSpecifications.minimumRating(BigDecimal.valueOf(criteria.minRating())));
         }
+        if (criteria.hasPriceFilter()) {
+            parts.add(TeacherSpecifications.priceBetween(criteria.minPrice(), criteria.maxPrice()));
+        }
         if (criteria.isGeolocated()) {
             parts.add(TeacherSpecifications.withinRadius(
                     criteria.latitude(), criteria.longitude(), criteria.radiusKm()));
@@ -133,6 +138,11 @@ public class TeacherSearchService {
         }
         if (c.minRating() != null && (c.minRating() < 0 || c.minRating() > 5)) {
             throw new BadRequestException("minRating must be between 0 and 5");
+        }
+        validatePrice(c.minPrice(), "minPrice");
+        validatePrice(c.maxPrice(), "maxPrice");
+        if (c.minPrice() != null && c.maxPrice() != null && c.minPrice().compareTo(c.maxPrice()) > 0) {
+            throw new BadRequestException("maxPrice must be greater than or equal to minPrice");
         }
         boolean hasLat = c.latitude() != null;
         boolean hasLon = c.longitude() != null;
@@ -158,6 +168,18 @@ public class TeacherSearchService {
         TeacherSort sort = TeacherSort.parse(c.sort());
         if (sort.isDistance() && !hasLat) {
             throw new BadRequestException("sort=distance requires latitude and longitude");
+        }
+    }
+
+    private static void validatePrice(BigDecimal value, String name) {
+        if (value == null) {
+            return;
+        }
+        if (value.signum() < 0) {
+            throw new BadRequestException(name + " must be 0 or greater");
+        }
+        if (value.compareTo(MAX_PRICE) > 0) {
+            throw new BadRequestException(name + " must be at most " + MAX_PRICE.toPlainString());
         }
     }
 

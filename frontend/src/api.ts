@@ -127,11 +127,20 @@ async function request<T>(method: string, url: string, body?: unknown, auth = fa
 
 export const api = {
   subjects: () => request<Subject[]>('GET', '/api/subjects?size=50'),
-  teachers: (params: { subjectId?: string; modality?: string; minRating?: number } = {}) => {
-    const query = new URLSearchParams({ page: '0', size: '24' });
+  teachers: (params: {
+    subjectId?: string;
+    modality?: string;
+    minRating?: number;
+    minPrice?: number;
+    maxPrice?: number;
+    page?: number;
+  } = {}) => {
+    const query = new URLSearchParams({ page: String(params.page ?? 0), size: '24' });
     if (params.subjectId) query.set('subjectId', params.subjectId);
     if (params.modality) query.set('modality', params.modality);
     if (params.minRating) query.set('minRating', String(params.minRating));
+    if (params.minPrice != null) query.set('minPrice', String(params.minPrice));
+    if (params.maxPrice != null) query.set('maxPrice', String(params.maxPrice));
     return request<Page<TeacherSummary>>('GET', `/api/teachers?${query.toString()}`);
   },
   teacher: (id: string) => request<TeacherDetail>('GET', `/api/teachers/${id}`),

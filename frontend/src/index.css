@@ -26,6 +26,9 @@
 @layer base {
   html {
     @apply antialiased;
+    /* Reserve the scrollbar track so content that changes height (loading, empty
+       results) does not shift the layout sideways when the scrollbar appears. */
+    scrollbar-gutter: stable;
   }
   body {
     @apply bg-background text-content font-sans;
@@ -73,6 +76,21 @@
     background-color 200ms ease,
     border-color 200ms ease,
     box-shadow 200ms ease;
+}
+
+/*
+ * Dual-handle price slider (SEARCH-001). Two overlaid native range inputs: the
+ * track ignores pointer events so only the thumbs capture them, which keeps both
+ * handles draggable without adding a slider dependency.
+ */
+.price-range input[type='range'] {
+  @apply pointer-events-none absolute inset-x-0 top-1/2 h-6 w-full -translate-y-1/2 appearance-none bg-transparent;
+}
+.price-range input[type='range']::-webkit-slider-thumb {
+  @apply pointer-events-auto h-4 w-4 cursor-pointer appearance-none rounded-full bg-primary-600 shadow-card;
+}
+.price-range input[type='range']::-moz-range-thumb {
+  @apply pointer-events-auto h-4 w-4 cursor-pointer rounded-full border-0 bg-primary-600 shadow-card;
 }
 
 @media (prefers-reduced-motion: reduce) {

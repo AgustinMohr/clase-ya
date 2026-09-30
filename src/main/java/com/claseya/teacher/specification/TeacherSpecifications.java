@@ -89,6 +89,25 @@ public final class TeacherSpecifications {
                 cb.greaterThanOrEqualTo(root.get("ratingAverage"), cb.literal(minRating));
     }
 
+    /**
+     * Price range in ARS per hour. As soon as any bound is present, teachers without
+     * a published price are excluded: a price filter that returned "to be agreed"
+     * profiles could not be verified by the user (see SEARCH-001, D1).
+     */
+    public static Specification<TeacherProfile> priceBetween(BigDecimal minPrice, BigDecimal maxPrice) {
+        return (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            predicates.add(cb.isNotNull(root.get("pricePerHour")));
+            if (minPrice != null) {
+                predicates.add(cb.greaterThanOrEqualTo(root.get("pricePerHour"), cb.literal(minPrice)));
+            }
+            if (maxPrice != null) {
+                predicates.add(cb.lessThanOrEqualTo(root.get("pricePerHour"), cb.literal(maxPrice)));
+            }
+            return cb.and(predicates.toArray(Predicate[]::new));
+        };
+    }
+
     // ------------------------------------------------------------------ geo
 
     private static final BigDecimal KM_PER_DEGREE = new BigDecimal("111.32");
