@@ -1,6 +1,7 @@
 package com.claseya.teacher.dto;
 
 import com.claseya.model.TeacherEducation;
+import com.claseya.model.enums.VerificationStatus;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -24,7 +25,7 @@ public record TeacherEducationResponse(
                 education.getDescription(),
                 education.getStartYear(),
                 education.getEndYear(),
-                Boolean.TRUE.equals(education.getIsVerified()),
+                education.getVerificationStatus() == VerificationStatus.VERIFIED,
                 education.getCreatedAt());
     }
 }

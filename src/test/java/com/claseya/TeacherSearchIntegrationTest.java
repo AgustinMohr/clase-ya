@@ -560,7 +560,6 @@ class TeacherSearchIntegrationTest extends AbstractWebIntegrationTest {
         edu.setDegree("Ingeniero en Sistemas");
         edu.setStartYear(2005);
         edu.setEndYear(2010);
-        edu.setIsVerified(false);
         teacherEducationRepository.saveAndFlush(edu);
 
         String body = getJson("/api/teachers/" + teacher.getId(), null, 200);

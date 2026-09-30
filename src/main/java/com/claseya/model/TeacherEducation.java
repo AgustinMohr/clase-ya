@@ -1,7 +1,10 @@
 package com.claseya.model;
 
+import com.claseya.model.enums.VerificationStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -48,8 +51,13 @@ public class TeacherEducation {
     @Column(name = "end_year")
     private Integer endYear;
 
-    @Column(name = "is_verified", nullable = false)
-    private Boolean isVerified = false;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "verification_status", nullable = false, length = 20)
+    private VerificationStatus verificationStatus = VerificationStatus.PENDING;
+
+    /** Set by each explicit `submit`; drives the admin queue ordering (oldest first). */
+    @Column(name = "submitted_at")
+    private Instant submittedAt;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

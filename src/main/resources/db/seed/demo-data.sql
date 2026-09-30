@@ -374,7 +374,7 @@ ON CONFLICT (user_id) DO NOTHING;
 
 -- --- Formación académica (0, 1 o 2 filas por profesor) ------------------------
 -- Casos borde: ~25% sin formación cargada, ~25% con dos títulos, end_year NULL
--- (estudios en curso) y is_verified en true/false.
+-- (estudios en curso). La verificación queda PENDING: la semilla no verifica nada.
 WITH base AS (
     SELECT tp.id AS teacher_id, s.slot,
            2000 + pg_temp.demo_rand(tp.id::text || 'y' || s.slot, 19) AS start_year
@@ -385,7 +385,7 @@ WITH base AS (
       AND pg_temp.demo_rand(tp.id::text || 'edu', 4) <> 0
       AND (s.slot = 1 OR pg_temp.demo_rand(tp.id::text || 'two', 4) = 0)
 )
-INSERT INTO teacher_education (teacher_id, institution, degree, description, start_year, end_year, is_verified, created_at)
+INSERT INTO teacher_education (teacher_id, institution, degree, description, start_year, end_year, created_at)
 SELECT b.teacher_id,
        (ARRAY['Universidad Nacional del Litoral', 'Universidad Tecnológica Nacional',
               'Universidad Nacional de Rosario', 'Instituto Superior del Profesorado N° 8'])[1 + pg_temp.demo_rand(b.teacher_id::text || 'i' || b.slot, 4)],
@@ -395,10 +395,9 @@ SELECT b.teacher_id,
        CASE WHEN pg_temp.demo_rand(b.teacher_id::text || 'c' || b.slot, 3) = 0 THEN NULL
             ELSE 'Formación con práctica docente supervisada y trabajos de investigación aplicada.' END,
        b.start_year,
-       CASE WHEN pg_temp.demo_rand(b.teacher_id::text || 'e' || b.slot, 5) = 0 THEN NULL
-            ELSE b.start_year + 4 + pg_temp.demo_rand(b.teacher_id::text || 'e' || b.slot, 5) END,
-       pg_temp.demo_rand(b.teacher_id::text || 'v' || b.slot, 2) = 1,
-       now() - ((b.slot * 100) || ' days')::interval
+        CASE WHEN pg_temp.demo_rand(b.teacher_id::text || 'e' || b.slot, 5) = 0 THEN NULL
+             ELSE b.start_year + 4 + pg_temp.demo_rand(b.teacher_id::text || 'e' || b.slot, 5) END,
+        now() - ((b.slot * 100) || ' days')::interval
 FROM base b
 WHERE NOT EXISTS (SELECT 1 FROM teacher_education e WHERE e.teacher_id = b.teacher_id);
 

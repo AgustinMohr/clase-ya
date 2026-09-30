@@ -46,8 +46,7 @@ public class TeacherEducationService {
         education.setDescription(request.description());
         education.setStartYear(request.startYear());
         education.setEndYear(request.endYear());
-        // isVerified is system-managed (admin), never set by the teacher.
-        education.setIsVerified(false);
+        // Verification state is system-managed (admin); a new credential starts PENDING.
         return TeacherEducationResponse.from(teacherEducationRepository.saveAndFlush(education));
     }
 
