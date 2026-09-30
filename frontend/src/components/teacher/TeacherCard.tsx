@@ -48,10 +48,12 @@ export function TeacherCard({ teacher, onOpen, onToggleFavorite, favorite, featu
             )}
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-2">
-            {teacher.verificationStatus === 'VERIFIED' && (
+            {teacher.verificationStatus === 'VERIFIED' ? (
               <Badge tone="success" icon={<BadgeCheck className="h-3.5 w-3.5" aria-hidden="true" />}>
                 Verificado
               </Badge>
+            ) : (
+              <Badge tone="neutral">No verificado</Badge>
             )}
             <span className="inline-flex items-center gap-1 text-sm text-content-muted">
               <Star className={cn('h-4 w-4', teacher.ratingCount ? 'fill-accent-400 text-accent-400' : 'text-content-muted/50')} aria-hidden="true" />

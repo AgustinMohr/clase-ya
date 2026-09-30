@@ -17,7 +17,7 @@ export interface TeacherSummary {
   bio?: string;
   ratingAverage?: number;
   ratingCount?: number;
-  verificationStatus?: 'PENDING' | 'VERIFIED' | 'REJECTED';
+  verificationStatus?: 'PENDING' | 'UNDER_REVIEW' | 'VERIFIED' | 'REJECTED' | 'MORE_INFO_REQUIRED';
   pricePerHour?: number;
   city?: string;
   photoUrl?: string;
@@ -33,6 +33,7 @@ export interface TeacherDetail extends TeacherSummary {
     description?: string;
     startYear?: number;
     endYear?: number;
+    isVerified?: boolean;
   }>;
 }
 
@@ -311,6 +312,7 @@ export const api = {
     minRating?: number;
     minPrice?: number;
     maxPrice?: number;
+    onlyVerified?: boolean;
     page?: number;
   } = {}) => {
     const query = new URLSearchParams({ page: String(params.page ?? 0), size: '24' });
@@ -319,6 +321,7 @@ export const api = {
     if (params.minRating) query.set('minRating', String(params.minRating));
     if (params.minPrice != null) query.set('minPrice', String(params.minPrice));
     if (params.maxPrice != null) query.set('maxPrice', String(params.maxPrice));
+    if (params.onlyVerified) query.set('onlyVerified', 'true');
     return request<Page<TeacherSummary>>('GET', `/api/teachers?${query.toString()}`);
   },
   teacher: (id: string) => request<TeacherDetail>('GET', `/api/teachers/${id}`),

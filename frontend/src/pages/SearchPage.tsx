@@ -23,9 +23,10 @@ interface Filters {
   modality: Modality | null;
   minRating: number | null;
   price: PriceValue;
+  onlyVerified: boolean;
 }
 
-const NO_FILTERS: Filters = { subjectId: null, modality: null, minRating: null, price: { min: null, max: null } };
+const NO_FILTERS: Filters = { subjectId: null, modality: null, minRating: null, price: { min: null, max: null }, onlyVerified: false };
 
 /** A typed pair can be inverted; order it before querying (SEARCH-001). */
 function normalizePrice(price: PriceValue): PriceValue {
@@ -35,7 +36,7 @@ function normalizePrice(price: PriceValue): PriceValue {
 
 function activeFilterCount(filters: Filters): number {
   return [filters.subjectId, filters.modality, filters.minRating, filters.price.min, filters.price.max]
-    .filter((value) => value != null).length;
+    .filter((value) => value != null).length + (filters.onlyVerified ? 1 : 0);
 }
 
 export default function SearchPage({ initialTerm, subjects, onBack, onOpenTeacher, onToggleFavorite, favorites }: Props) {
@@ -91,6 +92,7 @@ export default function SearchPage({ initialTerm, subjects, onBack, onOpenTeache
           minRating: effective.minRating ?? undefined,
           minPrice: effective.price.min ?? undefined,
           maxPrice: effective.price.max ?? undefined,
+          onlyVerified: effective.onlyVerified,
           page: nextPage,
         });
         if (seq !== requestSeq.current) return; // stale response
@@ -205,6 +207,13 @@ export default function SearchPage({ initialTerm, subjects, onBack, onOpenTeache
                 </Chip>
               ))}
             </div>
+          </div>
+
+          <div>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-content-muted">Verificación</p>
+            <Chip active={draft.onlyVerified} onClick={() => updateDraft({ onlyVerified: !draft.onlyVerified })}>
+              Solo verificados
+            </Chip>
           </div>
 
           <div>

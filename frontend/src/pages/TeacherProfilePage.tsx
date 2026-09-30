@@ -87,10 +87,12 @@ export default function TeacherProfilePage({ teacherId, onBack, onContact, onTog
               <div className="flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <h1 className="font-display text-3xl leading-tight">{teacher.displayName || 'Profesor'}</h1>
-                  {teacher.verificationStatus === 'VERIFIED' && (
+                  {teacher.verificationStatus === 'VERIFIED' ? (
                     <Badge tone="success" icon={<BadgeCheck className="h-3.5 w-3.5" aria-hidden="true" />}>
                       Verificado
                     </Badge>
+                  ) : (
+                    <Badge tone="neutral">No verificado</Badge>
                   )}
                 </div>
                 <p className="mt-2 flex flex-wrap items-center gap-3 text-sm text-content-muted">
@@ -165,9 +167,14 @@ export default function TeacherProfilePage({ teacherId, onBack, onContact, onTog
               <h2 className="mb-3 font-display text-xl">Formación</h2>
               <ul className="space-y-2 text-sm">
                 {teacher.education.map((e, i) => (
-                  <li key={i}>
+                  <li key={i} className="flex flex-wrap items-center gap-2">
                     <span className="font-semibold">{e.degree}</span> — {e.institution}
                     {e.startYear ? ` (${e.startYear}${e.endYear ? `–${e.endYear}` : ''})` : ''}
+                    {e.isVerified ? (
+                      <Badge tone="success">Credencial verificada</Badge>
+                    ) : (
+                      <Badge tone="neutral">Título declarado</Badge>
+                    )}
                   </li>
                 ))}
               </ul>
