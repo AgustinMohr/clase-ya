@@ -5,7 +5,9 @@ import com.claseya.academic.repository.CareerRepository;
 import com.claseya.academic.repository.CareerSubjectRepository;
 import com.claseya.academic.repository.SubjectRepository;
 import com.claseya.academic.repository.UniversityRepository;
+import com.claseya.availability.repository.AvailabilityWindowRepository;
 import com.claseya.model.AcademicUnit;
+import com.claseya.model.AvailabilityWindow;
 import com.claseya.model.Career;
 import com.claseya.model.CareerSubject;
 import com.claseya.model.Subject;
@@ -59,6 +61,8 @@ class TeacherSearchIntegrationTest extends AbstractWebIntegrationTest {
     private TeacherModalityRepository teacherModalityRepository;
     @Autowired
     private TeacherEducationRepository teacherEducationRepository;
+    @Autowired
+    private AvailabilityWindowRepository availabilityWindowRepository;
 
     private record Catalog(University univ, Career career1, Career career2,
                            Subject subject1, Subject subject2,
@@ -158,6 +162,14 @@ class TeacherSearchIntegrationTest extends AbstractWebIntegrationTest {
             tm.setModality(m);
             teacherModalityRepository.saveAndFlush(tm);
         }
+        // D1: visibility requires a PUBLISHED announcement, so seed one availability window too.
+        AvailabilityWindow window = new AvailabilityWindow();
+        window.setTeacher(profile);
+        window.setDayOfWeek(1);
+        window.setStartMinutes(9 * 60);
+        window.setEndMinutes(11 * 60);
+        window.setMode(TeachingModality.ONLINE);
+        availabilityWindowRepository.saveAndFlush(window);
         return profile;
     }
 
@@ -174,7 +186,7 @@ class TeacherSearchIntegrationTest extends AbstractWebIntegrationTest {
     // ------------------------------------------------------------------ visibility
 
     @Test
-    void search_onlyReturnsVerifiedAndActive() throws Exception {
+    void search_onlyReturnsActiveTeachersWithAPublishedAnnouncement() throws Exception {
         Catalog cat = seedCatalog();
         seedTeacher("Ana Activa", UserStatus.ACTIVE, VerificationStatus.VERIFIED,
                 new BigDecimal("4.5"), 3, null, null, List.of(cat.csA), TeachingModality.ONLINE);
@@ -187,21 +199,37 @@ class TeacherSearchIntegrationTest extends AbstractWebIntegrationTest {
         seedTeacher("Sofi Suspendida", UserStatus.SUSPENDED, VerificationStatus.VERIFIED,
                 new BigDecimal("4.8"), 8, null, null, List.of(cat.csA), TeachingModality.ONLINE);
 
+        // D1: existence no longer depends on verification. Active + published are visible (non
+        // verified ones simply carry the "No verificado" label); inactive/suspended stay hidden.
         JsonNode page = search("");
-        assertThat(contentNames(page)).containsExactly("Ana Activa");
-        assertThat(page.get("totalElements").asLong()).isEqualTo(1);
+        assertThat(contentNames(page)).containsExactlyInAnyOrder("Ana Activa", "Pedro Pending", "Rosa Rejected");
+        assertThat(page.get("totalElements").asLong()).isEqualTo(3);
     }
 
     @Test
-    void search_excludesPendingDetail() throws Exception {
+    void search_onlyVerifiedFilter_excludesNonVerifiedTeachers() throws Exception {
+        Catalog cat = seedCatalog();
+        seedTeacher("Ana Verified", UserStatus.ACTIVE, VerificationStatus.VERIFIED,
+                new BigDecimal("4.5"), 3, null, null, List.of(cat.csA), TeachingModality.ONLINE);
+        seedTeacher("Pedro Pending", UserStatus.ACTIVE, VerificationStatus.PENDING,
+                new BigDecimal("4.0"), 1, null, null, List.of(cat.csA), TeachingModality.ONLINE);
+
+        assertThat(contentNames(search(""))).contains("Ana Verified", "Pedro Pending");
+        assertThat(contentNames(search("?onlyVerified=true"))).containsExactly("Ana Verified");
+    }
+
+    @Test
+    void search_publicDetailFollowsPublicationNotVerification() throws Exception {
         Catalog cat = seedCatalog();
         TeacherProfile pending = seedTeacher("Pedro", UserStatus.ACTIVE, VerificationStatus.PENDING,
                 new BigDecimal("4.0"), 1, null, null, List.of(cat.csA), TeachingModality.ONLINE);
-        TeacherProfile verified = seedTeacher("Ana", UserStatus.ACTIVE, VerificationStatus.VERIFIED,
+        TeacherProfile inactive = seedTeacher("Luis", UserStatus.INACTIVE, VerificationStatus.VERIFIED,
                 new BigDecimal("4.0"), 1, null, null, List.of(cat.csA), TeachingModality.ONLINE);
 
-        getJson("/api/teachers/" + pending.getId(), null, 404);
-        getJson("/api/teachers/" + verified.getId(), null, 200);
+        // Published + active is reachable even without verification (D1)...
+        getJson("/api/teachers/" + pending.getId(), null, 200);
+        // ...while an inactive teacher stays hidden regardless of verification.
+        getJson("/api/teachers/" + inactive.getId(), null, 404);
     }
 
     // ------------------------------------------------------------------ price filter (SEARCH-001)
@@ -298,11 +326,11 @@ class TeacherSearchIntegrationTest extends AbstractWebIntegrationTest {
     @Test
     void priceFilter_neverExposesHiddenTeachers() throws Exception {
         Catalog cat = seedCatalog();
-        withPrice(seedTeacher("Pendiente", UserStatus.ACTIVE, VerificationStatus.PENDING,
-                new BigDecimal("4.0"), 1, null, null, List.of(cat.csA), TeachingModality.ONLINE), "6000");
-        withPrice(seedTeacher("Rechazado", UserStatus.ACTIVE, VerificationStatus.REJECTED,
-                new BigDecimal("4.0"), 1, null, null, List.of(cat.csA), TeachingModality.ONLINE), "6000");
+        // D1: only ACTIVE + published teachers are searchable. Non-verified but active teachers are
+        // now visible, so "hidden" means an inactive/suspended user.
         withPrice(seedTeacher("Inactivo", UserStatus.INACTIVE, VerificationStatus.VERIFIED,
+                new BigDecimal("4.0"), 1, null, null, List.of(cat.csA), TeachingModality.ONLINE), "6000");
+        withPrice(seedTeacher("Suspendido", UserStatus.SUSPENDED, VerificationStatus.VERIFIED,
                 new BigDecimal("4.0"), 1, null, null, List.of(cat.csA), TeachingModality.ONLINE), "6000");
 
         JsonNode page = search("?minPrice=5000&maxPrice=7000");

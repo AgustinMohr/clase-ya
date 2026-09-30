@@ -16,6 +16,8 @@ public interface TeacherSubjectRepository extends JpaRepository<TeacherSubject, 
 
     boolean existsByTeacher_IdAndCareerSubject_Id(UUID teacherId, UUID careerSubjectId);
 
+    boolean existsByTeacher_IdAndActiveTrue(UUID teacherId);
+
     Optional<TeacherSubject> findByTeacher_IdAndCareerSubject_Id(UUID teacherId, UUID careerSubjectId);
 
     /**

@@ -13,6 +13,8 @@ public interface TeacherModalityRepository extends JpaRepository<TeacherModality
 
     List<TeacherModality> findByTeacher_Id(UUID teacherId);
 
+    boolean existsByTeacher_Id(UUID teacherId);
+
     List<TeacherModality> findByTeacher_IdIn(Collection<UUID> teacherIds);
 
     boolean existsByTeacher_IdAndModality(UUID teacherId, TeachingModality modality);

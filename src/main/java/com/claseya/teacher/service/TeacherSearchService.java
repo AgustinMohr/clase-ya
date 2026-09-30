@@ -3,8 +3,6 @@ package com.claseya.teacher.service;
 import com.claseya.common.exception.BadRequestException;
 import com.claseya.common.exception.ResourceNotFoundException;
 import com.claseya.model.TeacherProfile;
-import com.claseya.model.enums.UserStatus;
-import com.claseya.model.enums.VerificationStatus;
 import com.claseya.teacher.dto.SearchResultPage;
 import com.claseya.teacher.dto.TeacherEducationResponse;
 import com.claseya.teacher.dto.TeacherPublicDetailResponse;
@@ -43,17 +41,20 @@ public class TeacherSearchService {
     private final TeacherModalityRepository teacherModalityRepository;
     private final TeacherSubjectRepository teacherSubjectRepository;
     private final TeacherSummaryAssembler teacherSummaryAssembler;
+    private final TeacherVisibilityService teacherVisibilityService;
 
     public TeacherSearchService(TeacherProfileRepository teacherProfileRepository,
                                 TeacherEducationRepository teacherEducationRepository,
                                 TeacherModalityRepository teacherModalityRepository,
                                 TeacherSubjectRepository teacherSubjectRepository,
-                                TeacherSummaryAssembler teacherSummaryAssembler) {
+                                TeacherSummaryAssembler teacherSummaryAssembler,
+                                TeacherVisibilityService teacherVisibilityService) {
         this.teacherProfileRepository = teacherProfileRepository;
         this.teacherEducationRepository = teacherEducationRepository;
         this.teacherModalityRepository = teacherModalityRepository;
         this.teacherSubjectRepository = teacherSubjectRepository;
         this.teacherSummaryAssembler = teacherSummaryAssembler;
+        this.teacherVisibilityService = teacherVisibilityService;
     }
 
     @Transactional(readOnly = true)
@@ -75,13 +76,8 @@ public class TeacherSearchService {
 
     @Transactional(readOnly = true)
     public TeacherPublicDetailResponse getPublic(UUID id) {
-        TeacherProfile profile = teacherProfileRepository.findById(id)
-                .orElseThrow(ResourceNotFoundException::new);
-        // Public detail only exposes verified + active teachers (404 otherwise).
-        if (profile.getVerificationStatus() != VerificationStatus.VERIFIED
-                || profile.getUser().getStatus() != UserStatus.ACTIVE) {
-            throw new ResourceNotFoundException();
-        }
+        // D1: visible = ACTIVE + published announcement; hidden profiles are a 404.
+        TeacherProfile profile = teacherVisibilityService.requireVisible(id);
 
         String displayName = profile.getUser().getName();
         List<String> modalities = teacherModalityRepository.findByTeacher_Id(id).stream()
@@ -104,6 +100,9 @@ public class TeacherSearchService {
     private Specification<TeacherProfile> buildSpecification(TeacherSearchCriteria criteria, TeacherSort sort) {
         List<Specification<TeacherProfile>> parts = new ArrayList<>();
         parts.add(TeacherSpecifications.visible());
+        if (criteria.onlyVerified()) {
+            parts.add(TeacherSpecifications.verifiedOnly());
+        }
         Specification<TeacherProfile> academic = TeacherSpecifications.teachesAcademicCombination(
                 criteria.subjectId(), criteria.careerId(), criteria.universityId());
         if (academic != null) {

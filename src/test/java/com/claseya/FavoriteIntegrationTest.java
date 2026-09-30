@@ -98,8 +98,10 @@ class FavoriteIntegrationTest extends AbstractWebIntegrationTest {
         return teacherProfileRepository.saveAndFlush(teacher);
     }
 
-    private TeacherProfile visibleTeacher(String name, String email) {
-        return createTeacher(name, email, VerificationStatus.VERIFIED, UserStatus.ACTIVE);
+    private TeacherProfile visibleTeacher(String name, String email) throws Exception {
+        TeacherProfile teacher = createTeacher(name, email, VerificationStatus.VERIFIED, UserStatus.ACTIVE);
+        makePublished(teacher.getUser());
+        return teacher;
     }
 
     private String doPost(String uri, String token, int expected) throws Exception {

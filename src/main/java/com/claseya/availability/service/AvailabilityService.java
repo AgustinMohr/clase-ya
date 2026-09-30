@@ -13,7 +13,6 @@ import com.claseya.model.TeacherProfile;
 import com.claseya.model.enums.AvailabilityDayPart;
 import com.claseya.model.enums.AvailabilityStatus;
 import com.claseya.model.enums.TeachingModality;
-import com.claseya.model.enums.VerificationStatus;
 import com.claseya.teacher.dto.SearchResultPage;
 import com.claseya.teacher.repository.TeacherProfileRepository;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -22,7 +21,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -48,7 +46,10 @@ public class AvailabilityService {
 
     @Transactional
     public AvailabilityWindowResponse create(UUID userId, CreateAvailabilityRequest request) {
-        TeacherProfile teacher = requireEligibleTeacher(userId);
+        // D9 (TEACHER-001): publishing availability no longer requires being VERIFIED. Publication
+        // and verification are separate; a teacher must be able to complete the announcement
+        // (including its availability) before the credential review happens.
+        TeacherProfile teacher = requireProfile(userId);
         int start = startMinutesOf(request.startTime());
         int end = endMinutesOf(request.endTime());
         validateRange(start, end);
@@ -111,14 +112,6 @@ public class AvailabilityService {
     }
 
     // ------------------------------------------------------------------ helpers
-
-    private TeacherProfile requireEligibleTeacher(UUID userId) {
-        TeacherProfile teacher = requireProfile(userId);
-        if (teacher.getVerificationStatus() != VerificationStatus.VERIFIED) {
-            throw new AccessDeniedException("Teacher must be VERIFIED to publish availability");
-        }
-        return teacher;
-    }
 
     private TeacherProfile requireProfile(UUID userId) {
         return teacherProfileRepository.findByUser_Id(userId)

@@ -45,7 +45,8 @@ last-message lookups. No tables were changed.
   `participantIds` are never accepted from the client (spoofing is ignored — covered by tests).
 - Only `STUDENT` can start conversations; teachers only reply to existing ones. Starting requires a
   `StudentProfile` (409 otherwise — never auto-created).
-- A teacher is only contactable when **VERIFIED + ACTIVE** (Phase 4 rule); otherwise 404.
+- A teacher is only contactable when **ACTIVE with a PUBLISHED announcement** (TEACHER-001 D1);
+  otherwise 404. Verification is no longer required to be contacted.
 - Non-participants get **404** on detail/messages/send/read (conversation existence is not leaked).
 - DISABLED accounts (`SUSPENDED`/`INACTIVE`) cannot authenticate at all (JWT filter, Phase 2), so
   all protected routes answer 401; historical conversations/messages are never deleted.

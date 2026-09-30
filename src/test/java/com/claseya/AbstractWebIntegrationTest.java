@@ -107,4 +107,41 @@ public abstract class AbstractWebIntegrationTest extends AbstractPostgresTest {
     protected String idOf(String content) throws Exception {
         return toJson(content).get("id").asText();
     }
+
+    // --------------------------------------------------------------------- visibility (D1)
+
+    /**
+     * Makes a teacher's announcement PUBLISHED (TEACHER-001, D1): at least one active subject, one
+     * modality and one availability window, on top of the name + bio the caller already set. Public
+     * visibility no longer depends on verification, so tests that need a visible teacher call this.
+     */
+    protected void makePublished(User teacher) throws Exception {
+        String token = bearer(teacher);
+        postJson("/api/teachers/me/subjects", token,
+                "{\"careerSubjectId\":\"%s\"}".formatted(createCareerSubject()), 201);
+        postJson("/api/teachers/me/modalities", token,
+                """
+                {"modality":"ONLINE"}
+                """, 201);
+        postJson("/api/availability", token,
+                """
+                {"dayOfWeek":1,"startTime":"09:00","endTime":"11:00","mode":"ONLINE"}
+                """, 201);
+    }
+
+    /** Creates an isolated academic catalog chain and returns the new career-subject id. */
+    protected String createCareerSubject() throws Exception {
+        String admin = adminBearer();
+        String suffix = UUID.randomUUID().toString().substring(0, 8);
+        String universityId = idOf(postJson("/api/universities", admin,
+                "{\"name\":\"UNL " + suffix + "\"}", 201));
+        String unitId = idOf(postJson("/api/universities/" + universityId + "/academic-units", admin,
+                "{\"name\":\"FICH " + suffix + "\"}", 201));
+        String careerId = idOf(postJson("/api/academic-units/" + unitId + "/careers", admin,
+                "{\"name\":\"Ingenieria " + suffix + "\"}", 201));
+        String subjectId = idOf(postJson("/api/subjects", admin,
+                "{\"name\":\"Matematica " + suffix + "\"}", 201));
+        return idOf(postJson("/api/careers/" + careerId + "/subjects", admin,
+                "{\"subjectId\":\"%s\",\"year\":1,\"semester\":1}".formatted(subjectId), 201));
+    }
 }

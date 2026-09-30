@@ -22,16 +22,18 @@ class TeacherCardIntegrationTest extends AbstractWebIntegrationTest {
     @Test
     void cardFields_areStoredAndExposedPublicly() throws Exception {
         User user = createUser("prof.card@example.com", UserRole.TEACHER, UserStatus.ACTIVE);
+        user.setName("Ana Card");
+        userRepository.saveAndFlush(user);
         TeacherProfile profile = new TeacherProfile();
         profile.setUser(user);
+        profile.setBio("Profesora de matematica");
         profile.setVerificationStatus(VerificationStatus.VERIFIED);
         profile.setCity("Santa Fe");
         profile.setPricePerHour(new java.math.BigDecimal("15000.00"));
         profile.setPhotoUrl("https://example.com/photo.jpg");
         profile.setAvailabilityNote("Disponible por la tarde.");
         teacherProfileRepository.saveAndFlush(profile);
-        userRepository.findById(user.getId()).orElseThrow().setName("Ana Card");
-        userRepository.saveAndFlush(userRepository.findById(user.getId()).orElseThrow());
+        makePublished(user);
 
         String body = getJson("/api/teachers/" + profile.getId(), null, 200);
         JsonNode detail = toJson(body);

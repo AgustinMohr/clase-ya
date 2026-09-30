@@ -104,8 +104,10 @@ class MessagingIntegrationTest extends AbstractWebIntegrationTest {
         return teacherProfileRepository.saveAndFlush(teacher);
     }
 
-    private TeacherProfile visibleTeacher(String name, String email) {
-        return newTeacher(name, email, VerificationStatus.VERIFIED, UserStatus.ACTIVE);
+    private TeacherProfile visibleTeacher(String name, String email) throws Exception {
+        TeacherProfile teacher = newTeacher(name, email, VerificationStatus.VERIFIED, UserStatus.ACTIVE);
+        makePublished(teacher.getUser());
+        return teacher;
     }
 
     private String createConversation(String token, String teacherId, int expected) throws Exception {
@@ -492,6 +494,7 @@ class MessagingIntegrationTest extends AbstractWebIntegrationTest {
         User student = newStudent("s@example.com");
         TeacherProfile teacher = newTeacher("Ana", "privada@example.com",
                 VerificationStatus.VERIFIED, UserStatus.ACTIVE);
+        makePublished(teacher.getUser());
         String studentToken = bearer(student);
         String convId = toJson(createConversation(studentToken,
                 teacher.getId().toString(), 201)).get("id").asText();

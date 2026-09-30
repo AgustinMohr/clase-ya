@@ -21,7 +21,8 @@ public record TeacherSearchCriteria(
         Double radiusKm,
         int page,
         int size,
-        String sort
+        String sort,
+        boolean onlyVerified
 ) {
 
     public boolean isGeolocated() {

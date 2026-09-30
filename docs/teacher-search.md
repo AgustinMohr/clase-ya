@@ -1,9 +1,10 @@
 # ClaseYa — Teacher Discovery & Search (Phase 4)
 
-Public, backend-enforced discovery of verified teachers with academic, modality, rating, price and
-proximity filters, stable ordering and pagination. No auth required to read; visibility rules
-(VERIFIED + ACTIVE) are applied server-side. Migration `V3__add_display_name_and_search_indexes.sql`
-adds `users.name` (public display name) and search-support indexes.
+Public, backend-enforced discovery of teachers with academic, modality, rating, price and proximity
+filters, stable ordering and pagination. No auth required to read; visibility rules (ACTIVE + a
+PUBLISHED announcement, TEACHER-001 D1) are applied server-side, with an optional
+`onlyVerified=true` filter. Migration `V3__add_display_name_and_search_indexes.sql` adds
+`users.name` (public display name) and search-support indexes.
 
 ## Endpoints
 
@@ -76,8 +77,12 @@ so pagination is stable.
 
 ## Visibility & privacy
 
-- Only `TeacherProfile.verificationStatus = VERIFIED` **and** `User.status = ACTIVE` are returned
-  (PENDING/REJECTED teachers and INACTIVE/SUSPENDED users are invisible, detail included → 404).
+- A teacher is returned when `User.status = ACTIVE` **and** the announcement is PUBLISHED
+  (TEACHER-001 D1): name + bio, at least one active subject, one modality and one availability
+  window. Verification is **not** a gate to exist — a non-verified teacher is listed with a
+  "No verificado" label. INACTIVE/SUSPENDED users are invisible, detail included → 404.
+- `?onlyVerified=true` narrows results to `verificationStatus = VERIFIED` (the "Solo verificados"
+  filter).
 - Public responses never include email, password hash, address or exact coordinates. Coordinates
   are used only for the internal distance computation; a coarse location could be added later
   (e.g., from the University) when the product needs a "city" display.

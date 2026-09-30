@@ -17,6 +17,8 @@ public interface AvailabilityWindowRepository
 
     Page<AvailabilityWindow> findByTeacher_Id(UUID teacherId, Pageable pageable);
 
+    boolean existsByTeacher_Id(UUID teacherId);
+
     Optional<AvailabilityWindow> findByIdAndTeacher_User_Id(UUID id, UUID userId);
 
     @Query("""

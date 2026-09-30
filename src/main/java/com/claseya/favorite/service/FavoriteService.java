@@ -10,13 +10,12 @@ import com.claseya.favorite.repository.FavoriteRepository;
 import com.claseya.model.Favorite;
 import com.claseya.model.StudentProfile;
 import com.claseya.model.TeacherProfile;
-import com.claseya.model.enums.UserStatus;
-import com.claseya.model.enums.VerificationStatus;
 import com.claseya.student.repository.StudentProfileRepository;
 import com.claseya.teacher.dto.SearchResultPage;
 import com.claseya.teacher.dto.TeacherSummaryResponse;
 import com.claseya.teacher.repository.TeacherProfileRepository;
 import com.claseya.teacher.service.TeacherSummaryAssembler;
+import com.claseya.teacher.service.TeacherVisibilityService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -40,15 +39,18 @@ public class FavoriteService {
     private final StudentProfileRepository studentProfileRepository;
     private final TeacherProfileRepository teacherProfileRepository;
     private final TeacherSummaryAssembler teacherSummaryAssembler;
+    private final TeacherVisibilityService teacherVisibilityService;
 
     public FavoriteService(FavoriteRepository favoriteRepository,
                            StudentProfileRepository studentProfileRepository,
                            TeacherProfileRepository teacherProfileRepository,
-                           TeacherSummaryAssembler teacherSummaryAssembler) {
+                           TeacherSummaryAssembler teacherSummaryAssembler,
+                           TeacherVisibilityService teacherVisibilityService) {
         this.favoriteRepository = favoriteRepository;
         this.studentProfileRepository = studentProfileRepository;
         this.teacherProfileRepository = teacherProfileRepository;
         this.teacherSummaryAssembler = teacherSummaryAssembler;
+        this.teacherVisibilityService = teacherVisibilityService;
     }
 
     @Transactional
@@ -130,17 +132,11 @@ public class FavoriteService {
     }
 
     /**
-     * A teacher can only be favorited when publicly visible (VERIFIED + ACTIVE);
+     * A teacher can only be favorited when publicly visible (ACTIVE + published announcement, D1);
      * anything else is treated as not found to avoid leaking hidden profiles.
      */
     private TeacherProfile requireVisibleTeacher(UUID teacherId) {
-        TeacherProfile teacher = teacherProfileRepository.findById(teacherId)
-                .orElseThrow(ResourceNotFoundException::new);
-        if (teacher.getVerificationStatus() != VerificationStatus.VERIFIED
-                || teacher.getUser().getStatus() != UserStatus.ACTIVE) {
-            throw new ResourceNotFoundException();
-        }
-        return teacher;
+        return teacherVisibilityService.requireVisible(teacherId);
     }
 
     public static int defaultSize() {

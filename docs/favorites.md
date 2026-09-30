@@ -40,9 +40,9 @@ impossible and covered by tests.
 - **Profile required**: a STUDENT without a `StudentProfile` gets **409** (`Student profile must be
   completed before adding favorites`). The profile is never auto-created. Listing/status without a
   profile simply return an empty/false answer.
-- **Visible teacher only**: adding favorites is restricted to teachers that are publicly visible
-  (Phase 4 rule): `TeacherProfile.verificationStatus = VERIFIED` **and** `User.status = ACTIVE`.
-  PENDING/REJECTED/INACTIVE/SUSPENDED → **404** (privacy: hidden profiles are not revealed).
+- **Visible teacher only**: adding favorites is restricted to publicly visible teachers
+  (TEACHER-001 D1): `User.status = ACTIVE` **and** a PUBLISHED announcement. Non-verified teachers
+  can be favorited; INACTIVE/SUSPENDED users → **404** (hidden profiles are not revealed).
 - **Duplicate** → **409** (pre-check + DB `UNIQUE` as final guard).
 - **Delete of a non-existent favorite** → **404** (no silent idempotency).
 

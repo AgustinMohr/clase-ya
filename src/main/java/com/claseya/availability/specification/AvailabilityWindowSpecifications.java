@@ -5,7 +5,6 @@ import com.claseya.model.enums.AvailabilityDayPart;
 import com.claseya.model.enums.AvailabilityStatus;
 import com.claseya.model.enums.TeachingModality;
 import com.claseya.model.enums.UserStatus;
-import com.claseya.model.enums.VerificationStatus;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.jpa.domain.Specification;
 
@@ -14,8 +13,9 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Public availability queries: only AVAILABLE windows of eligible teachers
- * (VERIFIED + ACTIVE). Optional filters: teacher, day, mode, day part.
+ * Public availability queries: only AVAILABLE windows of active teachers (D9: no longer requires
+ * VERIFIED — publishing availability is independent from the credential review).
+ * Optional filters: teacher, day, mode, day part.
  */
 public final class AvailabilityWindowSpecifications {
 
@@ -25,7 +25,6 @@ public final class AvailabilityWindowSpecifications {
     public static Specification<AvailabilityWindow> visible() {
         return (root, query, cb) -> cb.and(
                 cb.equal(root.get("status"), AvailabilityStatus.AVAILABLE),
-                cb.equal(root.get("teacher").get("verificationStatus"), VerificationStatus.VERIFIED),
                 cb.equal(root.get("teacher").get("user").get("status"), UserStatus.ACTIVE));
     }
 

@@ -1,11 +1,14 @@
 package com.claseya.teacher.specification;
 
+import com.claseya.model.AvailabilityWindow;
 import com.claseya.model.TeacherModality;
 import com.claseya.model.TeacherProfile;
 import com.claseya.model.TeacherSubject;
 import com.claseya.model.enums.TeachingModality;
 import com.claseya.model.enums.UserStatus;
 import com.claseya.model.enums.VerificationStatus;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Expression;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
@@ -29,11 +32,56 @@ public final class TeacherSpecifications {
     private TeacherSpecifications() {
     }
 
-    /** Baseline: only verified, active teachers are publicly searchable. */
+    /**
+     * Baseline public visibility (D1, TEACHER-001): an ACTIVE teacher whose announcement is
+     * PUBLISHED. Verification is no longer a gate to exist; it only adds trust (the "No verificado"
+     * label is applied by the presentation layer).
+     */
     public static Specification<TeacherProfile> visible() {
         return (root, query, cb) -> cb.and(
-                cb.equal(root.get("verificationStatus"), VerificationStatus.VERIFIED),
-                cb.equal(root.get("user").get("status"), UserStatus.ACTIVE));
+                cb.equal(root.get("user").get("status"), UserStatus.ACTIVE),
+                published(root, query, cb));
+    }
+
+    /** Optional "Solo verificados" search filter (D1). */
+    public static Specification<TeacherProfile> verifiedOnly() {
+        return (root, query, cb) -> cb.equal(root.get("verificationStatus"), VerificationStatus.VERIFIED);
+    }
+
+    public static Specification<TeacherProfile> hasId(UUID id) {
+        return (root, query, cb) -> cb.equal(root.get("id"), id);
+    }
+
+    /**
+     * RF-2/RF-3: an announcement is PUBLISHED when it has a name, a bio, at least one active
+     * subject, at least one modality and at least one declared availability window.
+     */
+    private static Predicate published(Root<TeacherProfile> root, CriteriaQuery<?> query, CriteriaBuilder cb) {
+        List<Predicate> parts = new ArrayList<>();
+        parts.add(cb.isNotNull(root.get("user").get("name")));
+        parts.add(cb.notEqual(cb.trim(root.get("user").<String>get("name")), ""));
+        parts.add(cb.isNotNull(root.get("bio")));
+        parts.add(cb.notEqual(cb.trim(root.<String>get("bio")), ""));
+
+        Subquery<TeacherSubject> subject = query.subquery(TeacherSubject.class);
+        Root<TeacherSubject> ts = subject.from(TeacherSubject.class);
+        subject.select(ts);
+        subject.where(cb.and(cb.equal(ts.get("teacher"), root), cb.isTrue(ts.get("active"))));
+        parts.add(cb.exists(subject));
+
+        Subquery<TeacherModality> modality = query.subquery(TeacherModality.class);
+        Root<TeacherModality> tm = modality.from(TeacherModality.class);
+        modality.select(tm);
+        modality.where(cb.equal(tm.get("teacher"), root));
+        parts.add(cb.exists(modality));
+
+        Subquery<AvailabilityWindow> availability = query.subquery(AvailabilityWindow.class);
+        Root<AvailabilityWindow> aw = availability.from(AvailabilityWindow.class);
+        availability.select(aw);
+        availability.where(cb.equal(aw.get("teacher"), root));
+        parts.add(cb.exists(availability));
+
+        return cb.and(parts.toArray(Predicate[]::new));
     }
 
     /**

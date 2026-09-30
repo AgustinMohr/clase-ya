@@ -80,10 +80,12 @@ class AvailabilityIntegrationTest extends AbstractWebIntegrationTest {
     }
 
     @Test
-    void nonVerifiedTeacherCannotPublish_returns403() throws Exception {
+    void nonVerifiedTeacherCanPublishAvailability() throws Exception {
+        // D9: publishing availability no longer requires VERIFIED. Publication and verification are
+        // independent, so a PENDING teacher can still complete the announcement first.
         Teacher pending = newTeacher("pend@example.com", "P", VerificationStatus.PENDING,
                 UserStatus.ACTIVE);
-        create(pending.token(), body(1, "18:00", "19:00"), 403);
+        create(pending.token(), body(1, "18:00", "19:00"), 201);
     }
 
     @Test
@@ -200,26 +202,27 @@ class AvailabilityIntegrationTest extends AbstractWebIntegrationTest {
     // ------------------------------------------------------------------ public / privacy / listing
 
     @Test
-    void publicSearch_onlyShowsAvailableEligibleTeachers() throws Exception {
-        Teacher verified = newTeacher("j@example.com", "Ja", VerificationStatus.VERIFIED, UserStatus.ACTIVE);
+    void publicSearch_onlyShowsAvailableWindowsOfActiveTeachers() throws Exception {
+        Teacher active = newTeacher("j@example.com", "Ja", VerificationStatus.VERIFIED, UserStatus.ACTIVE);
         Teacher pending = newTeacher("k@example.com", "Ke", VerificationStatus.VERIFIED, UserStatus.ACTIVE);
         Teacher inactive = newTeacher("l@example.com", "Le", VerificationStatus.VERIFIED, UserStatus.ACTIVE);
 
-        create(verified.token(), body(1, "18:00", "19:00"), 201);
+        create(active.token(), body(1, "18:00", "19:00"), 201);
         create(pending.token(), body(1, "18:00", "19:00"), 201);
         create(inactive.token(), body(1, "18:00", "19:00"), 201);
 
-        // Make two teachers non-eligible AFTER publishing (their windows must be hidden).
+        // D9: only the teacher whose USER is not active is hidden; verification is not a gate here.
         pending.profile().setVerificationStatus(VerificationStatus.PENDING);
         teacherProfileRepository.saveAndFlush(pending.profile());
         inactive.profile().getUser().setStatus(UserStatus.INACTIVE);
         userRepository.saveAndFlush(inactive.profile().getUser());
 
         JsonNode all = searchPublic("", 200);
-        assertThat(all.get("totalElements").asLong()).isEqualTo(1);
-        String body = all.get("content").get(0).toString();
-        assertThat(body).contains(verified.profile().getId().toString());
-        assertThat(body).doesNotContain("j@example.com").doesNotContain("passwordHash");
+        assertThat(all.get("totalElements").asLong()).isEqualTo(2);
+        String content = all.get("content").toString();
+        assertThat(content).contains(active.profile().getId().toString());
+        assertThat(content).contains(pending.profile().getId().toString());
+        assertThat(content).doesNotContain("j@example.com").doesNotContain("passwordHash");
     }
 
     @Test

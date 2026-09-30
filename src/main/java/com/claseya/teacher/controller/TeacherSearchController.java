@@ -43,11 +43,12 @@ public class TeacherSearchController {
             @RequestParam(required = false) Double radius,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
-            @RequestParam(defaultValue = "rating") String sort) {
+            @RequestParam(defaultValue = "rating") String sort,
+            @RequestParam(defaultValue = "false") boolean onlyVerified) {
 
         TeacherSearchCriteria criteria = new TeacherSearchCriteria(
                 subjectId, careerId, universityId, modality, minRating, minPrice, maxPrice,
-                latitude, longitude, radius, page, size, sort);
+                latitude, longitude, radius, page, size, sort, onlyVerified);
         return teacherSearchService.search(criteria);
     }
 

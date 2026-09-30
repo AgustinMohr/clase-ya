@@ -18,10 +18,10 @@ import com.claseya.model.StudentProfile;
 import com.claseya.model.TeacherProfile;
 import com.claseya.model.User;
 import com.claseya.model.enums.UserStatus;
-import com.claseya.model.enums.VerificationStatus;
 import com.claseya.student.repository.StudentProfileRepository;
 import com.claseya.teacher.dto.SearchResultPage;
 import com.claseya.teacher.repository.TeacherProfileRepository;
+import com.claseya.teacher.service.TeacherVisibilityService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -46,19 +46,22 @@ public class ConversationService {
     private final StudentProfileRepository studentProfileRepository;
     private final TeacherProfileRepository teacherProfileRepository;
     private final MessageService messageService;
+    private final TeacherVisibilityService teacherVisibilityService;
 
     public ConversationService(ConversationRepository conversationRepository,
                                ConversationParticipantRepository participantRepository,
                                MessageRepository messageRepository,
                                StudentProfileRepository studentProfileRepository,
                                TeacherProfileRepository teacherProfileRepository,
-                               MessageService messageService) {
+                               MessageService messageService,
+                               TeacherVisibilityService teacherVisibilityService) {
         this.conversationRepository = conversationRepository;
         this.participantRepository = participantRepository;
         this.messageRepository = messageRepository;
         this.studentProfileRepository = studentProfileRepository;
         this.teacherProfileRepository = teacherProfileRepository;
         this.messageService = messageService;
+        this.teacherVisibilityService = teacherVisibilityService;
     }
 
     public record ConversationCreated(ConversationResponse conversation, boolean created) {
@@ -66,13 +69,8 @@ public class ConversationService {
 
     @Transactional
     public ConversationCreated start(UUID studentUserId, UUID teacherId, String message) {
-        // The caller can only be contacted when publicly visible (Phase 4 rule).
-        TeacherProfile teacher = teacherProfileRepository.findById(teacherId)
-                .orElseThrow(ResourceNotFoundException::new);
-        if (teacher.getVerificationStatus() != VerificationStatus.VERIFIED
-                || teacher.getUser().getStatus() != UserStatus.ACTIVE) {
-            throw new ResourceNotFoundException();
-        }
+        // The caller can only be contacted when publicly visible (D1: ACTIVE + published).
+        TeacherProfile teacher = teacherVisibilityService.requireVisible(teacherId);
 
         StudentProfile student = studentProfileRepository.findByUser_Id(studentUserId)
                 .orElseThrow(() -> new ConflictException(
