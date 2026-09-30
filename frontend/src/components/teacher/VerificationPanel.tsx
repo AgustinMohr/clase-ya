@@ -115,7 +115,7 @@ function CredentialRow({
   }
 
   return (
-    <div className="rounded-xl border border-border bg-surface-muted/40 p-4">
+    <div data-testid="credential-row" className="rounded-xl border border-border bg-surface-muted/40 p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="font-semibold">{credential.degree || 'Formación'}</p>

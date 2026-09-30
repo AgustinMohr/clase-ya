@@ -238,6 +238,7 @@ export default function MyListingPage({
       setEducation(await api.myEducation());
       setEduForm({ institution: '', degree: '', description: '', startYear: '', endYear: '' });
       reloadAnnouncement();
+      reloadVerification();
       notify('Formación agregada');
     } catch {
       notify('No pudimos agregar la formación.', 'error');
@@ -251,6 +252,7 @@ export default function MyListingPage({
       await api.removeEducation(educationId);
       setEducation((prev) => prev.filter((e) => e.id !== educationId));
       reloadAnnouncement();
+      reloadVerification();
     } catch {
       notify('No pudimos quitar la formación.', 'error');
     }
