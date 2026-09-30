@@ -67,6 +67,16 @@ scripts\verify.ps1             # verificacion reproducible (reporta PASS/FAIL)
 # desde la raiz:
 cd frontend; npm run build     # tsc + vite: atrapa errores de tipos
 
+# ---- E2E (Playwright) -------------------------------------------------------
+# Levanta su PROPIO backend (perfil local) + el dev server de Vite y prueba los
+# flujos criticos contra la base demo local. Requiere Docker y `claseya-pg`.
+# Primera vez: npx playwright install chromium
+scripts\e2e.ps1                # backend propio (determinista)
+scripts\e2e.ps1 -ReuseBackend  # rapido: reusa el backend ya levantado (solo si tiene
+                               # el codigo actual compilado)
+# Al fallar, el reporte queda en frontend\test-results\<test>\ (screenshot +
+# error-context.md) y el trace se puede abrir con: npx playwright show-trace
+
 # ----------------------------------------------------------------------------
 # 5) DATOS DEMO
 # ----------------------------------------------------------------------------

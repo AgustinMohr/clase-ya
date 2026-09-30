@@ -20,6 +20,7 @@ export function TeacherCard({ teacher, onOpen, onToggleFavorite, favorite, featu
   return (
     <Card
       interactive
+      data-testid="teacher-card"
       className={cn('relative flex h-full flex-col gap-3 p-5', featured && 'border-primary-200 ring-1 ring-primary-100 dark:ring-primary-900/40')}
       onClick={() => onOpen(teacher.id)}
     >

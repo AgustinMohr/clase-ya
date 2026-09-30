@@ -38,6 +38,10 @@ frontend/dist/
 frontend/.env
 frontend/.env.local
 frontend/.env.*.local
+### Playwright artifacts (local runs) ###
+frontend/test-results/
+frontend/playwright-report/
+frontend/blob-report/
 .neon
 .env.local
 node_modules/
