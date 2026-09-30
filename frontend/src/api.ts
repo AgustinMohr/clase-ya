@@ -43,6 +43,7 @@ export interface AvailabilityWindow {
   endTime?: string;
   mode?: string;
   dayPart?: string;
+  status?: 'AVAILABLE' | 'DISABLED';
 }
 
 // --- Academic catalog (used by the student profile form) ---------------------
@@ -81,6 +82,105 @@ export interface StudentProfileInput {
   careerId: string;
   currentYear: number;
   bio?: string;
+}
+
+// --- Teacher own listing ("Mi anuncio", TEACHER-001) --------------------------
+
+export type VerificationStatus = 'PENDING' | 'UNDER_REVIEW' | 'VERIFIED' | 'REJECTED' | 'MORE_INFO_REQUIRED';
+
+export interface TeacherProfile {
+  id: string;
+  email?: string;
+  name?: string;
+  bio?: string;
+  address?: string;
+  availabilityNote?: string;
+  pricePerHour?: number;
+  city?: string;
+  photoUrl?: string;
+  latitude?: number;
+  longitude?: number;
+  verificationStatus?: VerificationStatus;
+  modalities?: string[];
+}
+
+export interface TeacherProfileInput {
+  name?: string;
+  bio?: string;
+  address?: string;
+  availabilityNote?: string;
+  pricePerHour?: number;
+  city?: string;
+  photoUrl?: string;
+  latitude?: number;
+  longitude?: number;
+}
+
+export interface AnnouncementStatus {
+  completeness: 'INCOMPLETE' | 'PUBLISHED';
+  hasName: boolean;
+  hasBio: boolean;
+  hasSubject: boolean;
+  hasModality: boolean;
+  hasAvailability: boolean;
+}
+
+export interface OwnSubject {
+  id: string;
+  careerSubjectId: string;
+  careerName?: string;
+  subjectName?: string;
+  year?: number;
+  semester?: number;
+}
+
+export interface OwnEducation {
+  id: string;
+  institution: string;
+  degree: string;
+  description?: string;
+  startYear?: number;
+  endYear?: number;
+  isVerified?: boolean;
+}
+
+export interface EducationInput {
+  institution: string;
+  degree: string;
+  description?: string;
+  startYear?: number;
+  endYear?: number;
+}
+
+export interface AvailabilityInput {
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  mode?: string;
+}
+
+export interface VerificationCredential {
+  educationId: string;
+  institution?: string;
+  degree?: string;
+  status: VerificationStatus;
+  submittedAt?: string;
+  documentCount: number;
+}
+
+export interface TeacherVerification {
+  profileStatus: VerificationStatus;
+  credentials: VerificationCredential[];
+}
+
+export interface CareerSubject {
+  id: string;
+  careerId: string;
+  careerName?: string;
+  subjectId: string;
+  subjectName: string;
+  year?: number;
+  semester?: number;
 }
 
 // --- Messaging ---------------------------------------------------------------
@@ -264,4 +364,39 @@ export const api = {
     request<Message>('POST', `/api/conversations/${conversationId}/messages`, { content }, true),
   markConversationRead: (conversationId: string) =>
     request<void>('PATCH', `/api/conversations/${conversationId}/read`, undefined, true),
+
+  // --- Teacher own listing ("Mi anuncio", TEACHER-001) ------------------------
+  announcement: () => request<AnnouncementStatus>('GET', '/api/teachers/me/announcement', undefined, true),
+  myProfile: () => request<TeacherProfile>('GET', '/api/teachers/me', undefined, true),
+  createTeacherProfile: (body: TeacherProfileInput) =>
+    request<TeacherProfile>('POST', '/api/teachers/profile', body, true),
+  updateTeacherProfile: (body: TeacherProfileInput) =>
+    request<TeacherProfile>('PUT', '/api/teachers/me', body, true),
+  myVerification: () => request<TeacherVerification>('GET', '/api/teachers/me/verification', undefined, true),
+  mySubjects: () => request<OwnSubject[]>('GET', '/api/teachers/me/subjects', undefined, true),
+  addSubject: (careerSubjectId: string) =>
+    request<OwnSubject>('POST', '/api/teachers/me/subjects', { careerSubjectId }, true),
+  removeSubject: (careerSubjectId: string) =>
+    request<void>('DELETE', `/api/teachers/me/subjects/${careerSubjectId}`, undefined, true),
+  myModalities: () =>
+    request<{ id: string; modality: string }[]>('GET', '/api/teachers/me/modalities', undefined, true),
+  addModality: (modality: string) =>
+    request<unknown>('POST', '/api/teachers/me/modalities', { modality }, true),
+  removeModality: (modality: string) =>
+    request<void>('DELETE', `/api/teachers/me/modalities/${modality}`, undefined, true),
+  myEducation: () => request<OwnEducation[]>('GET', '/api/teachers/me/education', undefined, true),
+  addEducation: (body: EducationInput) =>
+    request<OwnEducation>('POST', '/api/teachers/me/education', body, true),
+  removeEducation: (educationId: string) =>
+    request<void>('DELETE', `/api/teachers/me/education/${educationId}`, undefined, true),
+  myAvailability: () =>
+    request<Page<AvailabilityWindow>>('GET', '/api/availability/me?page=0&size=50', undefined, true),
+  addAvailability: (body: AvailabilityInput) =>
+    request<AvailabilityWindow>('POST', '/api/availability', body, true),
+  disableAvailability: (windowId: string) =>
+    request<void>('POST', `/api/availability/${windowId}/disable`, undefined, true),
+  enableAvailability: (windowId: string) =>
+    request<void>('POST', `/api/availability/${windowId}/enable`, undefined, true),
+  careerSubjects: (careerId: string) =>
+    request<CareerSubject[]>('GET', `/api/careers/${careerId}/subjects`),
 };

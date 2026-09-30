@@ -12,6 +12,7 @@ import LandingPage from './pages/LandingPage';
 import SearchPage from './pages/SearchPage';
 import TeacherProfilePage from './pages/TeacherProfilePage';
 import MessagesPage from './pages/MessagesPage';
+import MyListingPage from './pages/MyListingPage';
 import LoginModal from './components/LoginModal';
 import ContactModal from './components/ContactModal';
 import StudentProfileModal from './components/StudentProfileModal';
@@ -21,6 +22,7 @@ type View =
   | { name: 'search'; term: string }
   | { name: 'profile'; id: string }
   | { name: 'favorites' }
+  | { name: 'my-listing' }
   | { name: 'messages'; conversationId?: string };
 
 export default function App() {
@@ -180,6 +182,7 @@ export default function App() {
         onFavorites={openFavorites}
         onMessages={() => setView({ name: 'messages' })}
         onProfile={() => setProfileOpen(true)}
+        onMyListing={() => setView({ name: 'my-listing' })}
         onLogin={() => setLoginOpen(true)}
       />
 
@@ -218,6 +221,13 @@ export default function App() {
           <MessagesPage
             onBack={() => setView({ name: 'landing' })}
             initialConversationId={view.conversationId}
+          />
+        )}
+
+        {view.name === 'my-listing' && (
+          <MyListingPage
+            onBack={() => setView({ name: 'landing' })}
+            onPreview={(id) => setView({ name: 'profile', id })}
           />
         )}
 
