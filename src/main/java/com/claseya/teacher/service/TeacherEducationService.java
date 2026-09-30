@@ -1,17 +1,22 @@
 package com.claseya.teacher.service;
 
+import com.claseya.common.exception.ConflictException;
 import com.claseya.common.exception.InvalidAssociationException;
 import com.claseya.common.exception.ResourceNotFoundException;
 import com.claseya.model.TeacherEducation;
 import com.claseya.model.TeacherProfile;
+import com.claseya.model.enums.VerificationStatus;
 import com.claseya.teacher.dto.CreateTeacherEducationRequest;
 import com.claseya.teacher.dto.TeacherEducationResponse;
 import com.claseya.teacher.dto.UpdateTeacherEducationRequest;
 import com.claseya.teacher.repository.TeacherEducationRepository;
+import com.claseya.verification.repository.VerificationDecisionRepository;
+import com.claseya.verification.repository.VerificationDocumentRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 @Service
@@ -19,11 +24,17 @@ public class TeacherEducationService {
 
     private final TeacherEducationRepository teacherEducationRepository;
     private final TeacherProfileService teacherProfileService;
+    private final VerificationDocumentRepository verificationDocumentRepository;
+    private final VerificationDecisionRepository verificationDecisionRepository;
 
     public TeacherEducationService(TeacherEducationRepository teacherEducationRepository,
-                                   TeacherProfileService teacherProfileService) {
+                                   TeacherProfileService teacherProfileService,
+                                   VerificationDocumentRepository verificationDocumentRepository,
+                                   VerificationDecisionRepository verificationDecisionRepository) {
         this.teacherEducationRepository = teacherEducationRepository;
         this.teacherProfileService = teacherProfileService;
+        this.verificationDocumentRepository = verificationDocumentRepository;
+        this.verificationDecisionRepository = verificationDecisionRepository;
     }
 
     @Transactional(readOnly = true)
@@ -58,6 +69,21 @@ public class TeacherEducationService {
                 .orElseThrow(() -> new ResourceNotFoundException("Teacher education not found"));
         validateYears(request.startYear(), request.endYear());
 
+        if (education.getVerificationStatus() == VerificationStatus.VERIFIED) {
+            // RF-19: the material fields of a verified credential are frozen; `description` is
+            // narrative and stays editable.
+            boolean materialChange =
+                    !Objects.equals(education.getInstitution(), request.institution())
+                            || !Objects.equals(education.getDegree(), request.degree())
+                            || !Objects.equals(education.getStartYear(), request.startYear())
+                            || !Objects.equals(education.getEndYear(), request.endYear());
+            if (materialChange) {
+                throw new ConflictException("A verified credential cannot change its institution, degree or years");
+            }
+            education.setDescription(request.description());
+            return TeacherEducationResponse.from(teacherEducationRepository.saveAndFlush(education));
+        }
+
         education.setInstitution(request.institution());
         education.setDegree(request.degree());
         education.setDescription(request.description());
@@ -72,6 +98,15 @@ public class TeacherEducationService {
         TeacherEducation education = teacherEducationRepository
                 .findByIdAndTeacher_Id(educationId, profile.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Teacher education not found"));
+        // RF-20: a verified credential is never deleted.
+        if (education.getVerificationStatus() == VerificationStatus.VERIFIED) {
+            throw new ConflictException("A verified credential cannot be deleted");
+        }
+        // RF-21: evidence history (documents or decisions) is never deleted.
+        if (verificationDocumentRepository.countByTeacherEducation_Id(educationId) > 0
+                || verificationDecisionRepository.existsByTeacherEducation_Id(educationId)) {
+            throw new ConflictException("A credential with documents or decisions cannot be deleted");
+        }
         teacherEducationRepository.delete(education);
     }
 

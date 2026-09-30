@@ -1,6 +1,7 @@
 package com.claseya.teacher.repository;
 
 import com.claseya.model.TeacherEducation;
+import com.claseya.model.enums.VerificationStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
@@ -12,4 +13,6 @@ public interface TeacherEducationRepository extends JpaRepository<TeacherEducati
     List<TeacherEducation> findByTeacher_IdOrderByStartYearDesc(UUID teacherId);
 
     Optional<TeacherEducation> findByIdAndTeacher_Id(UUID id, UUID teacherId);
+
+    List<TeacherEducation> findByTeacher_IdAndVerificationStatus(UUID teacherId, VerificationStatus verificationStatus);
 }

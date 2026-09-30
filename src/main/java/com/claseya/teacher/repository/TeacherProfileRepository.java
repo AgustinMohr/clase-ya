@@ -1,8 +1,10 @@
 package com.claseya.teacher.repository;
 
 import com.claseya.model.TeacherProfile;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -20,4 +22,13 @@ public interface TeacherProfileRepository extends JpaRepository<TeacherProfile, 
 
     @Query("select distinct t from TeacherProfile t join fetch t.user where t.id in :ids")
     List<TeacherProfile> findWithUserByIds(@Param("ids") Collection<UUID> ids);
+
+    /**
+     * Loads the profile under a pessimistic write lock. Verification decisions serialize on this
+     * row so that (a) concurrent decisions on the same credential can never be last-write-wins and
+     * (b) the derived profile status (RF-14) stays consistent with its credentials.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select t from TeacherProfile t where t.id = :id")
+    Optional<TeacherProfile> findByIdForUpdate(@Param("id") UUID id);
 }

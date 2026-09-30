@@ -50,6 +50,11 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.BAD_REQUEST, "Bad Request", ex.getMessage(), request);
     }
 
+    @ExceptionHandler(PayloadTooLargeException.class)
+    public ResponseEntity<ApiError> handlePayloadTooLarge(PayloadTooLargeException ex, HttpServletRequest request) {
+        return build(HttpStatus.PAYLOAD_TOO_LARGE, "Payload Too Large", ex.getMessage(), request);
+    }
+
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ApiError> handleNotFound(ResourceNotFoundException ex, HttpServletRequest request) {
         return build(HttpStatus.NOT_FOUND, "Not Found", ex.getMessage(), request);
