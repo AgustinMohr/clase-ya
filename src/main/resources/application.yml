@@ -28,6 +28,14 @@ spring:
   jackson:
     default-property-inclusion: non_null
 
+  servlet:
+    multipart:
+      # Verification evidence uploads. The service also caps each file at 10 MB
+      # (413 above it); this only keeps the servlet layer from rejecting valid
+      # evidence with its 1 MB default.
+      max-file-size: 10MB
+      max-request-size: 12MB
+
 # JWT configuration.
 # JWT_SECRET must be overridden in any non-development environment. The default
 # value below is a development-only placeholder and must never be used in prod.

@@ -71,6 +71,9 @@ public class SecurityConfig {
                         // Availability: public discovery is open; publishing is teacher-only.
                         .requestMatchers(HttpMethod.GET, "/api/availability").permitAll()
                         .requestMatchers("/api/availability/**").hasRole("TEACHER")
+                        // Verification review queue and decisions: ADMIN only. First use of
+                        // ADMIN outside the academic catalog, so it is explicit here.
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/error").permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);

@@ -45,3 +45,6 @@ frontend/blob-report/
 .neon
 .env.local
 node_modules/
+
+### CodeGraph (local index, machine-specific) ###
+.codegraph/
