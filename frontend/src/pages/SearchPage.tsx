@@ -237,7 +237,19 @@ export default function SearchPage({ initialTerm, subjects, onBack, onOpenTeache
               icon={<SearchX className="h-6 w-6" aria-hidden="true" />}
               title={`No encontramos "${unmatchedTerm}"`}
               description="Probá eligiendo una materia de las sugerencias."
-              action={<Button variant="outline" onClick={() => runSearch('', { ...applied, subjectId: null }, 0)}>Ver todos los profesores</Button>}
+              action={
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    // Clear the typed term too: otherwise paging or applying a filter re-runs the
+                    // search with the unmatched text and the results disappear.
+                    setTerm('');
+                    void runSearch('', { ...applied, subjectId: null }, 0);
+                  }}
+                >
+                  Ver todos los profesores
+                </Button>
+              }
             />
           ) : results.length === 0 ? (
             <EmptyState
