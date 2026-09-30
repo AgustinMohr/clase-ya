@@ -163,6 +163,10 @@ export default function StudentProfileModal({ open, onClose, onSaved, initial }:
                 setUniversityId(e.target.value);
                 setUnitId('');
                 setCareerId('');
+                // The previous university's faculties no longer apply: showing them while the
+                // new list loads allowed saving an inconsistent university + career pair.
+                setUnits([]);
+                setCareers([]);
               }}
               required
             >
@@ -185,6 +189,8 @@ export default function StudentProfileModal({ open, onClose, onSaved, initial }:
               onChange={(e) => {
                 setUnitId(e.target.value);
                 setCareerId('');
+                // Same reason as above: the previous faculty's careers cannot be offered.
+                setCareers([]);
               }}
               required
             >
