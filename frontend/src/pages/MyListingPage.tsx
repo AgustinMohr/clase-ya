@@ -29,15 +29,8 @@ import { useToast } from '../components/ui/Toast';
 import { Badge, Card, Skeleton } from '../components/ui/primitives';
 import { Button } from '../components/ui/Button';
 import { Field, Input, Select, Textarea } from '../components/ui/Field';
+import VerificationPanel from '../components/teacher/VerificationPanel';
 import { dayName, modalityLabel } from '../lib/format';
-
-const VERIFICATION_LABEL: Record<string, string> = {
-  PENDING: 'Pendiente',
-  UNDER_REVIEW: 'En revisión',
-  VERIFIED: 'Verificado',
-  REJECTED: 'Rechazado',
-  MORE_INFO_REQUIRED: 'Requiere más información',
-};
 
 const DAYS = [1, 2, 3, 4, 5, 6, 7];
 
@@ -157,6 +150,10 @@ export default function MyListingPage({
 
   function reloadAnnouncement() {
     api.announcement().then(setAnnouncement).catch(() => undefined);
+  }
+
+  function reloadVerification() {
+    api.myVerification().then(setVerification).catch(() => undefined);
   }
 
   async function saveProfile() {
@@ -359,8 +356,8 @@ export default function MyListingPage({
         )}
       </header>
 
-      {/* COMPLETITUD + VERIFICACIÓN */}
-      <div className="mb-8 grid gap-4 md:grid-cols-2">
+      {/* COMPLETITUD */}
+      <div className="mb-8">
         <Card className="p-6">
           <h2 className="mb-3 font-display text-xl">Estado del anuncio</h2>
           <div className="mb-3">
@@ -382,30 +379,11 @@ export default function MyListingPage({
             ))}
           </ul>
         </Card>
+      </div>
 
-        <Card className="p-6">
-          <h2 className="mb-3 font-display text-xl">Verificación académica</h2>
-          <div className="mb-3">
-            <Badge tone={verification?.profileStatus === 'VERIFIED' ? 'success' : 'neutral'}>
-              {VERIFICATION_LABEL[verification?.profileStatus ?? 'PENDING'] ?? 'Pendiente'}
-            </Badge>
-          </div>
-          {verification && verification.credentials.length > 0 ? (
-            <ul className="space-y-1.5 text-sm">
-              {verification.credentials.map((cred) => (
-                <li key={cred.educationId} className="flex flex-wrap items-center gap-2">
-                  <span className="font-semibold">{cred.degree}</span>
-                  <span className="text-content-muted">· {VERIFICATION_LABEL[cred.status] ?? cred.status}</span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-sm text-content-muted">
-              Todavía no presentaste credenciales a verificación. Cargá tu formación y subí los documentos
-              para pedir el badge de verificado.
-            </p>
-          )}
-        </Card>
+      {/* VERIFICACIÓN */}
+      <div className="mb-8">
+        <VerificationPanel verification={verification} onChanged={reloadVerification} />
       </div>
 
       {/* PERFIL */}

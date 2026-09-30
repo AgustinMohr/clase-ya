@@ -184,6 +184,25 @@ export interface CareerSubject {
   semester?: number;
 }
 
+export type DocumentType =
+  | 'DIPLOMA'
+  | 'ENROLLMENT_CERTIFICATE'
+  | 'ANALYTICAL_CERTIFICATE'
+  | 'POSTGRADUATE_CERTIFICATE'
+  | 'PROFESSIONAL_LICENSE'
+  | 'FOREIGN_DEGREE';
+
+export interface VerificationDocument {
+  id: string;
+  educationId: string;
+  type: DocumentType;
+  originalFilename: string;
+  contentType: string;
+  sizeBytes: number;
+  sha256: string;
+  uploadedAt: string;
+}
+
 // --- Messaging ---------------------------------------------------------------
 
 export interface ConversationParticipant {
@@ -304,6 +323,29 @@ async function request<T>(method: string, url: string, body?: unknown, auth = fa
   return (await res.json()) as T;
 }
 
+async function requestForm<T>(url: string, formData: FormData): Promise<T> {
+  const headers: Record<string, string> = {};
+  const token = getToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const res = await fetch(`${API_BASE}${url}`, { method: 'POST', headers, body: formData });
+
+  if (res.status === 401) {
+    clearToken();
+    window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
+  }
+  if (!res.ok) {
+    let parsed: unknown;
+    try {
+      parsed = await res.json();
+    } catch {
+      /* body no JSON */
+    }
+    const message = (parsed as { message?: string } | undefined)?.message ?? `Error ${res.status}`;
+    throw new ApiError(res.status, message, parsed);
+  }
+  return (await res.json()) as T;
+}
+
 export const api = {
   subjects: () => request<Subject[]>('GET', '/api/subjects?size=50'),
   teachers: (params: {
@@ -402,4 +444,20 @@ export const api = {
     request<void>('POST', `/api/availability/${windowId}/enable`, undefined, true),
   careerSubjects: (careerId: string) =>
     request<CareerSubject[]>('GET', `/api/careers/${careerId}/subjects`),
+
+  // --- Verification (TEACHER-001, slice B) -----------------------------------
+  myDocuments: (educationId: string) =>
+    request<VerificationDocument[]>('GET', `/api/teachers/me/education/${educationId}/documents`, undefined, true),
+  uploadDocument: (educationId: string, type: DocumentType, file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('type', type);
+    return requestForm<VerificationDocument>(`/api/teachers/me/education/${educationId}/documents`, form);
+  },
+  deleteDocument: (documentId: string) =>
+    request<void>('DELETE', `/api/teachers/me/documents/${documentId}`, undefined, true),
+  submitCredential: (educationId: string) =>
+    request<VerificationCredential>('POST', `/api/teachers/me/education/${educationId}/submit`, undefined, true),
+  submitAllCredentials: () =>
+    request<VerificationCredential[]>('POST', '/api/teachers/me/verification/submit', undefined, true),
 };
