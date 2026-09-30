@@ -18,6 +18,8 @@ export default function Modal({ open, onClose, title, children, className, size 
 
   useEffect(() => {
     if (!open) return;
+    // Remember where the focus was so closing the dialog puts it back (a11y).
+    const previouslyFocused = document.activeElement as HTMLElement | null;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     const panel = panelRef.current;
@@ -48,6 +50,7 @@ export default function Modal({ open, onClose, title, children, className, size 
     return () => {
       document.removeEventListener('keydown', onKeyDown);
       document.body.style.overflow = previousOverflow;
+      previouslyFocused?.focus?.();
     };
   }, [open, onClose]);
 
