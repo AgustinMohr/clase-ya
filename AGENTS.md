@@ -103,9 +103,10 @@ propuestas (aún no aplicadas).
   `RESTRICT` para datos históricos.
 - Las constraints de DB (UNIQUEs, CHECKs, FKs compuestas) son la última línea de defensa; la capa de
   servicios igual valida con mensajes amigables.
-- **SOLO DEV**: `app.demo-seed.enabled` (`DEMO_SEED`, default `true`) siembra catálogo demo +
-  profesores verificados + un estudiante al arrancar vía `DemoDataSeeder` (upserts idempotentes).
-  DEBE ser `false` en entornos reales; los tests de integración lo desactivan.
+- **SOLO DEV**: `app.demo-seed.enabled` (`DEMO_SEED`, **default `false`**) siembra el dataset demo
+  completo al arrancar vía `DemoDataSeeder`, ejecutando `db/seed/demo-data.sql` (idempotente y no
+  destructivo). Es **opt-in**: si la variable falta no siembra nada. El desarrollo local lo habilita
+  con el perfil `local` (`application-local.yml`); NUNCA debe estar en `true` en entornos reales.
 
 ## Reglas de API
 

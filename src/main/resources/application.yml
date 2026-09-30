@@ -47,8 +47,10 @@ oauth:
     issuer: ${GOOGLE_ISSUER:https://accounts.google.com}
     client-id: ${GOOGLE_CLIENT_ID:}
 
-# DEVELOPMENT ONLY: seed demo catalog + verified teachers + a student on startup
-# (so `spring-boot:run` shows a populated UI). Must be false in real environments.
+# DEVELOPMENT ONLY: seed the demo dataset on startup (db/seed/demo-data.sql).
+# Opt-in on purpose: if DEMO_SEED is missing, nothing is seeded, so a production
+# deployment that forgets this variable stays clean. Local development enables it
+# through the `local` profile (see application-local.yml).
 app:
   demo-seed:
-    enabled: ${DEMO_SEED:true}
+    enabled: ${DEMO_SEED:false}

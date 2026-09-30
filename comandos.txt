@@ -6,6 +6,13 @@
 # Config local (Google client id, etc.): src/main/resources/application-local.yml
 #   -> archivo GITIGNORED; se activa con el perfil `local` (ver seccion 2).
 #   -> las env vars siguen pisandolo, asi que produccion no se ve afectada.
+#   -> si falta (clon nuevo), crealo con esto:
+#        app:
+#          demo-seed:
+#            enabled: true
+#        oauth:
+#          google:
+#            client-id: 20531126808-mgi8bftap6blpfpbcs9ughp51d4k2suc.apps.googleusercontent.com
 
 # ----------------------------------------------------------------------------
 # 1) BASE DE DATOS LOCAL (Postgres en Docker)
@@ -58,13 +65,17 @@ cd frontend; npm run build     # tsc + vite: atrapa errores de tipos
 # ----------------------------------------------------------------------------
 # 5) DATOS DEMO
 # ----------------------------------------------------------------------------
-# Se siembran solos al arrancar el backend (DEMO_SEED default = true).
-# Forzarlos a mano (con el contenedor claseya-pg corriendo):
+# El backend siembra TODO solo al arrancar cuando el perfil `local` esta activo
+# (application-local.yml pone DEMO_SEED=true). El dataset vive en
+# src\main\resources\db\seed\demo-data.sql (idempotente y no destructivo).
+# OJO: sin perfil local y sin DEMO_SEED=true el backend NO siembra (es opt-in).
+# Via manual, sin levantar la app:
 scripts\seed-demo.ps1
-# Profesores: ana.profe@claseya.dev | bruno.profe@claseya.dev |
-#             carla.profe@claseya.dev | diego.profe@claseya.dev
-# Estudiante: student@claseya.dev
-# Password (todos): Password123
+# Password (todas las cuentas): Password123
+#   admin@claseya.dev                -> ADMIN
+#   profe01..profe55@claseya.dev     -> profesores (51 y 55 PENDING, 53 INACTIVE, 54 SUSPENDED)
+#   alumno01..alumno35@claseya.dev   -> estudiantes (33 PENDING, 34 INACTIVE, 35 SUSPENDED)
+#   ana/bruno/carla/diego.profe@claseya.dev y student@claseya.dev -> datos previos, preservados
 
 # ----------------------------------------------------------------------------
 # 6) DEPLOY (Render backend + Vercel frontend + Neon)
