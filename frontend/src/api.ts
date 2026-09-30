@@ -45,6 +45,84 @@ export interface AvailabilityWindow {
   dayPart?: string;
 }
 
+// --- Academic catalog (used by the student profile form) ---------------------
+
+export interface University {
+  id: string;
+  name: string;
+  shortName?: string | null;
+}
+
+export interface AcademicUnit {
+  id: string;
+  name: string;
+  code?: string | null;
+}
+
+export interface Career {
+  id: string;
+  name: string;
+  code?: string | null;
+}
+
+export interface StudentProfile {
+  id: string;
+  userId: string;
+  universityId: string;
+  universityName: string;
+  careerId: string;
+  careerName: string;
+  currentYear: number;
+  bio?: string | null;
+}
+
+export interface StudentProfileInput {
+  universityId: string;
+  careerId: string;
+  currentYear: number;
+  bio?: string;
+}
+
+// --- Messaging ---------------------------------------------------------------
+
+export interface ConversationParticipant {
+  id: string;
+  displayName: string;
+  role: string;
+}
+
+export interface LastMessage {
+  id: string;
+  content: string;
+  createdAt: string;
+  senderId: string;
+}
+
+export interface ConversationSummary {
+  id: string;
+  otherParticipant: ConversationParticipant;
+  lastMessage?: LastMessage;
+  unreadCount: number;
+  updatedAt: string;
+}
+
+export interface Conversation {
+  id: string;
+  otherParticipant: ConversationParticipant;
+  unreadCount: number;
+  updatedAt: string;
+}
+
+export interface Message {
+  id: string;
+  conversationId: string;
+  senderId: string;
+  senderDisplayName: string;
+  content: string;
+  createdAt: string;
+  readAt?: string;
+}
+
 export interface Page<T> {
   content: T[];
   page: number;
@@ -154,4 +232,36 @@ export const api = {
   favorites: () => request<Page<FavoriteResponse>>('GET', '/api/favorites?page=0&size=50', undefined, true),
   addFavorite: (teacherId: string) => request<unknown>('POST', `/api/favorites/${teacherId}`, undefined, true),
   removeFavorite: (teacherId: string) => request<void>('DELETE', `/api/favorites/${teacherId}`, undefined, true),
+
+  // --- Student profile -------------------------------------------------------
+  universities: () => request<University[]>('GET', '/api/universities'),
+  academicUnits: (universityId: string) =>
+    request<AcademicUnit[]>('GET', `/api/universities/${universityId}/academic-units`),
+  careers: (academicUnitId: string) =>
+    request<Career[]>('GET', `/api/academic-units/${academicUnitId}/careers`),
+  studentProfile: () => request<StudentProfile>('GET', '/api/students/me', undefined, true),
+  createStudentProfile: (body: StudentProfileInput) =>
+    request<StudentProfile>('POST', '/api/students/profile', body, true),
+  updateStudentProfile: (body: StudentProfileInput) =>
+    request<StudentProfile>('PUT', '/api/students/me', body, true),
+
+  // --- Messaging (CONTACT-001) ----------------------------------------------
+  /** Starts (or reuses) the conversation with a teacher, optionally with the first message. */
+  startConversation: (teacherId: string, message?: string) =>
+    request<Conversation>('POST', '/api/conversations', message ? { teacherId, message } : { teacherId }, true),
+  conversations: (page = 0, size = 20) =>
+    request<Page<ConversationSummary>>('GET', `/api/conversations?page=${page}&size=${size}`, undefined, true),
+  conversation: (conversationId: string) =>
+    request<Conversation>('GET', `/api/conversations/${conversationId}`, undefined, true),
+  messages: (conversationId: string, page = 0, size = 100) =>
+    request<Page<Message>>(
+      'GET',
+      `/api/conversations/${conversationId}/messages?page=${page}&size=${size}`,
+      undefined,
+      true,
+    ),
+  sendMessage: (conversationId: string, content: string) =>
+    request<Message>('POST', `/api/conversations/${conversationId}/messages`, { content }, true),
+  markConversationRead: (conversationId: string) =>
+    request<void>('PATCH', `/api/conversations/${conversationId}/read`, undefined, true),
 };

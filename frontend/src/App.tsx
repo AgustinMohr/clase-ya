@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Heart } from 'lucide-react';
-import { api, ApiError, type Subject, type TeacherSummary } from './api';
+import { api, ApiError, type StudentProfile, type Subject, type TeacherSummary } from './api';
 import { useAuth } from './auth/AuthContext';
 import { useToast } from './components/ui/Toast';
 import { Navbar } from './components/ui/Navbar';
@@ -11,14 +11,17 @@ import { TeacherCard } from './components/teacher/TeacherCard';
 import LandingPage from './pages/LandingPage';
 import SearchPage from './pages/SearchPage';
 import TeacherProfilePage from './pages/TeacherProfilePage';
+import MessagesPage from './pages/MessagesPage';
 import LoginModal from './components/LoginModal';
 import ContactModal from './components/ContactModal';
+import StudentProfileModal from './components/StudentProfileModal';
 
 type View =
   | { name: 'landing' }
   | { name: 'search'; term: string }
   | { name: 'profile'; id: string }
-  | { name: 'favorites' };
+  | { name: 'favorites' }
+  | { name: 'messages'; conversationId?: string };
 
 export default function App() {
   const { user } = useAuth();
@@ -31,6 +34,11 @@ export default function App() {
   const [loginOpen, setLoginOpen] = useState(false);
   const [pendingContact, setPendingContact] = useState<TeacherSummary | null>(null);
   const [contactTarget, setContactTarget] = useState<TeacherSummary | null>(null);
+  // Student profile: null means it does not exist yet, which blocks both contacting
+  // a teacher and saving favorites (the API answers 409). CONTACT-001 RF-1.
+  const [profile, setProfile] = useState<StudentProfile | null>(null);
+  const [profileChecked, setProfileChecked] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
 
   useEffect(() => {
     api.subjects().then(setSubjects).catch(() => undefined);
@@ -50,6 +58,39 @@ export default function App() {
       })
       .catch(() => undefined);
   }, [user]);
+
+  useEffect(() => {
+    if (!user) {
+      setProfile(null);
+      setProfileChecked(false);
+      return;
+    }
+    if (user.role !== 'STUDENT') {
+      setProfile(null);
+      setProfileChecked(true);
+      return;
+    }
+    api
+      .studentProfile()
+      .then(setProfile)
+      .catch(() => setProfile(null))
+      .finally(() => setProfileChecked(true));
+  }, [user]);
+
+  // Logging out (or an expired session) must not keep showing private views.
+  useEffect(() => {
+    if (!user) {
+      setView({ name: 'landing' });
+    }
+  }, [user]);
+
+  // Every view change starts at the top: arriving at a teacher profile from a scrolled
+  // result list used to land in the middle of the page.
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0 });
+  }, [view]);
+
+  const needsProfile = Boolean(user && user.role === 'STUDENT' && profileChecked && !profile);
 
   async function toggleFavorite(teacher: TeacherSummary) {
     if (!user) {
@@ -75,12 +116,22 @@ export default function App() {
         notify('Guardado en favoritos');
       }
     } catch (error) {
-      const message =
-        error instanceof ApiError && error.status === 409
-          ? 'Completá tu perfil de estudiante para guardar favoritos.'
-          : 'No pudimos actualizar tus favoritos.';
-      notify(message, 'error');
+      if (error instanceof ApiError && error.status === 409) {
+        notify('Completá tu perfil de estudiante para guardar favoritos.', 'error');
+        setProfileOpen(true);
+        return;
+      }
+      notify('No pudimos actualizar tus favoritos.', 'error');
     }
+  }
+
+  /** Opens the student profile form, remembering the teacher the user wanted to contact. */
+  function openProfileForm(teacher: TeacherSummary | null) {
+    if (teacher) {
+      setPendingContact(teacher);
+    }
+    setContactTarget(null);
+    setProfileOpen(true);
   }
 
   function contact(teacher: TeacherSummary) {
@@ -89,7 +140,23 @@ export default function App() {
       setLoginOpen(true);
       return;
     }
+    // Ask for the profile before the API has to reject the contact with a 409.
+    if (needsProfile) {
+      openProfileForm(teacher);
+      return;
+    }
     setContactTarget(teacher);
+  }
+
+  function handleProfileSaved(saved: StudentProfile) {
+    setProfile(saved);
+    setProfileChecked(true);
+    setProfileOpen(false);
+    notify('Perfil completado: ya podés contactar y guardar favoritos');
+    if (pendingContact) {
+      setContactTarget(pendingContact);
+      setPendingContact(null);
+    }
   }
 
   function openFavorites() {
@@ -108,7 +175,13 @@ export default function App() {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <Navbar onHome={() => setView({ name: 'landing' })} onFavorites={openFavorites} onLogin={() => setLoginOpen(true)} />
+      <Navbar
+        onHome={() => setView({ name: 'landing' })}
+        onFavorites={openFavorites}
+        onMessages={() => setView({ name: 'messages' })}
+        onProfile={() => setProfileOpen(true)}
+        onLogin={() => setLoginOpen(true)}
+      />
 
       <main className="flex-1">
         {view.name === 'landing' && (
@@ -136,8 +209,15 @@ export default function App() {
             teacherId={view.id}
             onBack={() => setView({ name: 'landing' })}
             onContact={contact}
-            onToggleFavorite={toggleFavorite}
+            onToggleFavorite={user && user.role !== 'STUDENT' ? undefined : toggleFavorite}
             favorite={favorites.has(view.id)}
+          />
+        )}
+
+        {view.name === 'messages' && (
+          <MessagesPage
+            onBack={() => setView({ name: 'landing' })}
+            initialConversationId={view.conversationId}
           />
         )}
 
@@ -192,8 +272,20 @@ export default function App() {
       />
       <ContactModal
         open={contactTarget !== null}
-        teacherName={contactTarget?.displayName ?? ''}
+        teacher={contactTarget}
         onClose={() => setContactTarget(null)}
+        onSent={(conversationId) => {
+          setContactTarget(null);
+          notify('Mensaje enviado');
+          setView({ name: 'messages', conversationId });
+        }}
+        onNeedsProfile={() => openProfileForm(contactTarget)}
+      />
+      <StudentProfileModal
+        open={profileOpen}
+        onClose={() => setProfileOpen(false)}
+        onSaved={handleProfileSaved}
+        initial={profile}
       />
     </div>
   );

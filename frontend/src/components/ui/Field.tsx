@@ -40,7 +40,8 @@ export function Input({ className, ...rest }: React.InputHTMLAttributes<HTMLInpu
 }
 
 export function Textarea({ className, ...rest }: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  return <textarea className={cn(control, 'resize-y', className)} {...rest} />;
+  // No resize handle anywhere: it adds visual noise without being useful in these forms.
+  return <textarea className={cn(control, 'resize-none', className)} {...rest} />;
 }
 
 export function Select({ className, children, ...rest }: React.SelectHTMLAttributes<HTMLSelectElement>) {

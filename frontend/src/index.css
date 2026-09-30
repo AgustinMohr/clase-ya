@@ -93,6 +93,25 @@
   @apply pointer-events-auto h-4 w-4 cursor-pointer rounded-full border-0 bg-primary-600 shadow-card;
 }
 
+/*
+ * Auto-growing composer (Messages). It only scrolls once it reaches its max height, and
+ * the bar is themed instead of the default white system track.
+ */
+.composer {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(var(--border)) transparent;
+}
+.composer::-webkit-scrollbar {
+  width: 8px;
+}
+.composer::-webkit-scrollbar-track {
+  background: transparent;
+}
+.composer::-webkit-scrollbar-thumb {
+  background-color: rgb(var(--border));
+  border-radius: 9999px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

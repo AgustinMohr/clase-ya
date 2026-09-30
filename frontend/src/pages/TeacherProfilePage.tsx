@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, BadgeCheck, CalendarDays, GraduationCap, Heart, MapPin, MessageCircle, Star } from 'lucide-react';
 import { api, type AvailabilityWindow, type TeacherDetail, type TeacherSummary } from '../api';
+import { useAuth } from '../auth/AuthContext';
 import { Avatar, Badge, Card, EmptyState, Skeleton } from '../components/ui/primitives';
 import { Button } from '../components/ui/Button';
 import { cn } from '../lib/cn';
@@ -15,6 +16,9 @@ interface Props {
 }
 
 export default function TeacherProfilePage({ teacherId, onBack, onContact, onToggleFavorite, favorite }: Props) {
+  const { user } = useAuth();
+  // Only students start contacts; visitors are asked to sign in first.
+  const canContact = !user || user.role === 'STUDENT';
   const [teacher, setTeacher] = useState<TeacherDetail | null>(null);
   const [windows, setWindows] = useState<AvailabilityWindow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -183,9 +187,16 @@ export default function TeacherProfilePage({ teacherId, onBack, onContact, onTog
         <aside className="lg:sticky lg:top-24 lg:h-fit">
           <Card className="space-y-4 p-6">
             <p className="text-3xl font-extrabold tracking-tight text-primary-700 dark:text-primary-200">{formatPriceHour(teacher.pricePerHour)}</p>
-            <Button block size="lg" onClick={() => onContact(teacher)}>
-              <MessageCircle className="h-5 w-5" aria-hidden="true" /> Contactar
-            </Button>
+            {canContact ? (
+              <Button block size="lg" onClick={() => onContact(teacher)}>
+                <MessageCircle className="h-5 w-5" aria-hidden="true" /> Contactar
+              </Button>
+            ) : (
+              <p className="rounded-xl bg-surface-muted px-3 py-2 text-sm text-content-muted">
+                Estás con una cuenta de profesor: podés ver los perfiles, pero los contactos los inician los
+                estudiantes. Tu bandeja está en Mensajes.
+              </p>
+            )}
             {onToggleFavorite && (
               <Button variant="outline" block onClick={() => onToggleFavorite(teacher)}>
                 <Heart className={cn('h-4 w-4', favorite && 'fill-current text-error-600')} aria-hidden="true" />

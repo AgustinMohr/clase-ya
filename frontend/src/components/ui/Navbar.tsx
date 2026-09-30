@@ -1,4 +1,4 @@
-import { GraduationCap, Heart, LogOut, Moon, Sun, UserRound } from 'lucide-react';
+import { GraduationCap, Heart, LogOut, MessageCircle, Moon, Sun, User, UserRound } from 'lucide-react';
 import { useTheme } from '../../theme/ThemeProvider';
 import { useAuth } from '../../auth/AuthContext';
 import { Button } from './Button';
@@ -6,14 +6,19 @@ import { Button } from './Button';
 export function Navbar({
   onHome,
   onFavorites,
+  onMessages,
+  onProfile,
   onLogin,
 }: {
   onHome: () => void;
   onFavorites: () => void;
+  onMessages: () => void;
+  onProfile: () => void;
   onLogin: () => void;
 }) {
   const { theme, toggle } = useTheme();
   const { user, logout } = useAuth();
+  const isStudent = user?.role === 'STUDENT';
 
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-surface/85 backdrop-blur supports-[backdrop-filter]:bg-surface/70">
@@ -32,9 +37,21 @@ export function Navbar({
 
         <nav className="flex items-center gap-1.5" aria-label="Principal">
           {user && (
+            <Button variant="ghost" size="sm" onClick={onMessages}>
+              <MessageCircle className="h-4 w-4" aria-hidden="true" />
+              <span className="hidden sm:inline">Mensajes</span>
+            </Button>
+          )}
+          {isStudent && (
             <Button variant="ghost" size="sm" onClick={onFavorites}>
               <Heart className="h-4 w-4" aria-hidden="true" />
               <span className="hidden sm:inline">Favoritos</span>
+            </Button>
+          )}
+          {isStudent && (
+            <Button variant="ghost" size="sm" onClick={onProfile}>
+              <User className="h-4 w-4" aria-hidden="true" />
+              <span className="hidden sm:inline">Mi perfil</span>
             </Button>
           )}
           <Button
