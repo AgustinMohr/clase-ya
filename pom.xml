@@ -89,6 +89,20 @@
             <optional>true</optional>
         </dependency>
 
+        <!-- DEV ONLY: restarts the application when the compiled classes change
+             (target/classes), so a backend change does not require killing and
+             restarting `spring-boot:run`. It needs an external compile step: saving in
+             VS Code (Java extension) or `mvn compile` in another terminal.
+             `runtime` + `optional` keeps it out of the packaged jar, and the Spring Boot
+             plugin excludes devtools from the fat jar by default, so the Docker image on
+             Render is unaffected. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-devtools</artifactId>
+            <scope>runtime</scope>
+            <optional>true</optional>
+        </dependency>
+
         <!-- Test -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

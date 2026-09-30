@@ -35,6 +35,11 @@ Remove-Item Env:DB_URL, Env:DB_USERNAME, Env:DB_PASSWORD -ErrorAction SilentlyCo
 # Levantar con el perfil local (el timezone es obligatorio en Windows, ver seccion 7):
 mvn spring-boot:run "-Dspring-boot.run.profiles=local" "-Dspring-boot.run.jvmArguments=-Duser.timezone=UTC"
 
+# CON DEVTOOLS: al recompilar, la app se reinicia sola -> NO hace falta cortar el proceso
+# ni volver a levantarlo cuando cambias codigo Java. Alcanza con guardar en VS Code
+# (la extension de Java recompila) o correr `mvn compile` en otra terminal.
+# Devtools es dev-only: no entra en el jar y no afecta el deploy.
+
 # Variante sin tests (arranque mas rapido en el loop diario):
 mvn -DskipTests spring-boot:run "-Dspring-boot.run.profiles=local" "-Dspring-boot.run.jvmArguments=-Duser.timezone=UTC"
 
