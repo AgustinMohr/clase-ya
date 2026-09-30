@@ -7,6 +7,7 @@ import com.claseya.messaging.dto.ConversationParticipantResponse;
 import com.claseya.messaging.dto.ConversationResponse;
 import com.claseya.messaging.dto.ConversationSummaryResponse;
 import com.claseya.messaging.dto.LastMessageResponse;
+import com.claseya.messaging.dto.SendMessageRequest;
 import com.claseya.messaging.repository.ConversationParticipantRepository;
 import com.claseya.messaging.repository.ConversationRepository;
 import com.claseya.messaging.repository.MessageRepository;
@@ -44,24 +45,27 @@ public class ConversationService {
     private final MessageRepository messageRepository;
     private final StudentProfileRepository studentProfileRepository;
     private final TeacherProfileRepository teacherProfileRepository;
+    private final MessageService messageService;
 
     public ConversationService(ConversationRepository conversationRepository,
                                ConversationParticipantRepository participantRepository,
                                MessageRepository messageRepository,
                                StudentProfileRepository studentProfileRepository,
-                               TeacherProfileRepository teacherProfileRepository) {
+                               TeacherProfileRepository teacherProfileRepository,
+                               MessageService messageService) {
         this.conversationRepository = conversationRepository;
         this.participantRepository = participantRepository;
         this.messageRepository = messageRepository;
         this.studentProfileRepository = studentProfileRepository;
         this.teacherProfileRepository = teacherProfileRepository;
+        this.messageService = messageService;
     }
 
     public record ConversationCreated(ConversationResponse conversation, boolean created) {
     }
 
     @Transactional
-    public ConversationCreated start(UUID studentUserId, UUID teacherId) {
+    public ConversationCreated start(UUID studentUserId, UUID teacherId, String message) {
         // The caller can only be contacted when publicly visible (Phase 4 rule).
         TeacherProfile teacher = teacherProfileRepository.findById(teacherId)
                 .orElseThrow(ResourceNotFoundException::new);
@@ -74,18 +78,39 @@ public class ConversationService {
                 .orElseThrow(() -> new ConflictException(
                         "Student profile must be completed before starting a conversation"));
 
+        // Validate the optional first message before touching anything: an invalid
+        // contact must not leave an empty conversation behind (CONTACT-001).
+        if (message != null) {
+            MessageService.requireValidContent(message);
+        }
+
         // One conversation per student<->teacher pair for V1: reuse the existing one.
         List<Conversation> existing =
                 conversationRepository.findBetween(studentUserId, teacher.getUser().getId());
         if (!existing.isEmpty()) {
-            return new ConversationCreated(toResponse(existing.get(0), studentUserId), false);
+            Conversation conversation = existing.get(0);
+            sendInitialMessage(studentUserId, conversation.getId(), message);
+            return new ConversationCreated(toResponse(conversation, studentUserId), false);
         }
 
         Conversation conversation = new Conversation();
         conversationRepository.saveAndFlush(conversation);
         addParticipant(conversation, student.getUser());
         addParticipant(conversation, teacher.getUser());
+        sendInitialMessage(studentUserId, conversation.getId(), message);
         return new ConversationCreated(toResponse(conversation, studentUserId), true);
+    }
+
+    /**
+     * Persists the optional first message of a contact request inside the caller's
+     * transaction (CONTACT-001): an invalid message aborts the whole contact instead
+     * of leaving a conversation with no content. Validation lives in MessageService.
+     */
+    private void sendInitialMessage(UUID studentUserId, UUID conversationId, String message) {
+        if (message == null) {
+            return;
+        }
+        messageService.send(studentUserId, conversationId, new SendMessageRequest(message));
     }
 
     @Transactional(readOnly = true)

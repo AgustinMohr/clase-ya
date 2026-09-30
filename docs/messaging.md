@@ -21,7 +21,10 @@ last-message lookups. No tables were changed.
 
 ## Flow
 
-1. Student contacts a teacher (`POST /api/conversations {teacherId}`).
+1. Student contacts a teacher (`POST /api/conversations {teacherId, message?}`). The optional
+   `message` is the contact request itself and is persisted in the **same transaction**: if it is
+   invalid (blank or longer than 5000 characters) the whole contact fails with 400 and **no empty
+   conversation is left behind** (CONTACT-001).
 2. Student and teacher exchange messages (`POST /{id}/messages`).
 3. Either participant lists conversations, reads messages and marks them read.
 
@@ -29,7 +32,7 @@ last-message lookups. No tables were changed.
 
 | Method | Path | Role | Description |
 |--------|------|------|-------------|
-| `POST` | `/api/conversations` | STUDENT | Start (or reuse) the conversation with a teacher → 201 new / 200 existing |
+| `POST` | `/api/conversations` | STUDENT | Start (or reuse) the conversation with a teacher, with an optional first `message` → 201 new / 200 existing |
 | `GET` | `/api/conversations?page=&size=` | STUDENT/TEACHER | User's conversations (own only) |
 | `GET` | `/api/conversations/{id}` | participant | Conversation detail (other participant + unread) |
 | `GET` | `/api/conversations/{id}/messages?page=&size=` | participant | Paginated messages (oldest first) |
@@ -55,6 +58,8 @@ last-message lookups. No tables were changed.
   enforced and the concurrency limitation is documented (a rare race could create two; the
   service always resolves deterministically afterwards).
 - A conversation is always exactly two participants (student + teacher).
+- Contacting an already-contacted teacher with a new `message` returns `200` **and appends** the
+  message to the existing conversation (it is never dropped).
 
 ## Pagination
 
@@ -94,6 +99,7 @@ profile). 405 added for wrong methods.
 POST /api/conversations
 Authorization: Bearer <student>
 { "teacherId": "uuid" }                          # 201 (new) or 200 (existing)
+{ "teacherId": "uuid", "message": "Hola, ..." }  # same, plus the first message (CONTACT-001)
 
 POST /api/conversations/{id}/messages
 Authorization: Bearer <teacher>

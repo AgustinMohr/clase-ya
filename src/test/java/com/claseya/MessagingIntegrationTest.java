@@ -8,6 +8,7 @@ import com.claseya.messaging.repository.ConversationRepository;
 import com.claseya.messaging.repository.MessageRepository;
 import com.claseya.model.AcademicUnit;
 import com.claseya.model.Career;
+import com.claseya.model.Message;
 import com.claseya.model.StudentProfile;
 import com.claseya.model.TeacherProfile;
 import com.claseya.model.University;
@@ -22,6 +23,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -202,6 +204,109 @@ class MessagingIntegrationTest extends AbstractWebIntegrationTest {
         listMessages(otherToken, convId, 404);
         sendMessage(otherToken, convId, "hola", 404);
         getJson("/api/conversations/" + convId + "/read", otherToken, 405);
+    }
+
+    // ------------------------------------------------------------------ contact request (CONTACT-001)
+
+    private String contact(String token, String teacherId, String message, int expected) throws Exception {
+        String body = message == null
+                ? "{\"teacherId\":\"%s\"}".formatted(teacherId)
+                : "{\"teacherId\":\"%s\",\"message\":\"%s\"}".formatted(teacherId, message);
+        return postJson("/api/conversations", token, body, expected);
+    }
+
+    @Test
+    void contact_withInitialMessage_createsConversationAndMessage() throws Exception {
+        User student = newStudent("s@example.com");
+        TeacherProfile teacher = visibleTeacher("Ana", "ana@example.com");
+
+        // Built from code points on purpose: the assertion must not depend on how the
+        // compiler reads accented bytes from this source file.
+        String message = "Hola, busco apoyo en An" + (char) 0x00E1 + "lisis Matem" + (char) 0x00E1
+                + "tico I. Preferir" + (char) 0x00ED + "a por la tarde.";
+
+        String conversationId = toJson(contact(bearer(student), teacher.getId().toString(), message, 201))
+                .get("id").asText();
+
+        JsonNode messages = listMessages(bearer(student), conversationId, 200);
+        assertThat(messages.get("totalElements").asLong()).isEqualTo(1);
+
+        // Asserted against the persisted entity, not the response body: reading the
+        // MockMvc response as a String uses its own charset and would report mojibake
+        // for accented content that is actually stored correctly.
+        List<Message> stored = messageRepository.findAll();
+        assertThat(stored).hasSize(1);
+        assertThat(stored.get(0).getContent()).isEqualTo(message);
+        assertThat(stored.get(0).getSender().getId()).isEqualTo(student.getId());
+    }
+
+    @Test
+    void contact_withoutMessage_keepsThePreviousBehaviour() throws Exception {
+        User student = newStudent("s@example.com");
+        TeacherProfile teacher = visibleTeacher("Ana", "ana@example.com");
+
+        String conversationId = toJson(contact(bearer(student), teacher.getId().toString(), null, 201))
+                .get("id").asText();
+
+        assertThat(listMessages(bearer(student), conversationId, 200).get("totalElements").asLong()).isZero();
+    }
+
+    @Test
+    void contact_again_appendsTheNewMessageAndReturns200() throws Exception {
+        User student = newStudent("s@example.com");
+        TeacherProfile teacher = visibleTeacher("Ana", "ana@example.com");
+        String teacherId = teacher.getId().toString();
+
+        String conversationId = toJson(contact(bearer(student), teacherId, "Primer contacto", 201))
+                .get("id").asText();
+        String again = contact(bearer(student), teacherId, "Te escribo de nuevo", 200);
+        assertThat(toJson(again).get("id").asText()).isEqualTo(conversationId);
+
+        JsonNode messages = listMessages(bearer(student), conversationId, 200);
+        assertThat(messages.get("totalElements").asLong()).isEqualTo(2);
+        assertThat(conversationRepository.count()).isEqualTo(1);
+    }
+
+    @Test
+    void contact_messageIsTrimmed() throws Exception {
+        User student = newStudent("s@example.com");
+        TeacherProfile teacher = visibleTeacher("Ana", "ana@example.com");
+
+        String conversationId = toJson(contact(bearer(student), teacher.getId().toString(),
+                "   Hola profe   ", 201)).get("id").asText();
+
+        assertThat(listMessages(bearer(student), conversationId, 200)
+                .get("content").get(0).get("content").asText()).isEqualTo("Hola profe");
+    }
+
+    @Test
+    void contact_withBlankMessage_isRejectedAndCreatesNothing() throws Exception {
+        User student = newStudent("s@example.com");
+        TeacherProfile teacher = visibleTeacher("Ana", "ana@example.com");
+
+        contact(bearer(student), teacher.getId().toString(), "   ", 400);
+        // The whole contact is atomic: no conversation is left behind.
+        assertThat(conversationRepository.count()).isZero();
+        assertThat(messageRepository.count()).isZero();
+    }
+
+    @Test
+    void contact_withTooLongMessage_isRejectedAndCreatesNothing() throws Exception {
+        User student = newStudent("s@example.com");
+        TeacherProfile teacher = visibleTeacher("Ana", "ana@example.com");
+
+        contact(bearer(student), teacher.getId().toString(), "x".repeat(5001), 400);
+        assertThat(conversationRepository.count()).isZero();
+    }
+
+    @Test
+    void contact_invisibleTeacher_withMessage_createsNothing() throws Exception {
+        User student = newStudent("s@example.com");
+        TeacherProfile pending = newTeacher("P", "p@example.com", VerificationStatus.PENDING, UserStatus.ACTIVE);
+
+        contact(bearer(student), pending.getId().toString(), "Hola", 404);
+        assertThat(conversationRepository.count()).isZero();
+        assertThat(messageRepository.count()).isZero();
     }
 
     // ------------------------------------------------------------------ messages

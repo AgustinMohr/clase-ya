@@ -6,6 +6,9 @@ import java.util.UUID;
 
 public record CreateConversationRequest(
         @NotNull(message = "teacherId is required")
-        UUID teacherId
+        UUID teacherId,
+
+        /** Optional first message of the contact request (CONTACT-001). Validated by the service. */
+        String message
 ) {
 }

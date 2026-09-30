@@ -43,7 +43,7 @@ public class ConversationController {
     public ResponseEntity<ConversationResponse> start(
             @Valid @RequestBody CreateConversationRequest request) {
         ConversationService.ConversationCreated result =
-                conversationService.start(currentUser.id(), request.teacherId());
+                conversationService.start(currentUser.id(), request.teacherId(), request.message());
         HttpStatus status = result.created() ? HttpStatus.CREATED : HttpStatus.OK;
         return ResponseEntity.status(status).body(result.conversation());
     }

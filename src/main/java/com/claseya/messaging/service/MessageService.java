@@ -65,15 +65,25 @@ public class MessageService {
                 messages.getTotalElements());
     }
 
-    @Transactional
-    public MessageResponse send(UUID userId, UUID conversationId, SendMessageRequest request) {
-        String content = request.content() == null ? "" : request.content().trim();
+    /**
+     * Trims and validates message content (1..MAX_CONTENT characters). Shared with the
+     * contact flow, which validates the optional first message <em>before</em> creating
+     * anything, so an invalid contact leaves no empty conversation behind (CONTACT-001).
+     */
+    public static String requireValidContent(String raw) {
+        String content = raw == null ? "" : raw.trim();
         if (content.isEmpty()) {
             throw new BadRequestException("Content is required");
         }
         if (content.length() > MAX_CONTENT) {
             throw new BadRequestException("Content must be at most " + MAX_CONTENT + " characters");
         }
+        return content;
+    }
+
+    @Transactional
+    public MessageResponse send(UUID userId, UUID conversationId, SendMessageRequest request) {
+        String content = requireValidContent(request.content());
         requireAccessible(userId, conversationId);
 
         Conversation conversation = conversationRepository.findById(conversationId)
