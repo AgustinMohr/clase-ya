@@ -233,6 +233,23 @@ class VerificationWorkflowIntegrationTest extends AbstractWebIntegrationTest {
     }
 
     @Test
+    void teacherView_exposesTheMoreInfoRequirementAndHistory() {
+        uploadPdfAndSubmit(education.getId());
+        decisionService.decide(admin.getId(), profile.getId(), education.getId(),
+                VerificationAction.MORE_INFO_REQUIRED, VerificationMethod.DOCUMENT_ANALYSIS,
+                "subí el analítico completo");
+
+        TeacherVerificationView view = teacherVerificationService.viewForUser(teacher.getId());
+
+        assertThat(view.profileStatus()).isEqualTo(VerificationStatus.MORE_INFO_REQUIRED);
+        assertThat(view.credentials()).hasSize(1);
+        assertThat(view.credentials().get(0).requirement()).isEqualTo("subí el analítico completo");
+        assertThat(view.history()).hasSize(1);
+        assertThat(view.history().get(0).decision()).isEqualTo(VerificationAction.MORE_INFO_REQUIRED);
+        assertThat(view.history().get(0).reason()).isEqualTo("subí el analítico completo");
+    }
+
+    @Test
     void decide_onCredentialNotUnderReview_conflicts() {
         // A PENDING credential has never been submitted; a decision over it is a 409.
         assertThatThrownBy(() -> decisionService.decide(admin.getId(), profile.getId(), education.getId(),

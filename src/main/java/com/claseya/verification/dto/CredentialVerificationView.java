@@ -13,16 +13,26 @@ public record CredentialVerificationView(
         String degree,
         VerificationStatus status,
         Instant submittedAt,
-        long documentCount
+        long documentCount,
+        String requirement
 ) {
 
     public static CredentialVerificationView of(TeacherEducation education, long documentCount) {
+        return of(education, documentCount, null);
+    }
+
+    /**
+     * {@code requirement} is the reason the admin asked for more information (RF-16); it is only
+     * populated when the credential is {@link VerificationStatus#MORE_INFO_REQUIRED}.
+     */
+    public static CredentialVerificationView of(TeacherEducation education, long documentCount, String requirement) {
         return new CredentialVerificationView(
                 education.getId(),
                 education.getInstitution(),
                 education.getDegree(),
                 education.getVerificationStatus(),
                 education.getSubmittedAt(),
-                documentCount);
+                documentCount,
+                requirement);
     }
 }

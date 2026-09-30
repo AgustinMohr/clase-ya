@@ -131,6 +131,12 @@ function CredentialRow({
         {credential.submittedAt ? ` · presentada` : ''}
       </p>
 
+      {credential.status === 'MORE_INFO_REQUIRED' && credential.requirement && (
+        <p className="mt-2 rounded-lg border border-accent-300 bg-accent-50 px-3 py-2 text-sm dark:border-accent-700/30 dark:bg-accent-900/30">
+          Te pedimos más información: <span className="font-semibold">{credential.requirement}</span>
+        </p>
+      )}
+
       <div className="mt-3 flex flex-wrap items-end gap-3">
         <Field label="Tipo de documento">
           {({ id }) => (

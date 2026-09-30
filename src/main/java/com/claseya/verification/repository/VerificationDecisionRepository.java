@@ -18,6 +18,9 @@ public interface VerificationDecisionRepository extends JpaRepository<Verificati
 
     List<VerificationDecision> findByTeacher_IdOrderByDecidedAtDesc(UUID teacherId);
 
+    List<VerificationDecision> findByTeacher_IdAndDecisionOrderByDecidedAtDesc(
+            UUID teacherId, VerificationAction decision);
+
     Optional<VerificationDecision> findFirstByTeacher_IdAndDecisionOrderByDecidedAtDesc(
             UUID teacherId, VerificationAction decision);
 }

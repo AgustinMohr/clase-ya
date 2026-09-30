@@ -167,11 +167,24 @@ export interface VerificationCredential {
   status: VerificationStatus;
   submittedAt?: string;
   documentCount: number;
+  requirement?: string;
+}
+
+export interface VerificationDecisionView {
+  id: string;
+  educationId?: string | null;
+  decision: string;
+  previousStatus?: VerificationStatus | null;
+  newStatus: VerificationStatus;
+  method: string;
+  reason?: string;
+  decidedAt: string;
 }
 
 export interface TeacherVerification {
   profileStatus: VerificationStatus;
   credentials: VerificationCredential[];
+  history: VerificationDecisionView[];
 }
 
 export interface CareerSubject {
