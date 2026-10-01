@@ -100,7 +100,9 @@ scripts\seed-demo.ps1
 #   DB_URL=jdbc:postgresql://<host-neon>/neondb?sslmode=require&prepareThreshold=0
 #   DB_USERNAME=neondb_owner
 #   DB_PASSWORD=<password de Neon>
-#   JWT_SECRET=<>=32 chars>        JWT_EXPIRATION=3600
+#   JWT_SECRET=<aleatorio, >=32 caracteres>   JWT_EXPIRATION=3600
+#     -> OBLIGATORIO en produccion: el backend NO arranca con el secret de desarrollo ni
+#        con uno de menos de 32 bytes fuera del perfil `local` (fail-fast al iniciar).
 #   GOOGLE_CLIENT_ID=<EL MISMO que VITE_GOOGLE_CLIENT_ID>
 #   FRONTEND_URL=https://<dominio-vercel>    (origin exacto, SIN barra final)
 #   DEMO_SEED=false                          (en produccion real)
