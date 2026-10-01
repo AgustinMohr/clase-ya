@@ -819,6 +819,58 @@ WHERE c.id = md5('claseya-demo-conv:empty')::uuid
 ON CONFLICT (conversation_id, user_id) DO NOTHING;
 
 -- =============================================================================
+-- 8b) VERIFICACION ACADEMICA (TEACHER-001) — dataset consistente
+-- =============================================================================
+-- El estado del perfil debe salir de la tabla de RF-14 (I12). Los profesores demo nombrados quedan
+-- verificados de verdad: se les asegura una credencial, se marca VERIFIED, se registra la decisión
+-- de auditoría y, al final, se recalcula cada perfil desde sus credenciales.
+
+-- Al menos una credencial por profesor nombrado (los que no tuvieron la formación aleatoria).
+INSERT INTO teacher_education (teacher_id, institution, degree, description, start_year, end_year, created_at)
+SELECT tp.id, 'Universidad Nacional del Litoral', 'Profesorado de Matemática', 'Formación de grado.', 2010, 2015, now()
+FROM (VALUES ('ana.profe@claseya.dev'), ('bruno.profe@claseya.dev'),
+             ('carla.profe@claseya.dev'), ('diego.profe@claseya.dev')) AS v(email)
+JOIN users u ON u.email = v.email
+JOIN teacher_profiles tp ON tp.user_id = u.id
+WHERE NOT EXISTS (SELECT 1 FROM teacher_education e WHERE e.teacher_id = tp.id);
+
+-- Todas sus credenciales quedan verificadas.
+UPDATE teacher_education e
+SET verification_status = 'VERIFIED', submitted_at = COALESCE(e.submitted_at, now())
+FROM teacher_profiles tp
+JOIN users u ON u.id = tp.user_id
+WHERE e.teacher_id = tp.id
+  AND u.email IN ('ana.profe@claseya.dev', 'bruno.profe@claseya.dev',
+                  'carla.profe@claseya.dev', 'diego.profe@claseya.dev');
+
+-- Auditoría: una decisión VERIFIED por credencial verificada (idempotente).
+INSERT INTO verification_decisions (teacher_id, teacher_education_id, admin_user_id,
+                                    previous_status, new_status, decision, method, reason, decided_at)
+SELECT e.teacher_id, e.id, a.id, 'UNDER_REVIEW', 'VERIFIED', 'VERIFIED', 'INSTITUTION_CHECK',
+       'Verificación del dataset de demostración.', now()
+FROM teacher_education e
+JOIN users a ON a.email = 'admin@claseya.dev'
+WHERE e.verification_status = 'VERIFIED'
+  AND NOT EXISTS (
+      SELECT 1 FROM verification_decisions d
+      WHERE d.teacher_education_id = e.id AND d.decision = 'VERIFIED'
+  );
+
+-- Recalcula el estado de cada perfil desde sus credenciales (precedencia de RF-14), para que el
+-- demo nunca contradiga a sus credenciales: perfil VERIFIED <=> al menos una credencial VERIFIED.
+UPDATE teacher_profiles tp
+SET verification_status = (
+    SELECT CASE
+        WHEN bool_or(e.verification_status = 'VERIFIED') THEN 'VERIFIED'
+        WHEN bool_or(e.verification_status = 'UNDER_REVIEW') THEN 'UNDER_REVIEW'
+        WHEN bool_or(e.verification_status = 'MORE_INFO_REQUIRED') THEN 'MORE_INFO_REQUIRED'
+        WHEN bool_or(e.verification_status = 'REJECTED') THEN 'REJECTED'
+        ELSE 'PENDING'
+    END
+    FROM teacher_education e
+    WHERE e.teacher_id = tp.id
+);
+
 -- 9) RESUMEN
 -- =============================================================================
 SELECT 'users' AS entidad, count(*) AS total FROM users
@@ -839,4 +891,5 @@ UNION ALL SELECT 'favorites', count(*) FROM favorites
 UNION ALL SELECT 'conversations', count(*) FROM conversations
 UNION ALL SELECT 'conversation_participants', count(*) FROM conversation_participants
 UNION ALL SELECT 'messages', count(*) FROM messages
+UNION ALL SELECT 'verification_decisions', count(*) FROM verification_decisions
 ORDER BY entidad;

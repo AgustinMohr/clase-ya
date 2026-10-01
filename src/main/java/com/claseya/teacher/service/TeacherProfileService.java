@@ -43,7 +43,7 @@ public class TeacherProfileService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         if (request.name() != null) {
-            user.setName(request.name());
+            user.setName(blankToNull(request.name()));
         }
 
         TeacherProfile profile = new TeacherProfile();
@@ -71,7 +71,7 @@ public class TeacherProfileService {
         if (request.name() != null) {
             User user = userRepository.findById(userId)
                     .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-            user.setName(request.name());
+            user.setName(blankToNull(request.name()));
         }
         applyEditableFields(profile, request.bio(), request.address(), request.availabilityNote(),
                 request.pricePerHour(), request.city(), request.photoUrl(),
@@ -93,25 +93,31 @@ public class TeacherProfileService {
                 .toList();
     }
 
+    /**
+     * PUT semantics: every editable field is written from the request, so a null (or blank) value
+     * clears it. Previously {@code availabilityNote}, {@code pricePerHour}, {@code city} and
+     * {@code photoUrl} were only applied when non-null, which made them impossible to clear from the
+     * API (TEACHER-001, "Mi anuncio").
+     */
     private void applyEditableFields(TeacherProfile profile, String bio, String address,
                                      String availabilityNote, BigDecimal pricePerHour,
                                      String city, String photoUrl,
                                      BigDecimal latitude, BigDecimal longitude) {
-        profile.setBio(bio);
-        profile.setAddress(address);
-        if (availabilityNote != null) {
-            profile.setAvailabilityNote(availabilityNote);
-        }
-        if (pricePerHour != null) {
-            profile.setPricePerHour(pricePerHour);
-        }
-        if (city != null) {
-            profile.setCity(city);
-        }
-        if (photoUrl != null) {
-            profile.setPhotoUrl(photoUrl);
-        }
+        profile.setBio(blankToNull(bio));
+        profile.setAddress(blankToNull(address));
+        profile.setAvailabilityNote(blankToNull(availabilityNote));
+        profile.setPricePerHour(pricePerHour);
+        profile.setCity(blankToNull(city));
+        profile.setPhotoUrl(blankToNull(photoUrl));
         profile.setLatitude(latitude);
         profile.setLongitude(longitude);
+    }
+
+    private static String blankToNull(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 }

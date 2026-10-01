@@ -118,6 +118,25 @@ class TeacherProfileIntegrationTest extends AbstractWebIntegrationTest {
     }
 
     @Test
+    void teacher_canClearPriceCityAndPhoto() throws Exception {
+        User teacher = createUser("prof@example.com", UserRole.TEACHER, UserStatus.ACTIVE);
+        String token = bearer(teacher);
+        postJson("/api/teachers/profile", token,
+                """
+                {"bio":"x","pricePerHour":9000,"city":"Santa Fe","photoUrl":"https://example.com/p.jpg"}
+                """, 201);
+
+        // PUT semantics: empty/null fields are cleared, not silently kept.
+        String updated = putJson("/api/teachers/me", token,
+                """
+                {"bio":"x","pricePerHour":null,"city":"","photoUrl":""}
+                """, 200);
+        assertThat(toJson(updated).has("pricePerHour")).isFalse();
+        assertThat(toJson(updated).has("city")).isFalse();
+        assertThat(toJson(updated).has("photoUrl")).isFalse();
+    }
+
+    @Test
     void education_crud_isVerifiedStaysFalse() throws Exception {
         User teacher = createUser("prof@example.com", UserRole.TEACHER, UserStatus.ACTIVE);
         String token = bearer(teacher);
