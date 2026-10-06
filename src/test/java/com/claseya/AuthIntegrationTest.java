@@ -6,6 +6,7 @@ import com.claseya.model.enums.UserStatus;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.MediaType;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
@@ -37,6 +38,15 @@ class AuthIntegrationTest extends AbstractWebIntegrationTest {
         return """
                 {"email":"%s","password":"%s","role":"%s"}
                 """.formatted(email, password, role);
+    }
+
+    @Test
+    void login_withUnsupportedContentType_returns415Not500() throws Exception {
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.TEXT_PLAIN)
+                        .content("{\"email\":\"a@b.com\",\"password\":\"Password123\"}"))
+                .andExpect(status().isUnsupportedMediaType())
+                .andExpect(jsonPath("$.status").value(415));
     }
 
     private String loginBody(String email, String password) {

@@ -14,6 +14,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
@@ -119,6 +120,17 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiError> handleMethodNotSupported(HttpRequestMethodNotSupportedException ex,
                                                              HttpServletRequest request) {
         return build(HttpStatus.METHOD_NOT_ALLOWED, "Method Not Allowed", "Method not allowed", request);
+    }
+
+    /**
+     * A body sent with an unsupported Content-Type is a client error (415), not a server failure.
+     * Without this handler it fell through to the catch-all and answered a misleading 500.
+     */
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<ApiError> handleMediaTypeNotSupported(HttpMediaTypeNotSupportedException ex,
+                                                                HttpServletRequest request) {
+        return build(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "Unsupported Media Type",
+                "Content-Type is not supported", request);
     }
 
     @ExceptionHandler(Exception.class)
