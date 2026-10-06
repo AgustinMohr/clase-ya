@@ -615,7 +615,7 @@ export default function MyListingPage({
             </Field>
           </div>
           <div className="mt-4">
-            <Button variant="outline" onClick={addEducation} loading={addingEducation} disabled={!eduForm.institution || !eduForm.degree}>
+            <Button variant="outline" onClick={addEducation} loading={addingEducation} disabled={!eduForm.institution || !eduForm.degree || !eduForm.startYear}>
               <Plus className="h-4 w-4" aria-hidden="true" /> Agregar formación
             </Button>
           </div>

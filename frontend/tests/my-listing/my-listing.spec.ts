@@ -42,6 +42,8 @@ test.describe('Mi anuncio — acciones destructivas', () => {
       const degree = uniqueText('Formación E2E');
       await listing.institution.fill('UTN');
       await listing.degree.fill(degree);
+      // startYear is required by the API (CreateTeacherEducationRequest @NotNull).
+      await listing.startYear.fill('2020');
       await listing.addEducation.click();
       await expect(page.getByText('Formación agregada')).toBeVisible();
 
