@@ -38,4 +38,20 @@ test.describe('Perfil de estudiante', () => {
       await expect(dialog.career).toHaveValue(before.currentCareer);
     },
   );
+
+  test(
+    'el campo "Sobre vos" no supera el límite del backend',
+    { tag: ['@high', '@e2e', '@profile', '@PROFILE-E2E-002'] },
+    async ({ page }) => {
+      await loginAs(page);
+
+      const dialog = new StudentProfileDialog(page);
+      await dialog.gotoHome();
+      await dialog.openFromNavbar();
+
+      // The UI caps the bio at the backend maximum (1000) so a longer text never comes
+      // back as a 400 from Create/UpdateStudentProfileRequest.
+      await expect(dialog.bio).toHaveAttribute('maxlength', '1000');
+    },
+  );
 });

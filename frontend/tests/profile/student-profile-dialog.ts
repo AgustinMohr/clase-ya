@@ -18,6 +18,7 @@ export class StudentProfileDialog extends BasePage {
   readonly faculty: Locator;
   readonly career: Locator;
   readonly year: Locator;
+  readonly bio: Locator;
   readonly saveButton: Locator;
   readonly savedLine: Locator;
 
@@ -28,6 +29,7 @@ export class StudentProfileDialog extends BasePage {
     this.faculty = this.dialog.getByLabel('Facultad');
     this.career = this.dialog.getByLabel('Carrera');
     this.year = this.dialog.getByLabel('Año que cursás');
+    this.bio = this.dialog.getByLabel('Sobre vos');
     this.saveButton = this.dialog.getByRole('button', { name: 'Guardar perfil' });
     this.savedLine = this.dialog.getByText('Guardado:');
   }

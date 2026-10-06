@@ -37,3 +37,29 @@ solo del valor seleccionado: al reabrir con la misma universidad nunca volvían 
 ### Notes:
 - El cambio abarca las tres selects a propósito: en el catálogo demo la UTN tiene una sola
   facultad y una sola carrera, así que un cambio real tiene que empezar por la universidad.
+
+---
+
+## Test Case: `PROFILE-E2E-002` - El campo "Sobre vos" respeta el límite del backend
+
+**Priority:** `high`
+
+**Tags:**
+- type → @e2e
+- feature → @profile
+
+**Description/Objective:** El textarea "Sobre vos" debe limitar la entrada al máximo que acepta la
+API (1000 caracteres, `Create/UpdateStudentProfileRequest`). Sin el `maxLength`, un texto más largo
+volvía como 400 al guardar.
+
+**Preconditions:**
+- Sesión iniciada como `student@claseya.dev` (con perfil).
+
+### Flow Steps:
+1. Abrir **Mi perfil** desde el navbar.
+
+### Expected Result:
+- El textarea "Sobre vos" tiene `maxlength="1000"`.
+
+### Key verification points:
+- `dialog.bio` expone el atributo `maxlength` = `1000`.

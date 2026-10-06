@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api, ApiError, type AcademicUnit, type Career, type StudentProfile, type University } from '../api';
+import { api, ApiError, MAX_STUDENT_BIO_LENGTH, type AcademicUnit, type Career, type StudentProfile, type University } from '../api';
 import Modal from './ui/Modal';
 import { Button } from './ui/Button';
 import { Field, Input, Select, Textarea } from './ui/Field';
@@ -236,7 +236,7 @@ export default function StudentProfileModal({ open, onClose, onSaved, initial }:
         </Field>
 
         <Field label="Sobre vos" hint="Opcional">
-          {(props) => <Textarea {...props} rows={2} value={bio} onChange={(e) => setBio(e.target.value)} />}
+          {(props) => <Textarea {...props} rows={2} maxLength={MAX_STUDENT_BIO_LENGTH} value={bio} onChange={(e) => setBio(e.target.value)} />}
         </Field>
 
         {error && (
