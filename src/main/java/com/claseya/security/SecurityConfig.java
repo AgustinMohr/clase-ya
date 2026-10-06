@@ -31,7 +31,12 @@ public class SecurityConfig {
                                                    RestAuthenticationEntryPoint entryPoint,
                                                    RestAccessDeniedHandler accessDeniedHandler) throws Exception {
         http
-                // Stateless JWT API: no session, no CSRF.
+                // Stateless token API: authentication comes from the Authorization: Bearer
+                // header, never from a cookie, and sessions are STATELESS. A browser cannot
+                // attach that header on a cross-site request, so there is no CSRF surface to
+                // protect here — leaving CSRF enabled would only reject legitimate
+                // header-authenticated writes. (CodeQL's java/spring-disabled-csrf-protection
+                // flags this pattern regardless; it is a false positive for this architecture.)
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(Customizer.withDefaults())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
