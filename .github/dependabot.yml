@@ -1,0 +1,22 @@
+# Dependabot configuration.
+#
+# Vite and its React plugin are versioned together: @vitejs/plugin-react 6.x requires
+# vite ^8, so a Dependabot PR that bumps vite on its own leaves an incompatible tree
+# (ERESOLVE on `npm install`). The groups below keep both packages in the same pull
+# request, for version updates and for security updates.
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+    groups:
+      vite-and-react:
+        patterns:
+          - "vite"
+          - "@vitejs/plugin-react"
+      vite-and-react-security:
+        applies-to: "security-updates"
+        patterns:
+          - "vite"
+          - "@vitejs/plugin-react"
