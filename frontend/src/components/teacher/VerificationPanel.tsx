@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { BadgeCheck, FileText, Send, Trash2, Upload } from 'lucide-react';
+import { FileText, Send, Trash2, Upload } from 'lucide-react';
 import {
   api,
   type DocumentType,
@@ -8,7 +8,7 @@ import {
   type TeacherVerification,
 } from '../../api';
 import { useToast } from '../ui/Toast';
-import { Badge, Card } from '../ui/primitives';
+import { Badge, Card, ConfirmDialog, EmptyState, Skeleton, SubCard } from '../ui/primitives';
 import { Button } from '../ui/Button';
 import { Field, Select } from '../ui/Field';
 
@@ -37,6 +37,13 @@ function statusTone(status: string): 'success' | 'accent' | 'neutral' {
   return 'neutral';
 }
 
+type ConfirmState = null | {
+  title: string;
+  description?: string;
+  confirmLabel?: string;
+  onConfirm: () => void | Promise<void>;
+};
+
 function CredentialRow({
   credential,
   onChanged,
@@ -52,6 +59,7 @@ function CredentialRow({
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [confirm, setConfirm] = useState<ConfirmState>(null);
 
   const verified = credential.status === 'VERIFIED';
   const underReview = credential.status === 'UNDER_REVIEW';
@@ -103,19 +111,27 @@ function CredentialRow({
     }
   }
 
-  async function removeDoc(documentId: string) {
-    try {
-      await api.deleteDocument(documentId);
-      setDocuments((prev) => prev.filter((d) => d.id !== documentId));
-      notify('Documento eliminado');
-      onChanged();
-    } catch {
-      notify('No pudimos eliminar el documento.', 'error');
-    }
+  /** Deleting a document is not reversible (the file is not retained) → confirmation. */
+  function requestRemoveDoc(document: VerificationDocument) {
+    setConfirm({
+      title: 'Eliminar documento',
+      description: `Se eliminará "${document.originalFilename}". Para volver a presentarlo vas a tener que subirlo de nuevo.`,
+      confirmLabel: 'Eliminar documento',
+      onConfirm: async () => {
+        try {
+          await api.deleteDocument(document.id);
+          setDocuments((prev) => prev.filter((d) => d.id !== document.id));
+          notify('Documento eliminado');
+          onChanged();
+        } catch {
+          notify('No pudimos eliminar el documento.', 'error');
+        }
+      },
+    });
   }
 
   return (
-    <div data-testid="credential-row" className="rounded-xl border border-border bg-surface-muted/40 p-4">
+    <SubCard data-testid="credential-row">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="font-semibold">{credential.degree || 'Formación'}</p>
@@ -158,7 +174,7 @@ function CredentialRow({
             />
           )}
         </Field>
-        <Button variant="secondary" size="sm" onClick={upload} loading={uploading} disabled={!file}>
+        <Button variant="outline" size="sm" onClick={upload} loading={uploading} disabled={!file}>
           <Upload className="h-4 w-4" aria-hidden="true" /> Subir
         </Button>
       </div>
@@ -175,32 +191,45 @@ function CredentialRow({
       </div>
 
       <div className="mt-3">
-        <button type="button" onClick={toggleDocs} className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary-600 hover:underline">
+        <button type="button" onClick={toggleDocs} className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary-600 hover:underline dark:text-primary-200">
           <FileText className="h-4 w-4" aria-hidden="true" />
           {docsOpen ? 'Ocultar documentos' : 'Ver documentos'}
         </button>
         {docsOpen && (
           <div className="mt-2 space-y-1.5">
             {loadingDocs ? (
-              <p className="text-sm text-content-muted">Cargando…</p>
+              <div className="space-y-1.5">
+                {Array.from({ length: 2 }).map((_, index) => (
+                  <Skeleton key={index} className="h-9" />
+                ))}
+              </div>
             ) : documents.length === 0 ? (
-              <p className="text-sm text-content-muted">Todavía no hay documentos.</p>
+              <EmptyState size="compact" title="Todavía no hay documentos" />
             ) : (
               documents.map((doc) => (
-                <div key={doc.id} className="flex items-center justify-between gap-2 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm">
+                <SubCard key={doc.id} dense className="flex items-center justify-between gap-2 bg-surface text-sm">
                   <span className="truncate">
                     {DOCUMENT_TYPE_LABEL[doc.type] ?? doc.type} · {doc.originalFilename}
                   </span>
-                  <button type="button" onClick={() => removeDoc(doc.id)} aria-label={`Eliminar ${doc.originalFilename}`} className="text-content-muted hover:text-error-600">
+                  <button type="button" onClick={() => requestRemoveDoc(doc)} aria-label={`Eliminar ${doc.originalFilename}`} className="text-content-muted hover:text-error-600">
                     <Trash2 className="h-4 w-4" aria-hidden="true" />
                   </button>
-                </div>
+                </SubCard>
               ))
             )}
           </div>
         )}
       </div>
-    </div>
+
+      <ConfirmDialog
+        open={confirm !== null}
+        title={confirm?.title ?? ''}
+        description={confirm?.description}
+        confirmLabel={confirm?.confirmLabel}
+        onConfirm={() => confirm?.onConfirm()}
+        onClose={() => setConfirm(null)}
+      />
+    </SubCard>
   );
 }
 
@@ -233,9 +262,7 @@ export default function VerificationPanel({
   return (
     <Card className="p-6">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="flex items-center gap-2 font-display text-xl">
-          <BadgeCheck className="h-5 w-5 text-primary-600" aria-hidden="true" /> Verificación académica
-        </h2>
+        <h2 className="font-display text-xl">Verificación académica</h2>
         <div className="flex items-center gap-3">
           <Badge tone={verification?.profileStatus === 'VERIFIED' ? 'success' : 'neutral'}>
             {STATUS_LABEL[verification?.profileStatus ?? 'PENDING'] ?? 'Pendiente'}
@@ -255,10 +282,11 @@ export default function VerificationPanel({
       </p>
 
       {credentials.length === 0 ? (
-        <p className="text-sm text-content-muted">
-          Todavía no tenés formación cargada. Agregala en la sección "Formación" para poder presentar
-          credenciales.
-        </p>
+        <EmptyState
+          size="compact"
+          title="Todavía no tenés formación cargada"
+          description='Agregala en la sección "Formación" para poder presentar credenciales.'
+        />
       ) : (
         <div className="space-y-3">
           {credentials.map((credential) => (

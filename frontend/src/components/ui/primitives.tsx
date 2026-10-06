@@ -1,7 +1,10 @@
+import { useState } from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
-import { Star, BadgeCheck } from 'lucide-react';
+import { Star, BadgeCheck, X } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { formatRating, initials } from '../../lib/format';
+import Modal from './Modal';
+import { Button } from './Button';
 
 /* ------------------------------------------------ Card */
 export function Card({
@@ -15,6 +18,25 @@ export function Card({
         'rounded-2xl border border-border bg-surface shadow-card',
         interactive &&
           'cursor-pointer transition-[transform,box-shadow] duration-200 ease-smooth hover:-translate-y-0.5 hover:shadow-card-hover',
+        className,
+      )}
+      {...rest}
+    />
+  );
+}
+
+/* ------------------------------------------------ SubCard (inset / sub-panel) */
+/** Nested surface inside a Card. `dense` is the compact list-row form. */
+export function SubCard({
+  className,
+  dense,
+  ...rest
+}: React.HTMLAttributes<HTMLDivElement> & { dense?: boolean }) {
+  return (
+    <div
+      className={cn(
+        'border border-border bg-surface-muted',
+        dense ? 'rounded-lg px-3 py-2' : 'rounded-xl p-4',
         className,
       )}
       {...rest}
@@ -58,6 +80,43 @@ export function VerifiedBadge({ className }: { className?: string }) {
     <Badge tone="success" className={className} icon={<BadgeCheck className="h-3.5 w-3.5" aria-hidden="true" />}>
       Verificado
     </Badge>
+  );
+}
+
+/* ------------------------------------------------ Tag (valor editable) */
+/**
+ * Same visual language as Badge, but for values the user can remove (matters:
+ * subjects, education). Badge stays presentational; Chip is a toggle button, so a
+ * remove control cannot live inside it — a <span>-based Tag can.
+ */
+export function Tag({
+  className,
+  tone,
+  icon,
+  onRemove,
+  removeLabel,
+  children,
+}: React.HTMLAttributes<HTMLSpanElement> &
+  VariantProps<typeof badgeStyles> & {
+    icon?: React.ReactNode;
+    onRemove?: () => void;
+    removeLabel?: string;
+  }) {
+  return (
+    <span className={cn(badgeStyles({ tone }), 'gap-1.5', className)}>
+      {icon}
+      {children}
+      {onRemove && (
+        <button
+          type="button"
+          aria-label={removeLabel ?? 'Quitar'}
+          onClick={onRemove}
+          className="-mr-0.5 rounded-full p-0.5 transition-colors hover:text-error-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <X className="h-3.5 w-3.5" aria-hidden="true" />
+        </button>
+      )}
+    </span>
   );
 }
 
@@ -157,24 +216,81 @@ export function EmptyState({
   description,
   action,
   className,
+  size = 'default',
 }: {
   icon?: React.ReactNode;
   title: string;
   description?: string;
   action?: React.ReactNode;
   className?: string;
+  size?: 'default' | 'compact';
 }) {
+  const compact = size === 'compact';
   return (
     <div
       className={cn(
-        'flex flex-col items-center gap-3 rounded-2xl border border-dashed border-border bg-surface px-6 py-12 text-center',
+        'flex flex-col items-center border border-dashed border-border bg-surface text-center',
+        compact ? 'gap-2 rounded-xl px-4 py-6' : 'gap-3 rounded-2xl px-6 py-12',
         className,
       )}
     >
-      {icon && <div className="grid h-12 w-12 place-items-center rounded-full bg-primary-50 text-primary-600 dark:bg-primary-900/40 dark:text-primary-200">{icon}</div>}
-      <h3 className="text-lg font-bold">{title}</h3>
-      {description && <p className="max-w-md text-sm text-content-muted">{description}</p>}
+      {icon &&
+        (compact ? (
+          <div className="text-content-muted">{icon}</div>
+        ) : (
+          <div className="grid h-12 w-12 place-items-center rounded-full bg-primary-50 text-primary-600 dark:bg-primary-900/40 dark:text-primary-200">
+            {icon}
+          </div>
+        ))}
+      <h3 className={cn(compact ? 'text-sm font-semibold' : 'text-lg font-bold')}>{title}</h3>
+      {description && <p className={cn('max-w-md text-content-muted', compact ? 'text-xs' : 'text-sm')}>{description}</p>}
       {action}
     </div>
+  );
+}
+
+/* ------------------------------------------------ ConfirmDialog (acciones destructivas) */
+/** Modal de confirmación para acciones irreversibles; el botón de confirmar usa `danger`. */
+export function ConfirmDialog({
+  open,
+  title,
+  description,
+  confirmLabel = 'Confirmar',
+  cancelLabel = 'Cancelar',
+  onConfirm,
+  onClose,
+}: {
+  open: boolean;
+  title: string;
+  description?: string;
+  confirmLabel?: string;
+  cancelLabel?: string;
+  onConfirm: () => void | Promise<void>;
+  onClose: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+
+  async function confirm() {
+    setBusy(true);
+    try {
+      await onConfirm();
+      onClose();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Modal open={open} onClose={onClose} title={title} size="sm">
+      {description && <p className="text-sm text-content-muted">{description}</p>}
+      <div className="mt-5 flex flex-col gap-2 sm:flex-row">
+        <Button variant="danger" block loading={busy} onClick={confirm}>
+          {confirmLabel}
+        </Button>
+        <Button variant="outline" block onClick={onClose} disabled={busy}>
+          {cancelLabel}
+        </Button>
+      </div>
+    </Modal>
   );
 }

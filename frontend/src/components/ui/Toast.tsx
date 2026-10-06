@@ -3,17 +3,37 @@ import { CheckCircle2, AlertTriangle, Info, X } from 'lucide-react';
 import { cn } from '../../lib/cn';
 
 type ToastTone = 'success' | 'error' | 'info';
+
+/** Optional action (e.g. "Deshacer") rendered inside the toast. */
+interface ToastAction {
+  label: string;
+  onClick: () => void | Promise<void>;
+}
+
 interface Toast {
   id: number;
   tone: ToastTone;
   message: string;
+  action?: ToastAction;
+}
+
+interface ToastOptions {
+  tone?: ToastTone;
+  action?: ToastAction;
 }
 
 interface ToastContextValue {
-  notify: (message: string, tone?: ToastTone) => void;
+  notify: (message: string, options?: ToastTone | ToastOptions) => void;
 }
 
 const ToastContext = createContext<ToastContextValue | null>(null);
+
+/**
+ * Informative toasts dismiss on their own; action toasts stay longer so there is
+ * time to read the message and hit the action (undo). Documented in DESIGN.md §8.11.
+ */
+const INFORMATIVE_DURATION = 4200;
+const ACTION_DURATION = 8000;
 
 const toneStyles: Record<ToastTone, string> = {
   success: 'border-success-500/30 bg-success-50 text-success-700 dark:bg-success-700/20 dark:text-success-500',
@@ -30,11 +50,19 @@ const toneIcon = {
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
-  const notify = useCallback((message: string, tone: ToastTone = 'info') => {
-    const id = Date.now() + Math.random();
-    setToasts((current) => [...current, { id, tone, message }]);
-    window.setTimeout(() => setToasts((current) => current.filter((t) => t.id !== id)), 4200);
+  const dismiss = useCallback((id: number) => {
+    setToasts((current) => current.filter((t) => t.id !== id));
   }, []);
+
+  const notify = useCallback(
+    (message: string, arg?: ToastTone | ToastOptions) => {
+      const options: ToastOptions = typeof arg === 'string' ? { tone: arg } : arg ?? {};
+      const id = Date.now() + Math.random();
+      setToasts((current) => [...current, { id, tone: options.tone ?? 'info', message, action: options.action }]);
+      window.setTimeout(() => dismiss(id), options.action ? ACTION_DURATION : INFORMATIVE_DURATION);
+    },
+    [dismiss],
+  );
 
   const value = useMemo(() => ({ notify }), [notify]);
 
@@ -54,10 +82,22 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             >
               <Icon className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
               <span className="flex-1">{toast.message}</span>
+              {toast.action && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    void toast.action!.onClick();
+                    dismiss(toast.id);
+                  }}
+                  className="-my-1 shrink-0 self-center rounded px-1.5 py-1 font-semibold underline underline-offset-2 hover:opacity-80"
+                >
+                  {toast.action.label}
+                </button>
+              )}
               <button
                 type="button"
                 aria-label="Cerrar aviso"
-                onClick={() => setToasts((current) => current.filter((t) => t.id !== toast.id))}
+                onClick={() => dismiss(toast.id)}
                 className="rounded p-0.5 opacity-60 transition-opacity hover:opacity-100"
               >
                 <X className="h-3.5 w-3.5" aria-hidden="true" />

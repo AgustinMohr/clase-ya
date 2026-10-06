@@ -30,4 +30,12 @@ export class BasePage {
     const overflow = await locator.evaluate((element) => element.scrollWidth - element.clientWidth);
     expect(overflow, 'horizontal overflow in the container').toBeLessThanOrEqual(1);
   }
+
+  /** Fails when the whole page scrolls sideways (a long word escaping its box, a runaway grid track). */
+  async expectNoPageHorizontalOverflow(): Promise<void> {
+    const overflow = await this.page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+    expect(overflow, 'horizontal overflow in the page').toBeLessThanOrEqual(1);
+  }
 }

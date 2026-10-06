@@ -21,6 +21,9 @@ test.describe('Mi anuncio (profesor)', () => {
       const currentBio = await listing.bio.inputValue();
       expect(currentBio.trim().length).toBeGreaterThan(0);
 
+      // The textarea caps the bio at the backend maximum (2000) to avoid a 400 on save.
+      await expect(listing.bio).toHaveAttribute('maxlength', '2000');
+
       const newBio = uniqueText('Bio E2E');
       await listing.bio.fill(newBio);
       await listing.saveProfile.click();

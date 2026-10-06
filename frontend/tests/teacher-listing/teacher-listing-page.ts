@@ -15,6 +15,7 @@ export class TeacherListingPage extends BasePage {
   readonly startYear: Locator;
   readonly addEducation: Locator;
   readonly credentials: Locator;
+  readonly subjectTags: Locator;
 
   constructor(page: Page) {
     super(page);
@@ -27,6 +28,7 @@ export class TeacherListingPage extends BasePage {
     this.startYear = page.getByLabel('Año de inicio');
     this.addEducation = page.getByRole('button', { name: 'Agregar formación' });
     this.credentials = page.getByTestId('credential-row');
+    this.subjectTags = page.getByTestId('subject-tag');
   }
 
   async open(): Promise<void> {
