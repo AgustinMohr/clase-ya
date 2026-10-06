@@ -1,9 +1,13 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@config "../tailwind.config.js";
 
 /* Semantic surfaces. Light is the default; `.dark` on <html> switches theme. */
 :root {
+  /*
+   * Tell the browser which scheme to render native UI with (the scrollbar, form
+   * controls). Without this the scrollbar stays light even in dark mode.
+   */
+  color-scheme: light;
   --background: 248 250 252;
   --surface: 255 255 255;
   --surface-muted: 241 245 249;
@@ -14,6 +18,7 @@
 }
 
 .dark {
+  color-scheme: dark;
   --background: 8 15 30;
   --surface: 17 26 46;
   --surface-muted: 23 34 56;
@@ -43,6 +48,15 @@
   }
   ::selection {
     @apply bg-primary-200 text-primary-900;
+  }
+  /*
+   * Tailwind v4 changed the default button cursor to `default` (browser
+   * default). Restore the v3 `pointer` behavior for non-disabled buttons and
+   * button-role controls. Official v4 upgrade-guide snippet.
+   */
+  button:not(:disabled),
+  [role='button']:not(:disabled) {
+    cursor: pointer;
   }
 }
 
