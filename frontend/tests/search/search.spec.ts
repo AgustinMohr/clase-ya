@@ -67,4 +67,30 @@ test.describe('Búsqueda de profesores', () => {
       await expect(search.emptyState).toBeVisible();
     },
   );
+
+  test(
+    'elegir una sugerencia escribe la materia real y los filtros la respetan',
+    { tag: ['@critical', '@e2e', '@search', '@SEARCH-E2E-004'] },
+    async ({ page }) => {
+      const search = new SearchPage(page);
+      await search.gotoHome();
+      // Land on the search page first (works even when the term matches nothing).
+      await search.searchFromLanding('zzzz');
+
+      // Type a partial term: the suggestions carry the full subject name from the catalog.
+      await search.term.fill('mate');
+      const option = page.getByRole('listbox', { name: 'Sugerencias' }).getByRole('option').first();
+      await expect(option).toBeVisible();
+      const subjectName = (await option.innerText()).trim();
+      await option.getByRole('button').click();
+
+      // The input must now show the catalog subject, not the partial text that was typed.
+      await expect(search.term).toHaveValue(subjectName);
+
+      // Applying a filter keeps searching the resolved subject. Regression: it used to re-run
+      // with the partial term ("mate") and show "No encontramos".
+      await search.applyButton.click();
+      await expect(page.getByText(/No encontramos/)).toHaveCount(0);
+    },
+  );
 });

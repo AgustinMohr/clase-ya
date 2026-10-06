@@ -85,3 +85,35 @@ devuelve cero resultados sin romper la pantalla.
 
 ### Expected Result:
 - Se muestra "Sin resultados con estos filtros".
+
+---
+
+## Test Case: `SEARCH-E2E-004` - Elegir una sugerencia escribe la materia real
+
+**Priority:** `critical`
+
+**Tags:**
+- type → @e2e
+- feature → @search
+
+**Description/Objective:** Al elegir una sugerencia, el buscador debe reemplazar el texto parcial
+por el nombre real de la materia del catálogo. Antes, al escribir "mate" y elegir "Matemática I", el
+input seguía mostrando "mate"; al aplicar filtros, la búsqueda se re-ejecutaba con "mate" (que no
+coincide con ninguna materia) y devolvía "No encontramos mate".
+
+**Preconditions:**
+- Sesión iniciada; seed demo cargado.
+
+### Flow Steps:
+1. Llegar a la pantalla de búsqueda.
+2. Escribir un término parcial (`mate`) y esperar la sugerencia.
+3. Elegir la primera sugerencia.
+4. Presionar **Aplicar filtros**.
+
+### Expected Result:
+- El input muestra el nombre completo de la materia elegida (no el parcial).
+- Al aplicar filtros no aparece "No encontramos".
+
+### Key verification points:
+- `search.term` tiene como valor el texto de la sugerencia.
+- `getByText(/No encontramos/)` tiene conteo 0 tras aplicar.

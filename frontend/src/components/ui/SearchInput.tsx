@@ -73,6 +73,10 @@ export default function SearchInput({
   function submit(term: string) {
     const clean = term.trim();
     if (!clean) return;
+    // Keep the controlled input in sync with what is actually searched. Picking a
+    // suggestion must replace the partial text with the subject's real name; otherwise a
+    // later "Aplicar filtros" re-runs the search with the partial term and finds nothing.
+    onChange(clean);
     const next = [clean, ...history.filter((h) => h.toLowerCase() !== clean.toLowerCase())].slice(0, 5);
     setHistory(next);
     sessionStorage.setItem(HISTORY_KEY, JSON.stringify(next));
