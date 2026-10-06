@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Heart } from 'lucide-react';
 import { api, ApiError, type StudentProfile, type Subject, type TeacherSummary } from './api';
 import { useAuth } from './auth/AuthContext';
@@ -25,10 +25,12 @@ type View =
   | { name: 'my-listing' }
   | { name: 'messages'; conversationId?: string };
 
+const LANDING_VIEW: View = { name: 'landing' };
+
 export default function App() {
   const { user } = useAuth();
   const { notify } = useToast();
-  const [view, setView] = useState<View>({ name: 'landing' });
+  const [view, setView] = useState<View>(LANDING_VIEW);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [favoriteTeachers, setFavoriteTeachers] = useState<TeacherSummary[]>([]);
@@ -41,6 +43,27 @@ export default function App() {
   const [profile, setProfile] = useState<StudentProfile | null>(null);
   const [profileChecked, setProfileChecked] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+
+  // The in-app view is kept in sync with the browser history so the back/forward buttons move
+  // between screens instead of leaving the app. There is no router yet, so the entry only stores
+  // the view state and the URL stays put.
+  const navigate = useCallback((next: View) => {
+    setView(next);
+    window.history.pushState({ view: next }, '');
+  }, []);
+
+  useEffect(() => {
+    if (!window.history.state?.view) {
+      window.history.replaceState({ view: LANDING_VIEW }, '');
+    }
+    const onPopState = (event: PopStateEvent) => {
+      const restored = (event.state as { view?: View } | null)?.view;
+      setView(restored ?? LANDING_VIEW);
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     api.subjects().then(setSubjects).catch(() => undefined);
@@ -82,7 +105,8 @@ export default function App() {
   // Logging out (or an expired session) must not keep showing private views.
   useEffect(() => {
     if (!user) {
-      setView({ name: 'landing' });
+      setView(LANDING_VIEW);
+      window.history.replaceState({ view: LANDING_VIEW }, '');
     }
   }, [user]);
 
@@ -172,25 +196,25 @@ export default function App() {
       .then((page) => setFavoriteTeachers(page.content.map((f) => f.teacher)))
       .catch(() => notify('No pudimos cargar tus favoritos.', 'error'))
       .finally(() => setFavoritesLoading(false));
-    setView({ name: 'favorites' });
+    navigate({ name: 'favorites' });
   }
 
   return (
     <div className="flex min-h-screen flex-col">
       <Navbar
-        onHome={() => setView({ name: 'landing' })}
+        onHome={() => navigate({ name: 'landing' })}
         onFavorites={openFavorites}
-        onMessages={() => setView({ name: 'messages' })}
+        onMessages={() => navigate({ name: 'messages' })}
         onProfile={() => setProfileOpen(true)}
-        onMyListing={() => setView({ name: 'my-listing' })}
+        onMyListing={() => navigate({ name: 'my-listing' })}
         onLogin={() => setLoginOpen(true)}
       />
 
       <main className="flex-1">
         {view.name === 'landing' && (
           <LandingPage
-            onSearch={(term) => setView({ name: 'search', term })}
-            onOpenTeacher={(id) => setView({ name: 'profile', id })}
+            onSearch={(term) => navigate({ name: 'search', term })}
+            onOpenTeacher={(id) => navigate({ name: 'profile', id })}
             onToggleFavorite={toggleFavorite}
             favorites={favorites}
           />
@@ -200,8 +224,8 @@ export default function App() {
           <SearchPage
             initialTerm={view.term}
             subjects={subjects}
-            onBack={() => setView({ name: 'landing' })}
-            onOpenTeacher={(id) => setView({ name: 'profile', id })}
+            onBack={() => navigate({ name: 'landing' })}
+            onOpenTeacher={(id) => navigate({ name: 'profile', id })}
             onToggleFavorite={toggleFavorite}
             favorites={favorites}
           />
@@ -210,7 +234,7 @@ export default function App() {
         {view.name === 'profile' && (
           <TeacherProfilePage
             teacherId={view.id}
-            onBack={() => setView({ name: 'landing' })}
+            onBack={() => navigate({ name: 'landing' })}
             onContact={contact}
             onToggleFavorite={user && user.role !== 'STUDENT' ? undefined : toggleFavorite}
             favorite={favorites.has(view.id)}
@@ -219,15 +243,15 @@ export default function App() {
 
         {view.name === 'messages' && (
           <MessagesPage
-            onBack={() => setView({ name: 'landing' })}
+            onBack={() => navigate({ name: 'landing' })}
             initialConversationId={view.conversationId}
           />
         )}
 
         {view.name === 'my-listing' && (
           <MyListingPage
-            onBack={() => setView({ name: 'landing' })}
-            onPreview={(id) => setView({ name: 'profile', id })}
+            onBack={() => navigate({ name: 'landing' })}
+            onPreview={(id) => navigate({ name: 'profile', id })}
           />
         )}
 
@@ -245,7 +269,7 @@ export default function App() {
                 icon={<Heart className="h-6 w-6" aria-hidden="true" />}
                 title="Todavía no guardaste profesores"
                 description="Explorá el buscador y guardá los perfiles que te interesen."
-                action={<Button onClick={() => setView({ name: 'landing' })}>Buscar profesores</Button>}
+                action={<Button onClick={() => navigate({ name: 'landing' })}>Buscar profesores</Button>}
               />
             ) : (
               <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -253,7 +277,7 @@ export default function App() {
                   <TeacherCard
                     key={teacher.id}
                     teacher={teacher}
-                    onOpen={(id) => setView({ name: 'profile', id })}
+                    onOpen={(id) => navigate({ name: 'profile', id })}
                     onToggleFavorite={toggleFavorite}
                     favorite
                   />
@@ -264,7 +288,7 @@ export default function App() {
         )}
       </main>
 
-      <Footer onNavigate={() => setView({ name: 'landing' })} />
+      <Footer onNavigate={() => navigate({ name: 'landing' })} />
 
       <LoginModal
         open={loginOpen}
@@ -287,7 +311,7 @@ export default function App() {
         onSent={(conversationId) => {
           setContactTarget(null);
           notify('Mensaje enviado');
-          setView({ name: 'messages', conversationId });
+          navigate({ name: 'messages', conversationId });
         }}
         onNeedsProfile={() => openProfileForm(contactTarget)}
       />
