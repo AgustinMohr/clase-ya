@@ -28,7 +28,7 @@ Antes de implementar cualquier cambio, el agente DEBE leer y respetar estos docu
 Orden de prioridad:
 
 1. `docs/product/product-requirements.md` → requisitos funcionales.
-2. `docs/frontend/design-system.md` → identidad visual, UX/UI y componentes.
+2. `docs/frontend/DESIGN.md` → identidad visual, UX/UI y componentes.
 3. `docs/architecture/guardrails.md` → reglas de arquitectura.
 4. `docs/development-workflow.md` → flujo de trabajo.
 5. Specs activas en `docs/specs/active/`.
@@ -199,3 +199,29 @@ modificación de seguridad, modificación del schema, dependencia nueva o cambio
 Ver `docs/development-workflow.md`: el ciclo completo (SPEC → REVIEW → PLAN → IMPLEMENT → TEST →
 VERIFY → REVIEW → DONE) es exigible a features de producto (**Nivel 2**); los **Niveles 0 y 1**
 tienen ciclos cortos. Las ambigüedades con impacto arquitectónico se reportan, no se adivinan.
+
+## Agent Skills
+
+Before starting a task, inspect the available installed skills and use the relevant ones when applicable.
+
+Use skills **on demand**, not all at once:
+
+* New/complex feature → `spec-driven-development`
+* Planning/breakdown → `planning-and-task-breakdown`
+* Multi-file implementation → `incremental-implementation`
+* Tests/new behavior → `test-driven-development`
+* Bug/failing build/test → `debugging-and-error-recovery`
+* Frontend/UI/UX → `frontend-ui-engineering`
+* Code review/refactoring → `code-review-and-quality`
+* Security/auth/uploads/dependencies → `security-and-hardening`
+
+Rules:
+
+1. Load only skills relevant to the current task to minimize context/token usage.
+2. Follow the selected skill's workflow and verification requirements.
+3. Do not duplicate skill instructions in this file.
+4. If multiple skills apply, use the smallest useful combination.
+5. If unsure whether a skill applies, inspect its `SKILL.md` before proceeding.
+6. Do not claim a skill was used unless its instructions were actually loaded/read.
+7. Skills complement the project's specs, ADRs, AGENTS.md and DoD; they do not override them.
+8. Never skip project tests, validation or security requirements because a skill does not mention them.
