@@ -27,7 +27,7 @@ Lo que ya existe y **no se toca**:
   (`ConversationService.start:63-89`).
 - `GET /api/conversations` (propias, ordenadas por actividad), `GET /{id}` (+`unreadCount`),
   `GET /{id}/messages` (paginado, más antiguos primero), `POST /{id}/messages`, `PATCH /{id}/read`.
-- Sin N+1 (3 consultas batcheadas), orden estable, 404 para no participantes, contenido 1..5000
+- Sin N+1 (3 consultas batcheadas), orden estable, 404 para no participantes, contenido 1..256
   caracteres (ver `docs/messaging.md`).
 
 Lo que falta (verificado en código):
@@ -70,7 +70,7 @@ Lo que falta (verificado en código):
   actual (`201` nueva / `200` existente).
 - **RF-5** — Si ya existía la conversación del par, el mensaje **se agrega igual** (no se descarta) y
   la respuesta sigue siendo `200`.
-- **RF-6** — El mensaje inicial respeta las reglas ya vigentes: trim, 1..5000 caracteres, y el emisor
+- **RF-6** — El mensaje inicial respeta las reglas ya vigentes: trim, 1..256 caracteres, y el emisor
   debe ser participante (garantizado por la FK compuesta).
 - **RF-7** — El `ContactModal` deja de ser simulado: envía el contacto real y, al confirmar, lleva al
   usuario a la conversación creada.
@@ -137,7 +137,7 @@ Authorization: Bearer <student>
 ```
 
 Sin `message`, el comportamiento es idéntico al actual. Validación: `message` opcional; si viene,
-trim y 1..5000 caracteres (400 fuera de rango, reutilizando las reglas de `MessageService`).
+trim y 1..256 caracteres (400 fuera de rango, reutilizando las reglas de `MessageService`).
 
 Los endpoints de lectura/escritura de mensajes **no cambian**.
 
@@ -156,7 +156,7 @@ Los endpoints de lectura/escritura de mensajes **no cambian**.
 | CA-3 | Re-contactar el mismo profesor con otro `message` devuelve **200** y **agrega** el mensaje | RF-5, I2 |
 | CA-4 | Profesor no visible (`PENDING`/`REJECTED`/usuario no `ACTIVE`) → 404 y **no** se agrega mensaje | §6 |
 | CA-5 | Estudiante sin perfil → 409 con mensaje claro; la UI ofrece completar el perfil | RF-1, RF-12 |
-| CA-6 | `message` vacío o de más de 5000 caracteres → 400 | RF-6 |
+| CA-6 | `message` vacío o de más de 256 caracteres → 400 | RF-6 |
 | CA-7 | Un no participante recibe 404 en detalle, mensajes, envío y read | §6 |
 | CA-8 | `PATCH /read` marca solo los de la contraparte (los propios quedan intactos) | I5 |
 | CA-9 | La lista de conversaciones ordena por actividad y trae `unreadCount` correcto | RF-9 |

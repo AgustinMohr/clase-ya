@@ -279,6 +279,17 @@ export interface LoginResponse {
 const TOKEN_KEY = 'claseya.token';
 export const UNAUTHORIZED_EVENT = 'claseya:unauthorized';
 
+/** Maximum length of a chat message, mirrors the backend validation (TEACHER/CONTACT). */
+export const MAX_MESSAGE_LENGTH = 256;
+
+/**
+ * Bio caps for the profile textareas, mirroring the backend DTO validation
+ * (student 1000, teacher 2000). Kept in sync so the UI never lets a user type
+ * past what the API accepts (which would come back as a 400).
+ */
+export const MAX_STUDENT_BIO_LENGTH = 1000;
+export const MAX_TEACHER_BIO_LENGTH = 2000;
+
 /**
  * Backend base URL. Empty in dev (Vite proxies /api to localhost:8080); in
  * production set VITE_API_URL to the deployed backend origin.

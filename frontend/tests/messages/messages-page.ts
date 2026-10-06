@@ -8,8 +8,10 @@ import { uniqueText } from '../helpers';
 export class MessagesPage extends BasePage {
   readonly navButton: Locator;
   readonly heading: Locator;
+  readonly threadShell: Locator;
   readonly threadBody: Locator;
   readonly composer: Locator;
+  readonly counter: Locator;
   readonly sendButton: Locator;
   readonly bubbles: Locator;
 
@@ -17,8 +19,10 @@ export class MessagesPage extends BasePage {
     super(page);
     this.navButton = page.getByRole('button', { name: 'Mensajes' });
     this.heading = page.getByRole('heading', { name: 'Mensajes' });
+    this.threadShell = page.getByTestId('thread-shell');
     this.threadBody = page.getByTestId('thread-body');
     this.composer = page.getByLabel('Escribí un mensaje');
+    this.counter = page.getByTestId('composer-counter');
     this.sendButton = page.getByRole('button', { name: 'Enviar' });
     this.bubbles = page.getByTestId('message-bubble');
   }

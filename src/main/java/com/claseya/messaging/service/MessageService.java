@@ -27,7 +27,7 @@ import java.util.UUID;
 public class MessageService {
 
     private static final int MAX_SIZE = 100;
-    private static final int MAX_CONTENT = 5000;
+    private static final int MAX_CONTENT = 256;
 
     private final MessageRepository messageRepository;
     private final ConversationRepository conversationRepository;

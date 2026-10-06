@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api, ApiError } from '../api';
+import { api, ApiError, MAX_MESSAGE_LENGTH } from '../api';
 import Modal from './ui/Modal';
 import { Button } from './ui/Button';
 import { Field, Input, Select, Textarea } from './ui/Field';
@@ -83,6 +83,10 @@ export default function ContactModal({ open, teacher, onClose, onSent, onNeedsPr
     }
   }
 
+  // The contact message is composed from role + subject + slot + free text, so the free text can
+  // only use what is left of the message budget (extra adds a blank line before it).
+  const maxExtra = Math.max(0, MAX_MESSAGE_LENGTH - composeMessage(subject, slot, role, '').length - 2);
+
   return (
     <Modal open={open} onClose={onClose} title={`Contactar a ${teacher?.displayName || 'el profesor'}`}>
       <form className="space-y-4" onSubmit={submit}>
@@ -97,7 +101,7 @@ export default function ContactModal({ open, teacher, onClose, onSent, onNeedsPr
                 ))}
               </Select>
             ) : (
-              <Input {...props} value={subject} onChange={(e) => setSubject(e.target.value)} required />
+              <Input {...props} maxLength={80} value={subject} onChange={(e) => setSubject(e.target.value)} required />
             )
           }
         </Field>
@@ -124,7 +128,9 @@ export default function ContactModal({ open, teacher, onClose, onSent, onNeedsPr
         </Field>
 
         <Field label="Mensaje" hint="Opcional: contale qué necesitás.">
-          {(props) => <Textarea {...props} rows={3} value={text} onChange={(e) => setText(e.target.value)} />}
+          {(props) => (
+            <Textarea {...props} rows={3} maxLength={maxExtra} value={text} onChange={(e) => setText(e.target.value)} />
+          )}
         </Field>
 
         {error && (

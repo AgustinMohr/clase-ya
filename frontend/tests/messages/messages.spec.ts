@@ -75,4 +75,64 @@ test.describe('Mensajes', () => {
       expect(await messages.skeletonCount(), 'la conversación revisitada no debe parpadear').toBe(0);
     },
   );
+
+  test(
+    'el compositor limita el mensaje a 256 caracteres',
+    { tag: ['@high', '@e2e', '@messages', '@MSG-E2E-004'] },
+    async ({ page }) => {
+      const messages = new MessagesPage(page);
+      await messages.gotoHome();
+      await messages.open();
+      await messages.openConversation(teacherA.displayName);
+
+      // El atributo fija el tope real de lo que el usuario puede tipear...
+      await expect(messages.composer).toHaveAttribute('maxlength', '256');
+      // ...y el contador lo acompaña.
+      await messages.composer.fill('x'.repeat(256));
+      await expect(messages.counter).toHaveText('256/256');
+    },
+  );
+
+  test(
+    'un mensaje largo no cambia el tamaño del chat ni desborda',
+    { tag: ['@critical', '@e2e', '@messages', '@MSG-E2E-005'] },
+    async ({ page }) => {
+      const messages = new MessagesPage(page);
+      await messages.gotoHome();
+      await messages.open();
+      await messages.openConversation(teacherA.displayName);
+
+      const before = await messages.threadShell.boundingBox();
+      expect(before, 'el contenedor del chat debe existir').not.toBeNull();
+
+      // ~242 caracteres: cerca del tope pero dentro del límite.
+      await messages.sendUnbreakableText();
+
+      const after = await messages.threadShell.boundingBox();
+      expect(after).not.toBeNull();
+      // El chat externo mantiene su tamaño; la burbuja crece adentro y hace scroll.
+      expect(Math.abs(after!.height - before!.height), 'el chat no debe cambiar de alto').toBeLessThanOrEqual(1);
+      await messages.expectNoHorizontalOverflow(messages.threadBody);
+      await messages.expectNoHorizontalOverflow(messages.bubbles.last());
+      // Ni la página entera puede desbordar (una palabra larga no debe ensanchar el layout).
+      await messages.expectNoPageHorizontalOverflow();
+    },
+  );
+
+  test(
+    'el botón atrás del navegador vuelve a la pantalla anterior',
+    { tag: ['@high', '@e2e', '@messages', '@MSG-E2E-006'] },
+    async ({ page }) => {
+      const messages = new MessagesPage(page);
+      await messages.gotoHome();
+      await messages.open();
+      await expect(messages.heading).toBeVisible();
+
+      await page.evaluate(() => window.history.back());
+
+      // Vuelve a la pantalla anterior (el landing), no se sale de la app.
+      await expect(messages.heading).not.toBeVisible();
+      await expect(page.getByRole('combobox', { name: 'Buscar materia' })).toBeVisible();
+    },
+  );
 });

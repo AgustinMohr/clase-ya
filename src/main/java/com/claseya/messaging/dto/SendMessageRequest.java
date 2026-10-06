@@ -5,7 +5,7 @@ import jakarta.validation.constraints.Size;
 
 public record SendMessageRequest(
         @NotBlank(message = "Content is required")
-        @Size(max = 5000, message = "Content must be at most 5000 characters")
+        @Size(max = 256, message = "Content must be at most 256 characters")
         String content
 ) {
 }

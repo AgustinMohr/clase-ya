@@ -23,7 +23,7 @@ last-message lookups. No tables were changed.
 
 1. Student contacts a teacher (`POST /api/conversations {teacherId, message?}`). The optional
    `message` is the contact request itself and is persisted in the **same transaction**: if it is
-   invalid (blank or longer than 5000 characters) the whole contact fails with 400 and **no empty
+   invalid (blank or longer than 256 characters) the whole contact fails with 400 and **no empty
    conversation is left behind** (CONTACT-001).
 2. Student and teacher exchange messages (`POST /{id}/messages`).
 3. Either participant lists conversations, reads messages and marks them read.
@@ -116,7 +116,7 @@ Authorization: Bearer <student>                   # 204
 ## Decisions
 
 - `GET /{id}` and messaging access hide existence with 404 for non-participants.
-- Message content is trimmed, 1..5000 characters; messages are immutable (no edit/delete).
+- Message content is trimmed, 1..256 characters; messages are immutable (no edit/delete).
 - Messages are never physically deleted in this phase; a future archive/delete policy is out of
   scope.
 - SUSPENDED semantics follow the global auth rule (non-ACTIVE ⇒ unauthenticated, 401), keeping

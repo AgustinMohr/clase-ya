@@ -297,7 +297,7 @@ class MessagingIntegrationTest extends AbstractWebIntegrationTest {
         User student = newStudent("s@example.com");
         TeacherProfile teacher = visibleTeacher("Ana", "ana@example.com");
 
-        contact(bearer(student), teacher.getId().toString(), "x".repeat(5001), 400);
+        contact(bearer(student), teacher.getId().toString(), "x".repeat(257), 400);
         assertThat(conversationRepository.count()).isZero();
     }
 
@@ -372,7 +372,9 @@ class MessagingIntegrationTest extends AbstractWebIntegrationTest {
         String token = bearer(student);
 
         sendMessage(token, convId, "   ", 400);
-        sendMessage(token, convId, "x".repeat(5001), 400);
+        sendMessage(token, convId, "x".repeat(257), 400);
+        // Boundary: the message at the limit (256) is accepted.
+        sendMessage(token, convId, "x".repeat(256), 201);
         sendMessage(token, convId, "ok", 201);
     }
 

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowLeft, MessageCircle, Send } from 'lucide-react';
-import { api, ApiError, type ConversationSummary, type Message } from '../api';
+import { api, ApiError, MAX_MESSAGE_LENGTH, type ConversationSummary, type Message } from '../api';
 import { useAuth } from '../auth/AuthContext';
 import { Button } from '../components/ui/Button';
 import { EmptyState, Skeleton } from '../components/ui/primitives';
@@ -86,10 +86,13 @@ export default function MessagesPage({ onBack, initialConversationId }: Props) {
       }
 
       try {
-        const [detail, page] = await Promise.all([
+        const [detail, firstPage] = await Promise.all([
           api.conversation(conversationId),
           api.messages(conversationId, 0, 100),
         ]);
+        // A long conversation must show its most recent messages, not the oldest page.
+        const lastPageIndex = Math.max(0, firstPage.totalPages - 1);
+        const page = lastPageIndex === 0 ? firstPage : await api.messages(conversationId, lastPageIndex, 100);
         const thread: Thread = { other: detail.otherParticipant, messages: page.content };
         threadsRef.current.set(conversationId, thread);
         if (seq === threadSeq.current) {
@@ -241,14 +244,14 @@ export default function MessagesPage({ onBack, initialConversationId }: Props) {
         </section>
 
         {/* HILO */}
-        <section aria-label="Conversación" className={openId ? '' : 'hidden lg:block'}>
+        <section aria-label="Conversación" className={openId ? 'min-w-0' : 'hidden min-w-0 lg:block'}>
           {!openId ? (
             <div className="hidden h-[70vh] items-center justify-center rounded-2xl border border-border bg-surface p-10 text-center text-sm text-content-muted lg:flex">
               Elegí una conversación para leer los mensajes.
             </div>
           ) : (
             // Fixed-height shell: switching conversations or loading never moves the page.
-            <div className="flex h-[70vh] flex-col rounded-2xl border border-border bg-surface">
+            <div data-testid="thread-shell" className="flex h-[70vh] flex-col rounded-2xl border border-border bg-surface">
               <header className="flex items-center justify-between gap-3 border-b border-border p-4">
                 <div>
                   <p className="font-semibold">{other?.displayName || 'Conversación'}</p>
@@ -283,15 +286,15 @@ export default function MessagesPage({ onBack, initialConversationId }: Props) {
                     {messages.map((message) => {
                       const mine = message.senderId === user?.id;
                       return (
-                        <div key={message.id} className={mine ? 'flex justify-end' : 'flex justify-start'}>
+                        <div key={message.id} className={mine ? 'flex min-w-0 justify-end' : 'flex min-w-0 justify-start'}>
                           <div
                             data-testid="message-bubble"
-                            className={`max-w-[80%] whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2 text-sm ${
+                            className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm ${
                               mine ? 'bg-primary-600 text-white' : 'bg-surface-muted text-content'
                             }`}
                           >
-                            {message.content}
-                            <span className={`mt-1 block text-[10px] ${mine ? 'text-primary-50/80' : 'text-content-muted'}`}>
+                            <span className="whitespace-pre-wrap break-words">{message.content}</span>
+                            <span className={`mt-0.5 block text-right text-[10px] ${mine ? 'text-primary-50/80' : 'text-content-muted'}`}>
                               {formatWhen(message.createdAt)}
                             </span>
                           </div>
@@ -317,12 +320,20 @@ export default function MessagesPage({ onBack, initialConversationId }: Props) {
                   data-testid="composer"
                   ref={draftRef}
                   rows={1}
+                  maxLength={MAX_MESSAGE_LENGTH}
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
                   onKeyDown={onComposerKeyDown}
                   placeholder="Escribí un mensaje… (Enter para enviar)"
                   className="composer max-h-[200px] w-full resize-none rounded-xl border border-border bg-surface px-3 py-2 text-sm text-content placeholder:text-content-muted/70 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-ring/40"
                 />
+                <span
+                  data-testid="composer-counter"
+                  className="shrink-0 pb-2 text-[11px] tabular-nums text-content-muted"
+                  aria-hidden="true"
+                >
+                  {draft.length}/{MAX_MESSAGE_LENGTH}
+                </span>
                 <Button type="submit" loading={sending} disabled={!draft.trim()}>
                   <Send className="h-4 w-4" aria-hidden="true" />
                   <span className="hidden sm:inline">Enviar</span>

@@ -46,7 +46,7 @@ University 1:N AcademicUnit 1:N Career 1:N CareerSubject N:1 Subject
 - **Conversation / ConversationParticipant / Message**: mensajería entre User (genérica). Toda
   conversación se crea con exactamente 2 participantes (estudiante + profesor); V1 mantiene una
   única conversación por par. `Message`: sender debe ser participante (FK compuesta en SQL),
-  contenido trim no vacío (1..5000), `readAt` por mensaje.
+  contenido trim no vacío (1..256), `readAt` por mensaje.
 - **Booking / Review** (schema listo, sin lógica todavía): reserva futura + review 1:0..1 por
   booking, que alimentará `ratingAverage/ratingCount`.
 - **Report / Notification / CalendlyIntegration** (schema listo, sin lógica todavía).
