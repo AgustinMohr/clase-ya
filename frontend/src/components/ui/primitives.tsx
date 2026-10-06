@@ -96,6 +96,7 @@ export function Tag({
   onRemove,
   removeLabel,
   children,
+  ...rest
 }: React.HTMLAttributes<HTMLSpanElement> &
   VariantProps<typeof badgeStyles> & {
     icon?: React.ReactNode;
@@ -103,7 +104,7 @@ export function Tag({
     removeLabel?: string;
   }) {
   return (
-    <span className={cn(badgeStyles({ tone }), 'gap-1.5', className)}>
+    <span className={cn(badgeStyles({ tone }), 'gap-1.5', className)} {...rest}>
       {icon}
       {children}
       {onRemove && (
