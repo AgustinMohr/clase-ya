@@ -424,12 +424,24 @@ desarrollo**:
 | `CAPTCHA_ENABLED` | `false` | Exige CAPTCHA (Turnstile) en el registro |
 | `TURNSTILE_SECRET` | *(vacío)* | Secret de Turnstile; obligatorio si `CAPTCHA_ENABLED=true` |
 | `TURNSTILE_VERIFY_URL` | `https://challenges.cloudflare.com/turnstile/v0/siteverify` | Endpoint de verificación |
+| `STORAGE_PROVIDER` | `postgres` | `postgres` (bytea) o `s3` (R2/S3) |
+| `STORAGE_ENDPOINT` | *(vacío)* | Endpoint S3-compatible (R2) |
+| `STORAGE_REGION` | `auto` | Región (R2: `auto`) |
+| `STORAGE_BUCKET` | *(vacío)* | Bucket privado de evidencia |
+| `STORAGE_ACCESS_KEY` / `STORAGE_SECRET_KEY` | *(vacío)* | Credenciales del bucket |
+| `STORAGE_PATH_STYLE` | `false` | `true` si el proveedor lo requiere |
+| `SCAN_ENABLED` | `false` | Exige ClamAV antes de guardar evidencia |
+| `CLAMAV_HOST` / `CLAMAV_PORT` | `localhost` / `3310` | ClamAV INSTREAM |
+| `CLAMAV_TIMEOUT_MS` | `5000` | Timeout del escaneo |
 | `RATE_LIMIT_TRUST_FORWARDED_HEADERS` | `false` | Confía en `X-Forwarded-For`/`Forwarded` solo detrás de un proxy confiable |
 | `LOGGING_STRUCTURED_FORMAT_CONSOLE` | *(vacío)* | `ecs` para logs JSON en producción; el `requestId` viaja en el MDC |
 
 Los límites de cada scope (`RATE_LIMIT_LOGIN_IP_LIMIT`, `RATE_LIMIT_LOGIN_ACCOUNT_LIMIT`,
 `RATE_LIMIT_CONTACT_USER_LIMIT`, etc.) tienen defaults en `application.yml` y se pueden sobrescribir
 por entorno. Ver `docs/architecture/security.md` y el ADR-017.
+
+En producción, la evidencia usa `STORAGE_PROVIDER=s3` + `SCAN_ENABLED=true` (ClamAV). Sin el
+escáner, el sistema no debe recibir evidencia real.
 
 ### Base de datos local (Docker)
 

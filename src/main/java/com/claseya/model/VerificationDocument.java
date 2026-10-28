@@ -1,5 +1,6 @@
 package com.claseya.model;
 
+import com.claseya.model.enums.DocumentScanStatus;
 import com.claseya.model.enums.DocumentType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -60,8 +61,16 @@ public class VerificationDocument {
     @Column(name = "sha256", nullable = false, length = 64)
     private String sha256;
 
-    @Column(name = "content", nullable = false)
+    @Column(name = "content")
     private byte[] content;
+
+    /** Object-storage key when the bytes live in R2/S3; null for legacy PostgreSQL rows. */
+    @Column(name = "storage_key", length = 512)
+    private String storageKey;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "scan_status", nullable = false, length = 20)
+    private DocumentScanStatus scanStatus = DocumentScanStatus.CLEAN;
 
     @CreationTimestamp
     @Column(name = "uploaded_at", nullable = false, updatable = false)

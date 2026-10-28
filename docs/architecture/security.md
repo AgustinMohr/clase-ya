@@ -40,6 +40,9 @@ real; ver el paquete `security` y `SecurityConfig`.
 - **Contenedor (OPS-002):** la imagen final corre como usuario `app` (no-root), declara
   `HEALTHCHECK` contra `/actuator/health` y arranca la JVM con `-XX:MaxRAMPercentage=75`. La
   configuración local (`application-local.yml`, `.env`) queda fuera del contexto de build.
+- **Evidencia (STOR-001):** bucket privado S3/R2 (`storage_key`), ClamAV INSTREAM antes de guardar
+  (infectado → 400, escáner caído → 503), sin exponer la key al navegador. Las filas legacy en
+  `bytea` se leen con dual-read. Sin URLs prefirmadas en esta fase.
 
 ## Observabilidad
 

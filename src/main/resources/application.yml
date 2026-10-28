@@ -155,3 +155,20 @@ app:
       enabled: ${CAPTCHA_ENABLED:false}
       secret: ${TURNSTILE_SECRET:}
       verify-url: ${TURNSTILE_VERIFY_URL:https://challenges.cloudflare.com/turnstile/v0/siteverify}
+
+  # STOR-01: evidence storage. postgres = bytea (local/tests); s3 = private R2/S3 bucket.
+  storage:
+    provider: ${STORAGE_PROVIDER:postgres}
+    s3:
+      endpoint: ${STORAGE_ENDPOINT:}
+      region: ${STORAGE_REGION:auto}
+      bucket: ${STORAGE_BUCKET:}
+      access-key: ${STORAGE_ACCESS_KEY:}
+      secret-key: ${STORAGE_SECRET_KEY:}
+      path-style: ${STORAGE_PATH_STYLE:false}
+    scan:
+      # Production must enable ClamAV; without it the app stores unscanned evidence.
+      enabled: ${SCAN_ENABLED:false}
+      host: ${CLAMAV_HOST:localhost}
+      port: ${CLAMAV_PORT:3310}
+      timeout-ms: ${CLAMAV_TIMEOUT_MS:5000}

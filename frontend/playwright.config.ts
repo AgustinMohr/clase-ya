@@ -9,6 +9,7 @@ const FRONTEND_URL = 'http://localhost:5173';
  */
 export default defineConfig({
   testDir: './tests',
+  globalSetup: './tests/global-setup.ts',
   // The tests mutate shared state (profile, conversations): run them one at a time.
   fullyParallel: false,
   workers: 1,

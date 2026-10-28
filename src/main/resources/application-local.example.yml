@@ -17,6 +17,10 @@ app:
     captcha:
       # Turnstile stays off locally; production enables it with TURNSTILE_SECRET.
       enabled: false
+  storage:
+    provider: postgres
+    scan:
+      enabled: false
 
 oauth:
   google:

@@ -7,6 +7,7 @@ import com.claseya.model.TeacherEducation;
 import com.claseya.model.TeacherProfile;
 import com.claseya.model.User;
 import com.claseya.model.VerificationDocument;
+import com.claseya.model.enums.DocumentScanStatus;
 import com.claseya.model.enums.DocumentType;
 import com.claseya.model.enums.VerificationStatus;
 import com.claseya.teacher.repository.TeacherEducationRepository;
@@ -37,6 +38,7 @@ public class VerificationDocumentService {
     private final VerificationDecisionRepository decisionRepository;
     private final DocumentContentValidator validator;
     private final DocumentStorage storage;
+    private final DocumentScanner scanner;
     private final UserRepository userRepository;
 
     public VerificationDocumentService(TeacherProfileService teacherProfileService,
@@ -45,6 +47,7 @@ public class VerificationDocumentService {
                                        VerificationDecisionRepository decisionRepository,
                                        DocumentContentValidator validator,
                                        DocumentStorage storage,
+                                       DocumentScanner scanner,
                                        UserRepository userRepository) {
         this.teacherProfileService = teacherProfileService;
         this.teacherEducationRepository = teacherEducationRepository;
@@ -52,6 +55,7 @@ public class VerificationDocumentService {
         this.decisionRepository = decisionRepository;
         this.validator = validator;
         this.storage = storage;
+        this.scanner = scanner;
         this.userRepository = userRepository;
     }
 
@@ -73,6 +77,9 @@ public class VerificationDocumentService {
         User uploader = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
+        // STOR-01: a file that is infected or cannot be scanned never reaches the bucket or the DB.
+        scanner.scan(content);
+
         VerificationDocument document = new VerificationDocument();
         document.setTeacher(profile);
         document.setTeacherEducation(education);
@@ -81,9 +88,24 @@ public class VerificationDocumentService {
         document.setContentType(validated.contentType());
         document.setSizeBytes(validated.sizeBytes());
         document.setSha256(validated.sha256());
-        document.setContent(content);
         document.setUploadedBy(uploader);
-        return VerificationDocumentResponse.from(storage.store(document));
+        document.setScanStatus(DocumentScanStatus.CLEAN);
+
+        String storageKey = storage.store(content, validated.contentType());
+        document.setStorageKey(storageKey);
+        document.setContent(storageKey == null ? content : null);
+        try {
+            return VerificationDocumentResponse.from(documentRepository.saveAndFlush(document));
+        } catch (RuntimeException ex) {
+            if (storageKey != null) {
+                try {
+                    storage.delete(document);
+                } catch (RuntimeException cleanupFailure) {
+                    // The row was not created; an orphan object is safer than losing the error.
+                }
+            }
+            throw ex;
+        }
     }
 
     @Transactional(readOnly = true)
@@ -131,6 +153,10 @@ public class VerificationDocumentService {
             throw new ConflictException("A document used as evidence cannot be deleted");
         }
         documentRepository.delete(document);
+        documentRepository.flush();
+        // External object deletion happens after the row is gone; if it fails, the transaction
+        // rolls back and the row (and its key) survive.
+        storage.delete(document);
     }
 
     private TeacherEducation requireOwnedCredential(TeacherProfile profile, UUID educationId) {
@@ -139,7 +165,8 @@ public class VerificationDocumentService {
     }
 
     private DownloadedDocument downloaded(VerificationDocument document) {
-        return new DownloadedDocument(document.getOriginalFilename(), document.getContentType(), document.getContent());
+        return new DownloadedDocument(document.getOriginalFilename(), document.getContentType(),
+                storage.load(document));
     }
 
     public record DownloadedDocument(String filename, String contentType, byte[] content) {

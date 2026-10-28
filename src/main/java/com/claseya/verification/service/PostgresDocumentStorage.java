@@ -1,21 +1,26 @@
 package com.claseya.verification.service;
 
 import com.claseya.model.VerificationDocument;
-import com.claseya.verification.repository.VerificationDocumentRepository;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
-/** Stores evidence bytes in PostgreSQL via the {@code verification_documents.content bytea} column. */
+/** Default (local/test) storage: the bytes stay in the {@code verification_documents.content} column. */
 @Component
+@ConditionalOnProperty(name = "app.storage.provider", havingValue = "postgres", matchIfMissing = true)
 public class PostgresDocumentStorage implements DocumentStorage {
 
-    private final VerificationDocumentRepository repository;
-
-    public PostgresDocumentStorage(VerificationDocumentRepository repository) {
-        this.repository = repository;
+    @Override
+    public String store(byte[] content, String contentType) {
+        return null;
     }
 
     @Override
-    public VerificationDocument store(VerificationDocument document) {
-        return repository.saveAndFlush(document);
+    public byte[] load(VerificationDocument document) {
+        return document.getContent();
+    }
+
+    @Override
+    public void delete(VerificationDocument document) {
+        // The row deletion owns the lifecycle when the bytes live in PostgreSQL.
     }
 }

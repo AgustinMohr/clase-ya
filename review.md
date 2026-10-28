@@ -24,10 +24,11 @@ Además, el flujo **email + contraseña** quedó a mitad de camino: el backend r
 
 **Veredicto (actualizado):** los bloqueantes EVID-01, SEC-01, DEP-01 y PRIV-01, junto con AUTH-01,
 ARCH-01, CI-01, SEC-02, BUG-02, BUG-03, SEC-03, SEC-04, OPS-01, OPS-02, QUAL-01, TEST-01, QUAL-02,
-QUAL-03, SEC-05, SEC-06, DOC-01, UX-01, DEV-01, PERF-01, PERF-02 y DEP-02, están corregidos y
-verificados (317 tests backend + 24 unit del frontend + 40 E2E). Queda **STOR-01** (migración de
-evidencia a object storage + antivirus), que requiere proveedor/credenciales y escáner. CI está
-configurado, pero requiere activar branch protection para ser un gate obligatorio.
+QUAL-03, SEC-05, SEC-06, DOC-01, UX-01, DEV-01, PERF-01, PERF-02, DEP-02 y STOR-01, están corregidos
+y verificados (324 tests backend + 24 unit del frontend + 40 E2E). **No quedan hallazgos abiertos.**
+CI está configurado, pero requiere activar branch protection para ser un gate obligatorio. Para
+producción faltan solo configuraciones operativas: SMTP, claves de Turnstile, bucket/credenciales de
+R2, ClamAV y branch protection.
 
 ---
 
@@ -554,6 +555,6 @@ ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-jar", "/app/app.jar"]
 | PERF-02 | ✅ Corregido en working tree (pendiente de commit) | `StudentProfileResponse` incluye `academicUnitId`; el modal lo usa para preseleccionar la facultad y hace **una** request de carreras, en lugar del fan-out `Promise.all` sobre todas las unidades. Test de integración y E2E de perfil verdes. |
 | PERF-01 | ✅ Corregido en working tree (pendiente de commit) | `requireVisible` resuelve visibilidad + id en **una** consulta. Se midió con `EXPLAIN (ANALYZE, BUFFERS)` sobre una base desechable con **5.059 profesores visibles**: count **7,6 ms** y búsqueda paginada **8,1 ms**. El flag denormalizado `is_published`/vista materializada no se justifica con esta evidencia y queda descartado hasta que una medición real muestre lo contrario. |
 | DEP-02 | ✅ Corregido en working tree (pendiente de commit) | Se retiró el tooling de Neon sin uso de la raíz (`package.json`, `package-lock.json`, `neon.ts`): ninguna referencia en código, CI, scripts o docs. Queda un único lockfile, el de `frontend/`. |
-| STOR-01 | 🟡 Pendiente de proveedor/escáner | `ADR-026` define la migración: bucket S3-compatible privado, API de carga intacta, descarga prefirmada/streaming, `storage_key` + `scan_status` (`V10`), cuarentena y ClamAV. Falta elegir proveedor (R2/S3/MinIO) y forma de escaneo para implementar y testear con MinIO. |
+| STOR-01 | ✅ Corregido en working tree (pendiente de commit) | `V10` + `DocumentStorage` con R2/S3 (AWS SDK v2): bucket privado, `storage_key`, dual-read de filas legacy y `scan_status`. ClamAV INSTREAM **antes** de guardar (infectado → 400, caído → 503); sin exponer la key. `STORAGE_PROVIDER=postgres` sigue siendo el default local/test. Tests: S3 mockeado, ClamAV con servidor TCP fake, integración de subida/descarga y E2E 40/40. El bucket real se valida en el deploy con las credenciales. |
 
 > El informe original se generó en modo solo lectura. La corrección de EVID-01 se aplicó después de la auditoría (backend + guard de UI); el resto del código de producto no se modificó. El conteo de la tabla resumen refleja el estado al momento de la auditoría.

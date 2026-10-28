@@ -41,6 +41,7 @@ class VerificationDocumentServiceTest {
     @Mock private VerificationDecisionRepository decisionRepository;
     @Mock private DocumentContentValidator validator;
     @Mock private DocumentStorage storage;
+    @Mock private DocumentScanner scanner;
     @Mock private UserRepository userRepository;
     @InjectMocks private VerificationDocumentService service;
 

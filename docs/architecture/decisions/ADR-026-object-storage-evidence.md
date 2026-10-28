@@ -1,8 +1,13 @@
 # ADR-026 — Evidencia en object storage con escaneo (propuesto)
 
-**Estado:** Propuesto — bloqueado por proveedor/escáner (STOR-01)
+**Estado:** Aceptado (STOR-001, implementado)
 **Fecha:** 2026-10-28
 **Relacionado:** `STOR-01` de `review.md`, `TEACHER-001` (D5), `ADR-009`.
+
+> **Nota de implementación:** el escaneo quedó **síncrono en la carga** (ClamAV INSTREAM) y
+> fail-closed, en lugar de una cola asíncrona: así nunca se guarda evidencia sin escanear y no se
+> necesita un worker para el MVP. `scan_status` conserva `PENDING` para una futura cola. La descarga
+> sigue pasando por el backend (sin URLs prefirmadas); ambas simplificaciones están en `STOR-001`.
 
 ## Contexto
 
