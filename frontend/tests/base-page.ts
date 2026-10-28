@@ -1,15 +1,15 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 
 /**
- * Parent of every page object. The app navigates through in-memory state (no router yet),
- * so every flow starts from the home page.
+ * Parent of every page object. Navigation goes through real URLs, so any screen can also be
+ * opened directly.
  */
 export class BasePage {
   constructor(protected page: Page) {}
 
   async gotoHome(): Promise<void> {
     await this.page.goto('/');
-    await expect(this.page.getByRole('button', { name: 'ClaseYa — inicio' })).toBeVisible();
+    await expect(this.page.getByRole('link', { name: 'ClaseYa — inicio' })).toBeVisible();
   }
 
   /** True when the view stopped loading (no placeholders left). */

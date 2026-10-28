@@ -33,7 +33,7 @@ export class TeacherListingPage extends BasePage {
 
   async open(): Promise<void> {
     await this.gotoHome();
-    await this.page.getByRole('button', { name: 'Mi anuncio', exact: true }).click();
+    await this.page.getByRole('link', { name: 'Mi anuncio', exact: true }).click();
     await expect(this.heading).toBeVisible();
   }
 

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ChevronLeft, ChevronRight, FilterX, SearchX } from 'lucide-react';
+import { useSearchParams } from 'react-router';
 import { api, type Subject, type TeacherSummary } from '../api';
+import { usePageMeta } from '../hooks/usePageMeta';
 import SearchInput from '../components/ui/SearchInput';
 import { Button } from '../components/ui/Button';
 import { Chip, EmptyState, Skeleton } from '../components/ui/primitives';
@@ -8,7 +10,6 @@ import PriceRange, { type PriceValue } from '../components/ui/PriceRange';
 import { TeacherCard } from '../components/teacher/TeacherCard';
 
 interface Props {
-  initialTerm: string;
   subjects: Subject[];
   onBack: () => void;
   onOpenTeacher: (id: string) => void;
@@ -26,6 +27,12 @@ interface Filters {
   onlyVerified: boolean;
 }
 
+interface SearchState {
+  term: string;
+  filters: Filters;
+  page: number;
+}
+
 const NO_FILTERS: Filters = { subjectId: null, modality: null, minRating: null, price: { min: null, max: null }, onlyVerified: false };
 
 /** A typed pair can be inverted; order it before querying (SEARCH-001). */
@@ -39,16 +46,64 @@ function activeFilterCount(filters: Filters): number {
     .filter((value) => value != null).length + (filters.onlyVerified ? 1 : 0);
 }
 
-export default function SearchPage({ initialTerm, subjects, onBack, onOpenTeacher, onToggleFavorite, favorites }: Props) {
-  const [term, setTerm] = useState(initialTerm);
+function parseNonNegativeInt(value: string | null): number | null {
+  if (value == null || value.trim() === '') return null;
+  const number = Number(value);
+  return Number.isInteger(number) && number >= 0 ? number : null;
+}
+
+/** Reads and validates the whitelisted query params. Anything unknown or invalid is ignored. */
+function parseSearch(params: URLSearchParams): SearchState {
+  const term = (params.get('materia') ?? '').trim();
+  const modalityParam = params.get('modalidad');
+  const modality = modalityParam === 'ONLINE' || modalityParam === 'IN_PERSON' ? modalityParam : null;
+  const rating = Number(params.get('rating'));
+  const minRating = rating === 4 || rating === 4.5 ? rating : null;
+  const pageParam = Number(params.get('pagina'));
+  const page = Number.isInteger(pageParam) && pageParam >= 1 ? pageParam - 1 : 0;
+
+  return {
+    term,
+    page,
+    filters: {
+      subjectId: null,
+      modality,
+      minRating,
+      price: { min: parseNonNegativeInt(params.get('precioMin')), max: parseNonNegativeInt(params.get('precioMax')) },
+      onlyVerified: params.get('verificados') === 'true',
+    },
+  };
+}
+
+/** Only known, non-empty params are serialized: the URL stays readable and shareable. */
+function buildSearch(term: string, filters: Filters, page: number): URLSearchParams {
+  const params = new URLSearchParams();
+  const trimmed = term.trim();
+  if (trimmed) params.set('materia', trimmed);
+  if (filters.modality) params.set('modalidad', filters.modality);
+  if (filters.minRating != null) params.set('rating', String(filters.minRating));
+  if (filters.price.min != null) params.set('precioMin', String(filters.price.min));
+  if (filters.price.max != null) params.set('precioMax', String(filters.price.max));
+  if (filters.onlyVerified) params.set('verificados', 'true');
+  if (page > 0) params.set('pagina', String(page + 1));
+  return params;
+}
+
+export default function SearchPage({ subjects, onBack, onOpenTeacher, onToggleFavorite, favorites }: Props) {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const queryKey = searchParams.toString();
+  const urlTerm = (searchParams.get('materia') ?? '').trim();
+
+  const initial = useRef<SearchState>(parseSearch(searchParams));
+  const [term, setTerm] = useState(initial.current.term);
   /** What the controls show. Changing it fires nothing. */
-  const [draft, setDraft] = useState<Filters>(NO_FILTERS);
+  const [draft, setDraft] = useState<Filters>(initial.current.filters);
   /** What the results reflect. Only the explicit actions below update it. */
-  const [applied, setApplied] = useState<Filters>(NO_FILTERS);
+  const [applied, setApplied] = useState<Filters>(initial.current.filters);
   const [results, setResults] = useState<TeacherSummary[]>([]);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
-  const [page, setPage] = useState(0);
+  const [page, setPage] = useState(initial.current.page);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [unmatchedTerm, setUnmatchedTerm] = useState('');
@@ -56,6 +111,15 @@ export default function SearchPage({ initialTerm, subjects, onBack, onOpenTeache
   // skeletons collapses the document (the footer jumps into view) on every filter apply.
   const [hasSearched, setHasSearched] = useState(false);
   const requestSeq = useRef(0);
+  // A term cannot be resolved before the subject catalog arrives; remember it and retry once.
+  const pendingTerm = useRef<string | null>(null);
+
+  usePageMeta({
+    title: urlTerm ? `Profesores de ${urlTerm} | ClaseYa` : 'Buscar profesores particulares | ClaseYa',
+    description: urlTerm
+      ? `Encontrá y compará profesores de ${urlTerm} por precio, modalidad y disponibilidad. Contactalos gratis.`
+      : 'Buscá profesores particulares por materia, modalidad, precio y calificación. Contactalos gratis.',
+  });
 
   const resolveSubject = useCallback(
     (value: string) => subjects.find((s) => s.name.toLowerCase() === value.trim().toLowerCase())?.id ?? null,
@@ -73,6 +137,12 @@ export default function SearchPage({ initialTerm, subjects, onBack, onOpenTeache
       if (trimmed && !subjectToUse) {
         subjectToUse = resolveSubject(trimmed);
         if (!subjectToUse) {
+          // The catalog has not loaded yet: wait instead of reporting a false "not found".
+          if (subjects.length === 0) {
+            pendingTerm.current = trimmed;
+            return;
+          }
+          pendingTerm.current = null;
           setUnmatchedTerm(trimmed);
           setResults([]);
           setTotal(0);
@@ -81,6 +151,7 @@ export default function SearchPage({ initialTerm, subjects, onBack, onOpenTeache
           return;
         }
       }
+      pendingTerm.current = null;
       setUnmatchedTerm('');
       const effective: Filters = { ...filters, subjectId: subjectToUse };
       setApplied(effective);
@@ -111,50 +182,71 @@ export default function SearchPage({ initialTerm, subjects, onBack, onOpenTeache
         if (seq === requestSeq.current) setLoading(false);
       }
     },
-    [resolveSubject],
+    [resolveSubject, subjects.length],
   );
 
   /**
-   * `runSearch` changes identity when the subject list loads, so the initial search
-   * is keyed on the term only (a filter change must never trigger a request). The ref
-   * also absorbs StrictMode's double effect invocation in development, which would
-   * otherwise fire the same search twice on mount; it resets on remount, so landing
-   * with the same term again still searches.
+   * `runSearch` changes identity when the subject list loads, so the URL effect calls it through
+   * a ref. The ref also absorbs StrictMode's double effect invocation in development.
    */
   const runSearchRef = useRef(runSearch);
   useEffect(() => {
     runSearchRef.current = runSearch;
   }, [runSearch]);
 
-  const initialTermSearched = useRef<string | null>(null);
+  // The URL is the source of truth: direct entry, back/forward and the actions below all land here.
+  const lastQueryKey = useRef<string | null>(null);
   useEffect(() => {
-    if (initialTermSearched.current === initialTerm) return;
-    initialTermSearched.current = initialTerm;
-    void runSearchRef.current(initialTerm, NO_FILTERS, 0);
-  }, [initialTerm]);
+    if (lastQueryKey.current === queryKey) return;
+    lastQueryKey.current = queryKey;
+    const next = parseSearch(searchParams);
+    setTerm(next.term);
+    setDraft(next.filters);
+    setApplied(next.filters);
+    // `page` is only updated when the response arrives: the indicator must never claim a
+    // page whose results are not on screen yet.
+    void runSearchRef.current(next.term, next.filters, next.page);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queryKey]);
+
+  // A deep link may arrive before the catalog: run the pending term as soon as it is available.
+  useEffect(() => {
+    if (subjects.length === 0 || !pendingTerm.current) return;
+    pendingTerm.current = null;
+    const next = parseSearch(searchParams);
+    void runSearchRef.current(next.term, next.filters, next.page);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subjects.length]);
 
   function updateDraft(next: Partial<Filters>) {
     setDraft((current) => ({ ...current, ...next }));
   }
 
-  /** The only path that turns selected filters into a query (explicit user action). */
+  /** The only path that turns the draft into a query and a new URL (explicit user action). */
   function applyFilters() {
     const next: Filters = { ...draft, price: normalizePrice(draft.price) };
     setDraft(next);
-    setApplied(next);
-    void runSearch(term, next, 0);
+    setSearchParams(buildSearch(term, next, 0));
   }
 
   function clearFilters() {
     setDraft(NO_FILTERS);
-    setApplied(NO_FILTERS);
-    void runSearch(term, NO_FILTERS, 0);
+    setSearchParams(buildSearch(term, NO_FILTERS, 0));
+  }
+
+  function submitTerm(value: string) {
+    setTerm(value);
+    setSearchParams(buildSearch(value, { ...applied, subjectId: null }, 0));
+  }
+
+  function goToPage(nextPage: number) {
+    setSearchParams(buildSearch(term, applied, nextPage));
   }
 
   const selected = activeFilterCount(draft);
 
   return (
-    <div className="container-page py-8">
+    <div className="container-page py-8" data-testid="search-page">
       <button
         type="button"
         onClick={onBack}
@@ -167,7 +259,7 @@ export default function SearchPage({ initialTerm, subjects, onBack, onOpenTeache
         <SearchInput
           value={term}
           onChange={setTerm}
-          onSubmit={(value) => void runSearch(value, { ...applied, subjectId: null }, 0)}
+          onSubmit={submitTerm}
           suggestions={subjects}
           popular={subjects}
           loading={loading}
@@ -253,7 +345,7 @@ export default function SearchPage({ initialTerm, subjects, onBack, onOpenTeache
                     // Clear the typed term too: otherwise paging or applying a filter re-runs the
                     // search with the unmatched text and the results disappear.
                     setTerm('');
-                    void runSearch('', { ...applied, subjectId: null }, 0);
+                    setSearchParams(buildSearch('', { ...applied, subjectId: null }, 0));
                   }}
                 >
                   Ver todos los profesores
@@ -290,7 +382,7 @@ export default function SearchPage({ initialTerm, subjects, onBack, onOpenTeache
                     variant="outline"
                     size="sm"
                     disabled={page === 0 || loading}
-                    onClick={() => void runSearch(term, applied, page - 1)}
+                    onClick={() => goToPage(page - 1)}
                   >
                     <ChevronLeft className="h-4 w-4" aria-hidden="true" /> Anterior
                   </Button>
@@ -299,7 +391,7 @@ export default function SearchPage({ initialTerm, subjects, onBack, onOpenTeache
                     variant="outline"
                     size="sm"
                     disabled={page + 1 >= totalPages || loading}
-                    onClick={() => void runSearch(term, applied, page + 1)}
+                    onClick={() => goToPage(page + 1)}
                   >
                     Siguiente <ChevronRight className="h-4 w-4" aria-hidden="true" />
                   </Button>

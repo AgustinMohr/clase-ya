@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, BadgeCheck, CalendarDays, GraduationCap, Heart, MapPin, MessageCircle, Star } from 'lucide-react';
 import { api, type AvailabilityWindow, type TeacherDetail, type TeacherSummary } from '../api';
 import { useAuth } from '../auth/AuthContext';
+import { metaDescription, usePageMeta } from '../hooks/usePageMeta';
+import { useBack } from '../hooks/useBack';
 import { Avatar, Badge, Card, EmptyState, Skeleton } from '../components/ui/primitives';
 import { Button } from '../components/ui/Button';
 import { cn } from '../lib/cn';
@@ -9,20 +11,31 @@ import { dayName, dayPartLabel, formatPriceHour, modalityLabel } from '../lib/fo
 
 interface Props {
   teacherId: string;
-  onBack: () => void;
   onContact: (teacher: TeacherSummary) => void;
   onToggleFavorite?: (teacher: TeacherSummary) => void;
   favorite: boolean;
 }
 
-export default function TeacherProfilePage({ teacherId, onBack, onContact, onToggleFavorite, favorite }: Props) {
+export default function TeacherProfilePage({ teacherId, onContact, onToggleFavorite, favorite }: Props) {
   const { user } = useAuth();
+  const back = useBack('/');
   // Only students start contacts; visitors are asked to sign in first.
   const canContact = !user || user.role === 'STUDENT';
   const [teacher, setTeacher] = useState<TeacherDetail | null>(null);
   const [windows, setWindows] = useState<AvailabilityWindow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  usePageMeta({
+    title: teacher
+      ? `${teacher.displayName || 'Profesor'}${teacher.city ? ` — clases en ${teacher.city}` : ''} | ClaseYa`
+      : 'Perfil de profesor | ClaseYa',
+    description: teacher
+      ? metaDescription(teacher.bio) ??
+        `Mirá la disponibilidad, materias y precio por hora de ${teacher.displayName || 'este profesor'} en ClaseYa.`
+      : 'Perfil de profesor en ClaseYa.',
+    image: teacher?.photoUrl ?? undefined,
+  });
 
   useEffect(() => {
     let active = true;
@@ -61,7 +74,7 @@ export default function TeacherProfilePage({ teacherId, onBack, onContact, onTog
   if (error || !teacher) {
     return (
       <div className="container-page py-10">
-        <EmptyState title="Perfil no disponible" description={error || 'No encontramos este profesor.'} action={<Button onClick={onBack}>Volver</Button>} />
+        <EmptyState title="Perfil no disponible" description={error || 'No encontramos este profesor.'} action={<Button onClick={back}>Volver</Button>} />
       </div>
     );
   }
@@ -72,7 +85,7 @@ export default function TeacherProfilePage({ teacherId, onBack, onContact, onTog
     <div className="container-page py-8">
       <button
         type="button"
-        onClick={onBack}
+        onClick={back}
         className="mb-5 inline-flex items-center gap-1.5 text-sm font-semibold text-content-muted transition-colors hover:text-primary-600"
       >
         <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Volver

@@ -16,7 +16,7 @@ export class FavoritesPage extends BasePage {
 
   async openFromNavbar(): Promise<void> {
     // `exact` matters: the favourite toggles are also "…favoritos" buttons.
-    await this.page.getByRole('button', { name: 'Favoritos', exact: true }).click();
+    await this.page.getByRole('link', { name: 'Favoritos', exact: true }).click();
     await expect(this.heading).toBeVisible();
   }
 

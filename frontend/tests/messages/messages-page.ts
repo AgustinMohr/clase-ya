@@ -17,7 +17,7 @@ export class MessagesPage extends BasePage {
 
   constructor(page: Page) {
     super(page);
-    this.navButton = page.getByRole('button', { name: 'Mensajes' });
+    this.navButton = page.getByRole('link', { name: 'Mensajes' });
     this.heading = page.getByRole('heading', { name: 'Mensajes' });
     this.threadShell = page.getByTestId('thread-shell');
     this.threadBody = page.getByTestId('thread-body');

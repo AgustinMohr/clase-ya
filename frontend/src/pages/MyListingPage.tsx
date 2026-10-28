@@ -17,6 +17,7 @@ import {
   type University,
 } from '../api';
 import { useToast } from '../components/ui/Toast';
+import { usePageMeta } from '../hooks/usePageMeta';
 import { Badge, Card, ConfirmDialog, EmptyState, Skeleton, SubCard, Tag } from '../components/ui/primitives';
 import { Button } from '../components/ui/Button';
 import { Field, Input, Select, Textarea } from '../components/ui/Field';
@@ -52,6 +53,10 @@ export default function MyListingPage({
   onPreview: (id: string) => void;
 }) {
   const { notify } = useToast();
+  usePageMeta({
+    title: 'Mi anuncio | ClaseYa',
+    description: 'Editá tu perfil público de profesor, materias, disponibilidad y verificación.',
+  });
 
   const [profile, setProfile] = useState<TeacherProfile | null>(null);
   const [announcement, setAnnouncement] = useState<AnnouncementStatus | null>(null);

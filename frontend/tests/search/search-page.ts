@@ -3,8 +3,10 @@ import { BasePage } from '../base-page';
 
 /**
  * Resultados de búsqueda: filtros laterales, grilla de tarjetas y paginador.
+ * The root is scoped because the landing has its own search input with the same accessible name.
  */
 export class SearchPage extends BasePage {
+  readonly root: Locator;
   readonly term: Locator;
   readonly submit: Locator;
   readonly cards: Locator;
@@ -21,24 +23,28 @@ export class SearchPage extends BasePage {
 
   constructor(page: Page) {
     super(page);
-    this.term = page.getByRole('combobox', { name: 'Buscar materia' });
-    this.submit = page.getByRole('button', { name: 'Buscar' });
-    this.cards = page.getByTestId('teacher-card');
-    this.count = page.getByText(/profesor(es)? encontrado/);
-    this.emptyState = page.getByText('Sin resultados con estos filtros');
-    this.seeAll = page.getByRole('button', { name: 'Ver todos los profesores' });
-    this.applyButton = page.getByRole('button', { name: /Aplicar filtros/ });
-    this.clearFilters = page.getByRole('button', { name: 'Limpiar filtros' });
-    this.priceFrom = page.getByLabel('Desde');
-    this.onlineChip = page.getByRole('button', { name: 'Online' });
-    this.pageIndicator = page.getByText(/Página \d+ de \d+/);
-    this.next = page.getByRole('button', { name: 'Siguiente' });
-    this.previous = page.getByRole('button', { name: 'Anterior' });
+    this.root = page.getByTestId('search-page');
+    this.term = this.root.getByRole('combobox', { name: 'Buscar materia' });
+    this.submit = this.root.getByRole('button', { name: 'Buscar', exact: true });
+    this.cards = this.root.getByTestId('teacher-card');
+    this.count = this.root.getByText(/profesor(es)? encontrado/);
+    this.emptyState = this.root.getByText('Sin resultados con estos filtros');
+    this.seeAll = this.root.getByRole('button', { name: 'Ver todos los profesores' });
+    this.applyButton = this.root.getByRole('button', { name: /Aplicar filtros/ });
+    this.clearFilters = this.root.getByRole('button', { name: 'Limpiar filtros' });
+    this.priceFrom = this.root.getByLabel('Desde');
+    this.onlineChip = this.root.getByRole('button', { name: 'Online' });
+    this.pageIndicator = this.root.getByText(/Página \d+ de \d+/);
+    this.next = this.root.getByRole('button', { name: 'Siguiente' });
+    this.previous = this.root.getByRole('button', { name: 'Anterior' });
   }
 
   async searchFromLanding(term: string): Promise<void> {
-    await this.term.fill(term);
-    await this.submit.click();
+    await this.page.getByRole('combobox', { name: 'Buscar materia' }).fill(term);
+    await this.page.getByRole('button', { name: 'Buscar', exact: true }).click();
+    // The landing stays mounted for a tick after the URL changes: wait for the search screen
+    // itself before any scoped locator is used.
+    await expect(this.root).toBeVisible();
   }
 
   /** The empty state offers the whole catalog, which is the widest result set available. */

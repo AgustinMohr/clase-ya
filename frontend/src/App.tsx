@@ -1,40 +1,64 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Heart } from 'lucide-react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { Route, Routes, useLocation, useNavigate, useParams } from 'react-router';
 import { api, ApiError, type StudentProfile, type Subject, type TeacherSummary } from './api';
 import { useAuth } from './auth/AuthContext';
 import { useToast } from './components/ui/Toast';
 import { Navbar } from './components/ui/Navbar';
 import { Footer } from './components/ui/Footer';
-import { Button } from './components/ui/Button';
-import { EmptyState, Skeleton } from './components/ui/primitives';
-import { TeacherCard } from './components/teacher/TeacherCard';
-import LandingPage from './pages/LandingPage';
-import SearchPage from './pages/SearchPage';
-import TeacherProfilePage from './pages/TeacherProfilePage';
-import MessagesPage from './pages/MessagesPage';
-import MyListingPage from './pages/MyListingPage';
+import { Skeleton } from './components/ui/primitives';
+import { ProtectedRoute } from './components/routing/ProtectedRoute';
 import LoginModal from './components/LoginModal';
 import ContactModal from './components/ContactModal';
 import StudentProfileModal from './components/StudentProfileModal';
+import { ROUTES, isPrivatePath, searchPath } from './routes';
 
-type View =
-  | { name: 'landing' }
-  | { name: 'search'; term: string }
-  | { name: 'profile'; id: string }
-  | { name: 'favorites' }
-  | { name: 'my-listing' }
-  | { name: 'messages'; conversationId?: string };
+const LandingPage = lazy(() => import('./pages/LandingPage'));
+const SearchPage = lazy(() => import('./pages/SearchPage'));
+const TeacherProfilePage = lazy(() => import('./pages/TeacherProfilePage'));
+const MessagesPage = lazy(() => import('./pages/MessagesPage'));
+const MyListingPage = lazy(() => import('./pages/MyListingPage'));
+const FavoritesPage = lazy(() => import('./pages/FavoritesPage'));
+const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 
-const LANDING_VIEW: View = { name: 'landing' };
+function RouteFallback() {
+  return (
+    <div className="container-page space-y-5 py-8" aria-busy="true" aria-label="Cargando página">
+      <Skeleton className="h-40" />
+      <Skeleton className="h-64" />
+    </div>
+  );
+}
+
+function TeacherProfileRoute({
+  favorites,
+  onContact,
+  onToggleFavorite,
+}: {
+  favorites: Set<string>;
+  onContact: (teacher: TeacherSummary) => void;
+  onToggleFavorite: (teacher: TeacherSummary) => void;
+}) {
+  const { teacherId = '' } = useParams();
+  const { user } = useAuth();
+  return (
+    <TeacherProfilePage
+      teacherId={teacherId}
+      onContact={onContact}
+      onToggleFavorite={user && user.role !== 'STUDENT' ? undefined : onToggleFavorite}
+      favorite={favorites.has(teacherId)}
+    />
+  );
+}
 
 export default function App() {
   const { user } = useAuth();
   const { notify } = useToast();
-  const [view, setView] = useState<View>(LANDING_VIEW);
+  const navigate = useNavigate();
+  const location = useLocation();
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [favoriteTeachers, setFavoriteTeachers] = useState<TeacherSummary[]>([]);
-  const [favoritesLoading, setFavoritesLoading] = useState(false);
+  const [favoritesLoading, setFavoritesLoading] = useState(Boolean(user));
   const [loginOpen, setLoginOpen] = useState(false);
   const [pendingContact, setPendingContact] = useState<TeacherSummary | null>(null);
   const [contactTarget, setContactTarget] = useState<TeacherSummary | null>(null);
@@ -44,26 +68,7 @@ export default function App() {
   const [profileChecked, setProfileChecked] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
 
-  // The in-app view is kept in sync with the browser history so the back/forward buttons move
-  // between screens instead of leaving the app. There is no router yet, so the entry only stores
-  // the view state and the URL stays put.
-  const navigate = useCallback((next: View) => {
-    setView(next);
-    window.history.pushState({ view: next }, '');
-  }, []);
-
-  useEffect(() => {
-    if (!window.history.state?.view) {
-      window.history.replaceState({ view: LANDING_VIEW }, '');
-    }
-    const onPopState = (event: PopStateEvent) => {
-      const restored = (event.state as { view?: View } | null)?.view;
-      setView(restored ?? LANDING_VIEW);
-    };
-    window.addEventListener('popstate', onPopState);
-    return () => window.removeEventListener('popstate', onPopState);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const requireLogin = useCallback(() => setLoginOpen(true), []);
 
   useEffect(() => {
     api.subjects().then(setSubjects).catch(() => undefined);
@@ -73,15 +78,23 @@ export default function App() {
     if (!user) {
       setFavorites(new Set());
       setFavoriteTeachers([]);
+      setFavoritesLoading(false);
       return;
     }
+    let active = true;
+    setFavoritesLoading(true);
     api
       .favorites()
       .then((page) => {
+        if (!active) return;
         setFavoriteTeachers(page.content.map((f) => f.teacher));
         setFavorites(new Set(page.content.map((f) => f.teacher.id)));
       })
-      .catch(() => undefined);
+      .catch(() => undefined)
+      .finally(() => active && setFavoritesLoading(false));
+    return () => {
+      active = false;
+    };
   }, [user]);
 
   useEffect(() => {
@@ -95,26 +108,31 @@ export default function App() {
       setProfileChecked(true);
       return;
     }
+    let active = true;
     api
       .studentProfile()
-      .then(setProfile)
-      .catch(() => setProfile(null))
-      .finally(() => setProfileChecked(true));
+      .then((saved) => active && setProfile(saved))
+      .catch(() => active && setProfile(null))
+      .finally(() => active && setProfileChecked(true));
+    return () => {
+      active = false;
+    };
   }, [user]);
 
-  // Logging out (or an expired session) must not keep showing private views.
+  // Logging out (or an expired session) must not keep showing a private view. The ref keeps
+  // an anonymous deep link on its URL so the guard can offer the login instead of redirecting.
+  const wasAuthenticated = useRef(Boolean(user));
   useEffect(() => {
-    if (!user) {
-      setView(LANDING_VIEW);
-      window.history.replaceState({ view: LANDING_VIEW }, '');
+    if (wasAuthenticated.current && !user && isPrivatePath(location.pathname)) {
+      navigate(ROUTES.home, { replace: true });
     }
-  }, [user]);
+    wasAuthenticated.current = Boolean(user);
+  }, [user, location.pathname, navigate]);
 
-  // Every view change starts at the top: arriving at a teacher profile from a scrolled
-  // result list used to land in the middle of the page.
+  // A navigation starts at the top. Query-only changes (filters, pagination) keep the position.
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0 });
-  }, [view]);
+  }, [location.pathname]);
 
   const needsProfile = Boolean(user && user.role === 'STUDENT' && profileChecked && !profile);
 
@@ -185,110 +203,99 @@ export default function App() {
     }
   }
 
-  function openFavorites() {
-    if (!user) {
-      setLoginOpen(true);
-      return;
-    }
-    setFavoritesLoading(true);
-    api
-      .favorites()
-      .then((page) => setFavoriteTeachers(page.content.map((f) => f.teacher)))
-      .catch(() => notify('No pudimos cargar tus favoritos.', 'error'))
-      .finally(() => setFavoritesLoading(false));
-    navigate({ name: 'favorites' });
-  }
-
   return (
     <div className="flex min-h-screen flex-col">
-      <Navbar
-        onHome={() => navigate({ name: 'landing' })}
-        onFavorites={openFavorites}
-        onMessages={() => navigate({ name: 'messages' })}
-        onProfile={() => setProfileOpen(true)}
-        onMyListing={() => navigate({ name: 'my-listing' })}
-        onLogin={() => setLoginOpen(true)}
-      />
+      <Navbar onProfile={() => setProfileOpen(true)} onLogin={() => setLoginOpen(true)} />
 
       <main className="flex-1">
-        {view.name === 'landing' && (
-          <LandingPage
-            onSearch={(term) => navigate({ name: 'search', term })}
-            onOpenTeacher={(id) => navigate({ name: 'profile', id })}
-            onToggleFavorite={toggleFavorite}
-            favorites={favorites}
-          />
-        )}
+        <Suspense fallback={<RouteFallback />}>
+          <Routes>
+            <Route
+              path={ROUTES.home}
+              element={
+                <LandingPage
+                  onSearch={(term) => navigate(searchPath(term))}
+                  onOpenTeacher={(id) => navigate(ROUTES.teacher(id))}
+                  onToggleFavorite={toggleFavorite}
+                  favorites={favorites}
+                />
+              }
+            />
 
-        {view.name === 'search' && (
-          <SearchPage
-            initialTerm={view.term}
-            subjects={subjects}
-            onBack={() => navigate({ name: 'landing' })}
-            onOpenTeacher={(id) => navigate({ name: 'profile', id })}
-            onToggleFavorite={toggleFavorite}
-            favorites={favorites}
-          />
-        )}
+            <Route
+              path={ROUTES.search}
+              element={
+                <SearchPage
+                  subjects={subjects}
+                  onBack={() => navigate(ROUTES.home)}
+                  onOpenTeacher={(id) => navigate(ROUTES.teacher(id))}
+                  onToggleFavorite={toggleFavorite}
+                  favorites={favorites}
+                />
+              }
+            />
 
-        {view.name === 'profile' && (
-          <TeacherProfilePage
-            teacherId={view.id}
-            onBack={() => navigate({ name: 'landing' })}
-            onContact={contact}
-            onToggleFavorite={user && user.role !== 'STUDENT' ? undefined : toggleFavorite}
-            favorite={favorites.has(view.id)}
-          />
-        )}
+            <Route
+              path="/profesores/:teacherId"
+              element={
+                <TeacherProfileRoute
+                  favorites={favorites}
+                  onContact={contact}
+                  onToggleFavorite={toggleFavorite}
+                />
+              }
+            />
 
-        {view.name === 'messages' && (
-          <MessagesPage
-            onBack={() => navigate({ name: 'landing' })}
-            initialConversationId={view.conversationId}
-          />
-        )}
-
-        {view.name === 'my-listing' && (
-          <MyListingPage
-            onBack={() => navigate({ name: 'landing' })}
-            onPreview={(id) => navigate({ name: 'profile', id })}
-          />
-        )}
-
-        {view.name === 'favorites' && (
-          <div className="container-page py-8">
-            <h1 className="mb-6 font-display text-3xl">Mis favoritos</h1>
-            {favoritesLoading ? (
-              <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                {Array.from({ length: 3 }).map((_, i) => (
-                  <Skeleton key={i} className="h-64" />
-                ))}
-              </div>
-            ) : favoriteTeachers.length === 0 ? (
-              <EmptyState
-                icon={<Heart className="h-6 w-6" aria-hidden="true" />}
-                title="Todavía no guardaste profesores"
-                description="Explorá el buscador y guardá los perfiles que te interesen."
-                action={<Button onClick={() => navigate({ name: 'landing' })}>Buscar profesores</Button>}
-              />
-            ) : (
-              <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                {favoriteTeachers.map((teacher) => (
-                  <TeacherCard
-                    key={teacher.id}
-                    teacher={teacher}
-                    onOpen={(id) => navigate({ name: 'profile', id })}
+            <Route
+              path={ROUTES.favorites}
+              element={
+                <ProtectedRoute role="STUDENT" onRequireLogin={requireLogin}>
+                  <FavoritesPage
+                    teachers={favoriteTeachers}
+                    loading={favoritesLoading}
+                    favorites={favorites}
                     onToggleFavorite={toggleFavorite}
-                    favorite
                   />
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path={ROUTES.messages}
+              element={
+                <ProtectedRoute onRequireLogin={requireLogin}>
+                  <MessagesPage />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path={`${ROUTES.messages}/:conversationId`}
+              element={
+                <ProtectedRoute onRequireLogin={requireLogin}>
+                  <MessagesPage />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path={ROUTES.myListing}
+              element={
+                <ProtectedRoute role="TEACHER" onRequireLogin={requireLogin}>
+                  <MyListingPage
+                    onBack={() => navigate(ROUTES.home)}
+                    onPreview={(id) => navigate(ROUTES.teacher(id))}
+                  />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route path="*" element={<NotFoundPage />} />
+          </Routes>
+        </Suspense>
       </main>
 
-      <Footer onNavigate={() => navigate({ name: 'landing' })} />
+      <Footer onNavigate={() => navigate(ROUTES.home)} />
 
       <LoginModal
         open={loginOpen}
@@ -311,7 +318,7 @@ export default function App() {
         onSent={(conversationId) => {
           setContactTarget(null);
           notify('Mensaje enviado');
-          navigate({ name: 'messages', conversationId });
+          navigate(ROUTES.conversation(conversationId));
         }}
         onNeedsProfile={() => openProfileForm(contactTarget)}
       />

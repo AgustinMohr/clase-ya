@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Compass, MessageCircle, Search, ShieldCheck, Sparkles, Users } from 'lucide-react';
 import { api, type Subject, type TeacherSummary } from '../api';
+import { usePageMeta } from '../hooks/usePageMeta';
 import SearchInput from '../components/ui/SearchInput';
 import { Section } from '../components/ui/Section';
 import { Skeleton, Card } from '../components/ui/primitives';
@@ -27,6 +28,11 @@ const BENEFITS = [
 ];
 
 export default function LandingPage({ onSearch, onOpenTeacher, onToggleFavorite, favorites }: Props) {
+  usePageMeta({
+    title: 'ClaseYa — Profesores particulares',
+    description: 'ClaseYa — encontrá profesores particulares por materia, modalidad y zona. Contactalos gratis.',
+  });
+
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [teachers, setTeachers] = useState<TeacherSummary[]>([]);
   const [loading, setLoading] = useState(true);

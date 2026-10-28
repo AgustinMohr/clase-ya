@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+# Los perfiles de profesor y las búsquedas se indexan porque Google ejecuta JavaScript.
+# Un sitemap.xml dinámico requiere renderizado en servidor (ver ADR-019).

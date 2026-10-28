@@ -1,15 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowLeft, MessageCircle, Send } from 'lucide-react';
+import { useNavigate, useParams } from 'react-router';
 import { api, ApiError, MAX_MESSAGE_LENGTH, type ConversationSummary, type Message } from '../api';
 import { useAuth } from '../auth/AuthContext';
+import { usePageMeta } from '../hooks/usePageMeta';
 import { Button } from '../components/ui/Button';
 import { EmptyState, Skeleton } from '../components/ui/primitives';
-
-interface Props {
-  onBack: () => void;
-  /** Conversation to open on arrival (the one just created by a contact request). */
-  initialConversationId?: string | null;
-}
+import { ROUTES } from '../routes';
 
 interface Thread {
   other: { displayName: string; role: string };
@@ -23,8 +20,15 @@ function formatWhen(value: string | undefined): string {
 }
 
 /** Internal messaging view: conversation list + thread (CONTACT-001). */
-export default function MessagesPage({ onBack, initialConversationId }: Props) {
+export default function MessagesPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const { conversationId: routeConversationId } = useParams();
+  usePageMeta({
+    title: 'Mensajes | ClaseYa',
+    description: 'Tus conversaciones con profesores y estudiantes en ClaseYa.',
+  });
+
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [loadingList, setLoadingList] = useState(true);
   const [listError, setListError] = useState('');
@@ -37,7 +41,6 @@ export default function MessagesPage({ onBack, initialConversationId }: Props) {
   const [sending, setSending] = useState(false);
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const draftRef = useRef<HTMLTextAreaElement | null>(null);
-  const openedInitial = useRef(false);
   // Threads already fetched: revisiting one renders instantly instead of flashing skeletons.
   const threadsRef = useRef(new Map<string, Thread>());
   // Guards against out-of-order responses when switching conversations quickly.
@@ -119,11 +122,15 @@ export default function MessagesPage({ onBack, initialConversationId }: Props) {
     [loadConversations],
   );
 
+  // The conversation id lives in the URL: direct entry, browser history and link clicks all
+  // converge here. `/mensajes` (no id) returns to the list on desktop and mobile.
   useEffect(() => {
-    if (!initialConversationId || openedInitial.current) return;
-    openedInitial.current = true;
-    void openConversation(initialConversationId);
-  }, [initialConversationId, openConversation]);
+    if (!routeConversationId) {
+      setOpenId(null);
+      return;
+    }
+    void openConversation(routeConversationId);
+  }, [routeConversationId, openConversation]);
 
   // Scroll only the thread, never the page.
   useEffect(() => {
@@ -182,7 +189,7 @@ export default function MessagesPage({ onBack, initialConversationId }: Props) {
     <div className="container-page py-8">
       <button
         type="button"
-        onClick={onBack}
+        onClick={() => navigate(ROUTES.home)}
         className="mb-5 inline-flex items-center gap-1.5 text-sm font-semibold text-content-muted transition-colors hover:text-primary-600"
       >
         <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Volver al inicio
@@ -217,7 +224,7 @@ export default function MessagesPage({ onBack, initialConversationId }: Props) {
                 <li key={conversation.id}>
                   <button
                     type="button"
-                    onClick={() => void openConversation(conversation.id)}
+                    onClick={() => navigate(ROUTES.conversation(conversation.id))}
                     className={`w-full rounded-2xl border p-4 text-left transition-colors ${
                       openId === conversation.id
                         ? 'border-primary-300 bg-primary-50/60 dark:border-primary-800 dark:bg-primary-900/20'
@@ -259,7 +266,7 @@ export default function MessagesPage({ onBack, initialConversationId }: Props) {
                     {other ? (other.role === 'TEACHER' ? 'Profesor' : 'Estudiante') : ''}
                   </p>
                 </div>
-                <Button variant="ghost" size="sm" className="lg:hidden" onClick={() => setOpenId(null)}>
+                <Button variant="ghost" size="sm" className="lg:hidden" onClick={() => navigate(ROUTES.messages)}>
                   Volver
                 </Button>
               </header>

@@ -18,6 +18,7 @@ test.describe('Sesion y navegacion', () => {
       // Private views must not survive the session (the view is reset on logout).
       await expect(page.getByRole('heading', { name: /Encontrá tu profesor/ })).toBeVisible();
       await expect(messages.heading).toHaveCount(0);
+      expect(new URL(page.url()).pathname, 'logout vuelve a la landing').toBe('/');
     },
   );
 
