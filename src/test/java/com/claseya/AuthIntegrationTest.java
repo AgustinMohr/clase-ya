@@ -13,6 +13,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Date;
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -262,6 +263,20 @@ class AuthIntegrationTest extends AbstractWebIntegrationTest {
         User user = createUser("sus@example.com", UserRole.STUDENT, UserStatus.SUSPENDED);
 
         mockMvc.perform(get("/api/test/authenticated").header("Authorization", bearer(user)))
+                .andExpect(status().isUnauthorized());
+    }
+
+    /**
+     * BUG-02: a correctly signed token whose user no longer exists must leave the request
+     * unauthenticated (401), not escape the filter and surface as a 500.
+     */
+    @Test
+    void validTokenForDeletedUser_returns401Not500() throws Exception {
+        User user = createUser("deleted-" + UUID.randomUUID() + "@test.com", UserRole.STUDENT, UserStatus.ACTIVE);
+        String token = bearer(user);
+        userRepository.delete(user);
+
+        mockMvc.perform(get("/api/auth/me").header("Authorization", token))
                 .andExpect(status().isUnauthorized());
     }
 }

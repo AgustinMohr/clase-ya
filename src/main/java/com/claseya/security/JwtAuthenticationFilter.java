@@ -7,6 +7,7 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
@@ -54,8 +55,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authentication);
                 }
-            } catch (JwtException | IllegalArgumentException e) {
-                // Invalid/expired token: leave unauthenticated, let Spring Security decide.
+            } catch (JwtException | IllegalArgumentException | AuthenticationException e) {
+                // Invalid token, or a valid token whose account no longer exists (BUG-02):
+                // leave the request unauthenticated and let Spring Security answer 401.
             }
         }
 
