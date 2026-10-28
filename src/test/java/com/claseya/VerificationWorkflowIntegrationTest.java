@@ -354,6 +354,49 @@ class VerificationWorkflowIntegrationTest extends AbstractWebIntegrationTest {
         assertThat(teacherEducationRepository.findById(clean.getId())).isEmpty();
     }
 
+    @Test
+    void evidenceOfSubmittedCredential_cannotBeDeleted() {
+        VerificationDocumentResponse doc = uploadPdf(teacher.getId(), education.getId());
+        submissionService.submit(teacher.getId(), education.getId());
+
+        assertThatThrownBy(() -> documentService.delete(teacher.getId(), doc.id()))
+                .isInstanceOf(ConflictException.class);
+        assertThat(documentRepository.findById(doc.id())).isPresent();
+    }
+
+    @Test
+    void evidenceOfVerifiedCredential_cannotBeDeleted() {
+        VerificationDocumentResponse doc = uploadPdf(teacher.getId(), education.getId());
+        submissionService.submit(teacher.getId(), education.getId());
+        decisionService.decide(admin.getId(), profile.getId(), education.getId(),
+                VerificationAction.VERIFIED, VerificationMethod.INSTITUTION_CHECK, null);
+
+        assertThatThrownBy(() -> documentService.delete(teacher.getId(), doc.id()))
+                .isInstanceOf(ConflictException.class);
+        assertThat(documentRepository.findById(doc.id())).isPresent();
+    }
+
+    @Test
+    void evidenceOfRejectedCredential_cannotBeDeleted() {
+        VerificationDocumentResponse doc = uploadPdf(teacher.getId(), education.getId());
+        submissionService.submit(teacher.getId(), education.getId());
+        decisionService.decide(admin.getId(), profile.getId(), education.getId(),
+                VerificationAction.REJECTED, VerificationMethod.DOCUMENT_ANALYSIS, "ilegible");
+
+        assertThatThrownBy(() -> documentService.delete(teacher.getId(), doc.id()))
+                .isInstanceOf(ConflictException.class);
+        assertThat(documentRepository.findById(doc.id())).isPresent();
+    }
+
+    @Test
+    void evidenceNeverSubmitted_canBeDeleted() {
+        VerificationDocumentResponse doc = uploadPdf(teacher.getId(), education.getId());
+
+        documentService.delete(teacher.getId(), doc.id());
+
+        assertThat(documentRepository.findById(doc.id())).isEmpty();
+    }
+
     // ─── privacy and reads ──────────────────────────────────────────────────────
 
     @Test

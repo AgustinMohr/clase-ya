@@ -143,6 +143,51 @@ class VerificationApiIntegrationTest extends AbstractWebIntegrationTest {
 
     // ─── helpers ────────────────────────────────────────────────────────────────
 
+    @Test
+    void uploadWithoutFile_returns400_not500() throws Exception {
+        // Regression: a missing multipart part used to fall through to the catch-all and answer 500.
+        User teacher = createUser("api-teacher+" + UUID.randomUUID() + "@test.com", UserRole.TEACHER, UserStatus.ACTIVE);
+        TeacherEducation education = credentialFor(profileFor(teacher));
+
+        mockMvc.perform(multipart("/api/teachers/me/education/" + education.getId() + "/documents")
+                        .param("type", "DIPLOMA")
+                        .header("Authorization", bearer(teacher)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void uploadWithoutType_returns400_not500() throws Exception {
+        // Regression: a missing required request parameter used to answer 500 instead of 400.
+        User teacher = createUser("api-teacher+" + UUID.randomUUID() + "@test.com", UserRole.TEACHER, UserStatus.ACTIVE);
+        TeacherEducation education = credentialFor(profileFor(teacher));
+
+        mockMvc.perform(multipart("/api/teachers/me/education/" + education.getId() + "/documents")
+                        .file(new MockMultipartFile("file", "diploma.pdf", "application/pdf", PDF))
+                        .header("Authorization", bearer(teacher)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void deleteEvidenceOfSubmittedCredential_returns409() throws Exception {
+        User teacher = createUser("api-teacher+" + UUID.randomUUID() + "@test.com", UserRole.TEACHER, UserStatus.ACTIVE);
+        String token = bearer(teacher);
+        TeacherEducation education = credentialFor(profileFor(teacher));
+        String documentId = upload(token, education.getId());
+        postJson("/api/teachers/me/education/" + education.getId() + "/submit", token, "{}", 200);
+
+        deleteJson("/api/teachers/me/documents/" + documentId, token, 409);
+    }
+
+    @Test
+    void deleteUnsubmittedEvidence_returns204() throws Exception {
+        User teacher = createUser("api-teacher+" + UUID.randomUUID() + "@test.com", UserRole.TEACHER, UserStatus.ACTIVE);
+        String token = bearer(teacher);
+        TeacherEducation education = credentialFor(profileFor(teacher));
+        String documentId = upload(token, education.getId());
+
+        deleteJson("/api/teachers/me/documents/" + documentId, token, 204);
+    }
+
     private TeacherProfile profileFor(User owner) {
         TeacherProfile profile = new TeacherProfile();
         profile.setUser(owner);

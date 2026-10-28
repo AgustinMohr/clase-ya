@@ -64,6 +64,9 @@ function CredentialRow({
   const verified = credential.status === 'VERIFIED';
   const underReview = credential.status === 'UNDER_REVIEW';
   const canSubmit = credential.documentCount > 0 && !verified && !underReview;
+  // Evidence becomes immutable once presented: the API rejects deleting it, so the UI must not
+  // offer the action for a credential that already has a submission (RF-18/RF-21).
+  const canDeleteDocuments = credential.status === 'PENDING' && !credential.submittedAt;
 
   async function toggleDocs() {
     if (docsOpen) {
@@ -211,9 +214,11 @@ function CredentialRow({
                   <span className="truncate">
                     {DOCUMENT_TYPE_LABEL[doc.type] ?? doc.type} · {doc.originalFilename}
                   </span>
-                  <button type="button" onClick={() => requestRemoveDoc(doc)} aria-label={`Eliminar ${doc.originalFilename}`} className="text-content-muted hover:text-error-600">
-                    <Trash2 className="h-4 w-4" aria-hidden="true" />
-                  </button>
+                  {canDeleteDocuments && (
+                    <button type="button" onClick={() => requestRemoveDoc(doc)} aria-label={`Eliminar ${doc.originalFilename}`} className="text-content-muted hover:text-error-600">
+                      <Trash2 className="h-4 w-4" aria-hidden="true" />
+                    </button>
+                  )}
                 </SubCard>
               ))
             )}

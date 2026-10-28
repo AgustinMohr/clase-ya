@@ -8,6 +8,7 @@ import com.claseya.model.TeacherProfile;
 import com.claseya.model.User;
 import com.claseya.model.VerificationDocument;
 import com.claseya.model.enums.DocumentType;
+import com.claseya.model.enums.VerificationStatus;
 import com.claseya.teacher.repository.TeacherEducationRepository;
 import com.claseya.teacher.service.TeacherProfileService;
 import com.claseya.user.UserRepository;
@@ -118,7 +119,15 @@ public class VerificationDocumentService {
         VerificationDocument document = documentRepository.findById(documentId)
                 .filter(d -> d.getTeacher().getId().equals(profile.getId()))
                 .orElseThrow(() -> new ResourceNotFoundException("Document not found"));
-        if (decisionRepository.existsByDocument_Id(documentId)) {
+        TeacherEducation credential = document.getTeacherEducation();
+        // Evidence is immutable once it has been presented (RF-18/RF-21). Decisions are
+        // credential-level today, so the document FK alone is not enough: a submitted credential
+        // or any audit decision also protects every document of that credential.
+        boolean usedAsEvidence = credential.getSubmittedAt() != null
+                || credential.getVerificationStatus() != VerificationStatus.PENDING
+                || decisionRepository.existsByDocument_Id(documentId)
+                || decisionRepository.existsByTeacherEducation_Id(credential.getId());
+        if (usedAsEvidence) {
             throw new ConflictException("A document used as evidence cannot be deleted");
         }
         documentRepository.delete(document);
