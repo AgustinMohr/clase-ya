@@ -23,17 +23,14 @@ public class TeacherVisibilityService {
         this.teacherProfileRepository = teacherProfileRepository;
     }
 
-    @Transactional(readOnly = true)
-    public boolean isVisible(UUID teacherId) {
-        return teacherProfileRepository.count(
-                TeacherSpecifications.visible().and(TeacherSpecifications.hasId(teacherId))) > 0;
-    }
-
-    /** Returns the profile or throws 404 — hidden profiles must never be revealed (privacy). */
+    /**
+     * Returns the profile or throws 404 — hidden profiles must never be revealed (privacy).
+     * One query: the visibility predicate and the id are evaluated together (PERF-01).
+     */
     @Transactional(readOnly = true)
     public TeacherProfile requireVisible(UUID teacherId) {
-        return teacherProfileRepository.findById(teacherId)
-                .filter(profile -> isVisible(teacherId))
+        return teacherProfileRepository
+                .findOne(TeacherSpecifications.visible().and(TeacherSpecifications.hasId(teacherId)))
                 .orElseThrow(ResourceNotFoundException::new);
     }
 }
