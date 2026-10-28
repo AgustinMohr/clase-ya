@@ -167,6 +167,8 @@ email). No es un producto terminado.
 - **TypeScript estricto + ESLint** en el frontend: `npm run lint` se ejecuta en el gate de CI.
 - **Vitest + Testing Library** para lógica pura y componentes (`npm test`); Playwright queda para
   los flujos críticos.
+- **Un único `package.json`**: el de `frontend/`. La raíz es Maven/Java, sin tooling Node ni un
+  segundo lockfile.
 - **Dependabot** para Maven (raíz: Spring/Testcontainers) y npm (`frontend`: Vite + React).
 - **Tests** con Maven + Testcontainers y E2E con Playwright; scripts de PowerShell para
   test/verify/E2E/seed.
