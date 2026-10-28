@@ -137,6 +137,24 @@ class TeacherProfileIntegrationTest extends AbstractWebIntegrationTest {
     }
 
     @Test
+    void photoUrl_mustBeHttpsOrEmpty() throws Exception {
+        User teacher = createUser("photo@example.com", UserRole.TEACHER, UserStatus.ACTIVE);
+        String token = bearer(teacher);
+
+        postJson("/api/teachers/profile", token,
+                "{\"bio\":\"x\",\"photoUrl\":\"http://example.com/p.jpg\"}", 400);
+        postJson("/api/teachers/profile", token,
+                "{\"bio\":\"x\",\"photoUrl\":\"javascript:alert(1)\"}", 400);
+
+        String created = postJson("/api/teachers/profile", token,
+                "{\"bio\":\"x\",\"photoUrl\":\"https://example.com/p.jpg\"}", 201);
+        assertThat(toJson(created).get("photoUrl").asText()).isEqualTo("https://example.com/p.jpg");
+
+        String cleared = putJson("/api/teachers/me", token, "{\"bio\":\"x\",\"photoUrl\":\"\"}", 200);
+        assertThat(toJson(cleared).has("photoUrl")).isFalse();
+    }
+
+    @Test
     void education_crud_isVerifiedStaysFalse() throws Exception {
         User teacher = createUser("prof@example.com", UserRole.TEACHER, UserStatus.ACTIVE);
         String token = bearer(teacher);

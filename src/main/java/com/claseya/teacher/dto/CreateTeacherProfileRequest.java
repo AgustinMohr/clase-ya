@@ -2,6 +2,7 @@ package com.claseya.teacher.dto;
 
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
@@ -25,8 +26,10 @@ public record CreateTeacherProfileRequest(
         @Size(max = 100, message = "City must be at most 100 characters")
         String city,
 
+        @Pattern(regexp = "^$|^https://\\S+$", message = "Photo URL must start with https://")
         @Size(max = 500, message = "Photo URL must be at most 500 characters")
         String photoUrl,
+
 
         @DecimalMin(value = "-90", message = "latitude must be between -90 and 90")
         @DecimalMax(value = "90", message = "latitude must be between -90 and 90")
