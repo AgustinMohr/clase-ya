@@ -1,0 +1,23 @@
+# Local development database (DEV-01). Start it with:
+#   docker compose up -d postgres
+# The backend defaults in application.yml already point to localhost:5432/claseya.
+services:
+  postgres:
+    image: postgres:16
+    container_name: claseya-pg
+    environment:
+      POSTGRES_USER: claseya
+      POSTGRES_PASSWORD: claseya
+      POSTGRES_DB: claseya
+    ports:
+      - "5432:5432"
+    volumes:
+      - claseya-pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U claseya -d claseya"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  claseya-pg-data:

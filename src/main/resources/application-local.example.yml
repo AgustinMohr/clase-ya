@@ -1,0 +1,24 @@
+# Copy this file to `application-local.yml` (gitignored) to enable local development:
+#
+#   Copy-Item src/main/resources/application-local.example.yml src/main/resources/application-local.yml
+#   mvn spring-boot:run "-Dspring-boot.run.profiles=local" "-Dspring-boot.run.jvmArguments=-Duser.timezone=UTC"
+#
+# Never put real secrets in the copied file: it is a local, untracked file.
+
+app:
+  demo-seed:
+    # Opt-in: seeds the demo dataset (db/seed/demo-data.sql) on startup.
+    enabled: true
+  auth:
+    activation:
+      # Development only: writes the activation link to the log instead of using SMTP.
+      # Never enable this outside a local machine.
+      log-links: true
+
+oauth:
+  google:
+    # Public client id; must be the same as VITE_GOOGLE_CLIENT_ID in frontend/.env.
+    client-id: ${GOOGLE_CLIENT_ID:}
+
+# The database uses the defaults from application.yml (localhost:5432/claseya).
+# Never add DB_URL/DB_USERNAME/DB_PASSWORD here: local dev must use the Docker Postgres.

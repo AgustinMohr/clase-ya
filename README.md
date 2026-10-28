@@ -426,14 +426,20 @@ por entorno. Ver `docs/architecture/security.md` y el ADR-017.
 
 ### Base de datos local (Docker)
 
-No hay `docker-compose` en el repositorio: la base se crea con un contenedor `postgres:16`.
+El repositorio incluye `docker-compose.yml` con un `postgres:16`:
 
 ```powershell
-# Primera vez (crea el contenedor):
-docker run --name claseya-pg -e POSTGRES_USER=claseya -e POSTGRES_PASSWORD=claseya -e POSTGRES_DB=claseya -p 5432:5432 -d postgres:16
-
-docker start claseya-pg   # en los siguientes arranques
+docker compose up -d postgres
+docker compose down          # detiene; los datos quedan en el volumen
 ```
+
+Si ya tenías el contenedor creado a mano (`claseya-pg`), podés seguir usándolo:
+
+```powershell
+docker start claseya-pg
+```
+
+No mezcles ambos: el compose usa el mismo nombre de contenedor y un volumen propio.
 
 Las migraciones de Flyway se aplican automáticamente al levantar el backend.
 
@@ -445,8 +451,9 @@ mvn spring-boot:run "-Dspring-boot.run.profiles=local" "-Dspring-boot.run.jvmArg
 ```
 
 - El perfil `local` activa la configuración de desarrollo (`application-local.yml`, **gitignoreado**)
-  y el seed demo. Si no existe en un clon nuevo, el backend arranca igual, sin seed y sin client id
-  de Google.
+  y el seed demo. Para un clon nuevo copiá la plantilla versionada:
+  `Copy-Item src/main/resources/application-local.example.yml src/main/resources/application-local.yml`.
+  Si no existe, el backend arranca igual, sin seed y sin client id de Google.
 - El flag `-Duser.timezone=UTC` es obligatorio en Windows (evita el error de zona horaria de Postgres).
 - Verificación rápida: `http://localhost:8080/actuator/health` y `http://localhost:8080/api/teachers`.
 
@@ -542,6 +549,9 @@ mvn -B test -Dtest=AuthIntegrationTest         # una clase
 scripts/test.ps1                               # preflight de Docker + mvn -B clean test
 scripts/verify.ps1                             # verificación reproducible (reporta PASS/FAIL)
 ```
+
+> El repositorio incluye el **Maven Wrapper** (`mvnw`/`mvnw.cmd`, Maven 3.9.16): usalo si no tenés
+> Maven instalado (`.\mvnw.cmd -B clean test`).
 
 ### Frontend
 
