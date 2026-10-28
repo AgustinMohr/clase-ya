@@ -63,7 +63,7 @@ Authorities: `ROLE_STUDENT`, `ROLE_TEACHER`, `ROLE_ADMIN` (mapeo único en `AppU
 | `POST /api/auth/**`, `GET /actuator/health` | permitAll |
 | Lecturas del catálogo académico (`GET /api/universities/**`, `academic-units`, `careers`, `subjects`, `career-subjects`) | públicas |
 | Escrituras del catálogo (POST/PUT/DELETE sobre lo anterior) | `ADMIN` |
-| `GET /api/teachers`, `GET /api/teachers/{id}` (descubrimiento público) | públicas (solo VERIFIED+ACTIVE, aplicado en backend) |
+| `GET /api/teachers`, `GET /api/teachers/{id}` (descubrimiento público) | públicas (ACTIVE + anuncio publicado, D1; aplicado en backend) |
 | `/api/teachers/me*` y rutas de perfil propio | `TEACHER` o `ADMIN` |
 | `/api/students/**` | `STUDENT` o `ADMIN` |
 | `/api/favorites/**` | `STUDENT` |

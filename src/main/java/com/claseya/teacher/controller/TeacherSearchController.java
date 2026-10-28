@@ -16,7 +16,7 @@ import java.math.BigDecimal;
 import java.util.UUID;
 
 /**
- * Public teacher discovery. Only verified + active teachers are returned;
+ * Public teacher discovery. Only ACTIVE teachers with a published announcement (D1) are returned;
  * visibility is enforced by the backend, never by the client.
  */
 @RestController

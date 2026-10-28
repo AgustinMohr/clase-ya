@@ -8,7 +8,9 @@ Documenta cómo se ejecutan realmente los tests del proyecto.
   claims, expirado, manipulado, clave incorrecta).
 - **Integración** (`*IntegrationTest`, con `@SpringBootTest` + MockMvc + Testcontainers):
   prueban el stack completo sobre PostgreSQL 16 real (auth, dominio académico, perfiles, búsqueda,
-  favoritos, mensajería). Se requieren ~104 tests verdes (ver "Verificación").
+  favoritos, mensajería, disponibilidad y verificación). La suite actual tiene **301 tests**
+  (unitarios + integración). El frontend suma **24 tests de Vitest** (lógica pura y componentes) y
+  **40 E2E** de Playwright.
 
 ## Infraestructura compartida
 
