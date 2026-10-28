@@ -195,21 +195,21 @@ class AuthIntegrationTest extends AbstractWebIntegrationTest {
     void authenticated_withValidToken_returns200() throws Exception {
         User user = createUser("j@example.com", UserRole.STUDENT, UserStatus.ACTIVE);
 
-        mockMvc.perform(get("/api/test/authenticated").header("Authorization", bearer(user)))
+        mockMvc.perform(get("/api/auth/me").header("Authorization", bearer(user)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.userId").value(user.getId().toString()))
-                .andExpect(jsonPath("$.email").value("j@example.com"));
+                .andExpect(jsonPath("$.id").value(user.getId().toString()))
+                .andExpect(jsonPath("$.email").doesNotExist());
     }
 
     @Test
     void authenticated_withoutToken_returns401() throws Exception {
-        mockMvc.perform(get("/api/test/authenticated"))
+        mockMvc.perform(get("/api/auth/me"))
                 .andExpect(status().isUnauthorized());
     }
 
     @Test
     void authenticated_withInvalidToken_returns401() throws Exception {
-        mockMvc.perform(get("/api/test/authenticated")
+        mockMvc.perform(get("/api/auth/me")
                         .header("Authorization", "Bearer not.a.valid.token"))
                 .andExpect(status().isUnauthorized());
     }
@@ -218,7 +218,7 @@ class AuthIntegrationTest extends AbstractWebIntegrationTest {
     void authenticated_withExpiredToken_returns401() throws Exception {
         User user = createUser("j@example.com", UserRole.STUDENT, UserStatus.ACTIVE);
 
-        mockMvc.perform(get("/api/test/authenticated")
+        mockMvc.perform(get("/api/auth/me")
                         .header("Authorization", "Bearer " + expiredToken(user)))
                 .andExpect(status().isUnauthorized());
     }
@@ -230,18 +230,20 @@ class AuthIntegrationTest extends AbstractWebIntegrationTest {
         User user = createUser("stu@example.com", UserRole.STUDENT, UserStatus.ACTIVE);
         String t = bearer(user);
 
-        mockMvc.perform(get("/api/test/student").header("Authorization", t)).andExpect(status().isOk());
-        mockMvc.perform(get("/api/test/teacher").header("Authorization", t)).andExpect(status().isForbidden());
-        mockMvc.perform(get("/api/test/admin").header("Authorization", t)).andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/favorites").header("Authorization", t)).andExpect(status().isOk());
+        mockMvc.perform(get("/api/teachers/me").header("Authorization", t)).andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/admin/verifications").header("Authorization", t)).andExpect(status().isForbidden());
     }
 
     @Test
     void roleMatrix_teacher() throws Exception {
         User user = createUser("tea@example.com", UserRole.TEACHER, UserStatus.ACTIVE);
         String t = bearer(user);
+        postJson("/api/teachers/profile", t, "{\"name\":\"Tea\"}", 201);
 
-        mockMvc.perform(get("/api/test/teacher").header("Authorization", t)).andExpect(status().isOk());
-        mockMvc.perform(get("/api/test/admin").header("Authorization", t)).andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/teachers/me").header("Authorization", t)).andExpect(status().isOk());
+        mockMvc.perform(get("/api/favorites").header("Authorization", t)).andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/admin/verifications").header("Authorization", t)).andExpect(status().isForbidden());
     }
 
     @Test
@@ -249,12 +251,13 @@ class AuthIntegrationTest extends AbstractWebIntegrationTest {
         User user = createUser("adm@example.com", UserRole.ADMIN, UserStatus.ACTIVE);
         String t = bearer(user);
 
-        mockMvc.perform(get("/api/test/admin").header("Authorization", t)).andExpect(status().isOk());
+        mockMvc.perform(get("/api/admin/verifications").header("Authorization", t)).andExpect(status().isOk());
+        mockMvc.perform(get("/api/favorites").header("Authorization", t)).andExpect(status().isForbidden());
     }
 
     @Test
     void publicEndpoint_isAccessibleWithoutToken() throws Exception {
-        mockMvc.perform(get("/api/test/public"))
+        mockMvc.perform(get("/api/teachers"))
                 .andExpect(status().isOk());
     }
 
@@ -262,8 +265,26 @@ class AuthIntegrationTest extends AbstractWebIntegrationTest {
     void suspendedUser_tokenIsRejectedEvenWhenSigned() throws Exception {
         User user = createUser("sus@example.com", UserRole.STUDENT, UserStatus.SUSPENDED);
 
-        mockMvc.perform(get("/api/test/authenticated").header("Authorization", bearer(user)))
+        mockMvc.perform(get("/api/auth/me").header("Authorization", bearer(user)))
                 .andExpect(status().isUnauthorized());
+    }
+
+    // --------------------------------------------------------------------- ops (OPS-001)
+
+    @Test
+    void healthEndpoint_isPublicAndHidesDetails() throws Exception {
+        mockMvc.perform(get("/actuator/health"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("UP"))
+                .andExpect(jsonPath("$.components").doesNotExist());
+    }
+
+    @Test
+    void securityTestEndpoints_areRemoved() throws Exception {
+        User user = createUser("gone@example.com", UserRole.STUDENT, UserStatus.ACTIVE);
+
+        mockMvc.perform(get("/api/test/public").header("Authorization", bearer(user)))
+                .andExpect(status().isNotFound());
     }
 
     /**

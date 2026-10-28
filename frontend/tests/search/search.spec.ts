@@ -18,18 +18,23 @@ test.describe('Búsqueda de profesores', () => {
       const total = await search.totalResults();
       expect(total, 'el seed demo debe aportar un catálogo paginable').toBeGreaterThan(24);
 
-      await expect(search.pageIndicator).toHaveText('Página 1 de 3');
+      // Derive the page count from the dataset instead of hardcoding the seed size.
+      const pageSize = 24;
+      const totalPages = Math.ceil(total / pageSize);
+      expect(totalPages, 'el catálogo debe ocupar más de una página').toBeGreaterThan(1);
+
+      await expect(search.pageIndicator).toHaveText(`Página 1 de ${totalPages}`);
       const firstPageNames = await search.cards.locator('h3').allTextContents();
 
       await search.next.click();
-      await expect(search.pageIndicator).toHaveText('Página 2 de 3');
+      await expect(search.pageIndicator).toHaveText(`Página 2 de ${totalPages}`);
       const secondPageNames = await search.cards.locator('h3').allTextContents();
 
       // Pages must not repeat the same teachers.
       expect(secondPageNames.some((name) => firstPageNames.includes(name))).toBe(false);
 
       await search.previous.click();
-      await expect(search.pageIndicator).toHaveText('Página 1 de 3');
+      await expect(search.pageIndicator).toHaveText(`Página 1 de ${totalPages}`);
     },
   );
 

@@ -34,7 +34,6 @@ Paquete base: `com.claseya`.
 7. `security` es usada por los módulos de dominio, pero `security` no depende de módulos de
    dominio concretos (hoy depende de `user` vía `UserRepository`; hay que formalizar la excepción o
    invertir).
-8. Nada importa clases de `web` (endpoints temporales `/api/test/*`).
 
 ## Violaciones actuales relevantes (para decidir)
 

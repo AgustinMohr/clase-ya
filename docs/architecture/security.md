@@ -55,7 +55,7 @@ Authorities: `ROLE_STUDENT`, `ROLE_TEACHER`, `ROLE_ADMIN` (mapeo único en `AppU
 
 | Área | Regla (SecurityConfig, en orden) |
 |------|----------------------------------|
-| `POST /api/auth/**`, `GET /api/test/public` | permitAll |
+| `POST /api/auth/**`, `GET /actuator/health` | permitAll |
 | Lecturas del catálogo académico (`GET /api/universities/**`, `academic-units`, `careers`, `subjects`, `career-subjects`) | públicas |
 | Escrituras del catálogo (POST/PUT/DELETE sobre lo anterior) | `ADMIN` |
 | `GET /api/teachers`, `GET /api/teachers/{id}` (descubrimiento público) | públicas (solo VERIFIED+ACTIVE, aplicado en backend) |

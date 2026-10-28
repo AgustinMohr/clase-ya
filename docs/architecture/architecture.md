@@ -28,7 +28,6 @@ requiere un ADR.
 | `teacher` | Perfil/educación/materias/modalidades del profesor, búsqueda y detalle públicos, `TeacherSummaryAssembler`, `SearchResultPage` | model, common, academic(repos), security, user |
 | `favorite` | Favoritos de estudiantes | model, common, student(repo), teacher(repos/assembler/dto) |
 | `messaging` | Conversaciones, participantes, mensajes, estado de lectura | model, common, user, student(repo), teacher(repo + `SearchResultPage`) |
-| `web` | **Temporal** `/api/test/*` para validar seguridad | security |
 
 Notas sobre reuso real entre módulos: `favorite` y `messaging` reutilizan
 `teacher.dto.SearchResultPage` (forma genérica de página) y `favorite` reutiliza
@@ -81,7 +80,6 @@ stack traces ni SQL al cliente.
 
 ## Notas del estado actual (no corregidas aquí)
 
-- `web/SecurityTestController` (`/api/test/*`) es andamiaje temporal de validación.
 - Existen algunos helpers sin uso (`TeacherSearchService.defaultSize()`,
   `FavoriteService.defaultSize()`).
 - `SearchResultPage`/`TeacherSummaryResponse` viven en `teacher.dto` aunque se reutilicen entre

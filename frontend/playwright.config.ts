@@ -35,7 +35,7 @@ export default defineConfig({
       command:
         'mvn -q spring-boot:run -Dspring-boot.run.profiles=local "-Dspring-boot.run.jvmArguments=-Duser.timezone=UTC -Dsecurity.rate-limit.enabled=false -Dauth.cookie.secure=false -Dapp.auth.activation.log-links=true"',
       cwd: '..',
-      url: `${BACKEND_URL}/api/test/public`,
+      url: `${BACKEND_URL}/actuator/health`,
       reuseExistingServer: process.env.E2E_REUSE_BACKEND === 'true',
       timeout: 240_000,
       stdout: 'ignore',

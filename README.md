@@ -121,7 +121,6 @@ email). No es un producto terminado.
 - **Chat en tiempo real (WebSockets)**: no implementado (los servicios están preparados para
   reutilizarse).
 - **Reservas / agenda / pagos / Calendly**: **fuera del rumbo del producto** (ver sección 10).
-- Endpoints temporales `/api/test/*` de validación de seguridad (andamiaje a eliminar).
 
 ---
 
@@ -339,6 +338,8 @@ sequenceDiagram
 - **Rate limiting (RATE-001)**: límites por IP para login/registro/Google y por usuario para contacto,
   mensajes y subida de evidencia; respuesta `429` con `Retry-After`. Es **por instancia** (sin Redis)
   y las claves se guardan hasheadas, nunca como IP/email crudos. Ver `docs/architecture/security.md`.
+- **Health check**: `GET /actuator/health` es público y devuelve solo el estado (`{"status":"UP"}`);
+  no expone detalles ni métricas. Es la sonda que usa el despliegue.
 - Errores estandarizados como `ApiError`, sin trazas ni SQL.
 
 ### Limitaciones y pendientes (no resueltas en el código)
@@ -442,7 +443,7 @@ mvn spring-boot:run "-Dspring-boot.run.profiles=local" "-Dspring-boot.run.jvmArg
   y el seed demo. Si no existe en un clon nuevo, el backend arranca igual, sin seed y sin client id
   de Google.
 - El flag `-Duser.timezone=UTC` es obligatorio en Windows (evita el error de zona horaria de Postgres).
-- Verificación rápida: `http://localhost:8080/api/test/public` y `http://localhost:8080/api/teachers`.
+- Verificación rápida: `http://localhost:8080/actuator/health` y `http://localhost:8080/api/teachers`.
 
 ### Frontend
 
@@ -573,7 +574,6 @@ clase-ya/
 │  ├─ messaging/            Conversaciones, participantes, mensajes y estado de lectura
 │  ├─ verification/         Circuito de verificación académica (profesor + admin)
 │  ├─ bootstrap/            DemoDataSeeder (solo desarrollo)
-│  └─ web/                  Endpoints temporales de prueba /api/test/*
 ├─ src/main/resources/
 │  ├─ application.yml        Configuración (defaults solo de desarrollo)
 │  ├─ db/migration/          Migraciones Flyway V1..V8 (schema)

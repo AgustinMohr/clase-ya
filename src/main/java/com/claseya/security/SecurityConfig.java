@@ -69,10 +69,8 @@ public class SecurityConfig {
                         // /me must be authenticated even though the rest of /api/auth is public.
                         .requestMatchers("/api/auth/me").authenticated()
                         .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/api/test/public").permitAll()
-                        .requestMatchers("/api/test/student").hasRole("STUDENT")
-                        .requestMatchers("/api/test/teacher").hasRole("TEACHER")
-                        .requestMatchers("/api/test/admin").hasRole("ADMIN")
+                        // OPS-001: health is the only operational endpoint exposed.
+                        .requestMatchers("/actuator/health").permitAll()
                         // Academic catalog: public reads, admin-only writes.
                         .requestMatchers(HttpMethod.GET,
                                 "/api/universities/**",

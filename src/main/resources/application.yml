@@ -102,6 +102,22 @@ cors:
   # FRONTEND_URL may be a comma-separated list. Dev default includes the Vite port.
   allowed-origins: ${FRONTEND_URL:http://localhost:3000,http://localhost:5173}
 
+# OPS-001: only the health probe is exposed. Details are never shown, so the
+# endpoint cannot leak database/host information.
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+  health:
+    # Mail is optional (registration answers 503 without SMTP); it must not mark the
+    # whole application as DOWN and trigger a restart loop on the platform.
+    mail:
+      enabled: false
+
 # Google OAuth (id_token validation). client-id is REQUIRED in any real
 # environment and must match the SPA's VITE_GOOGLE_CLIENT_ID. Never hardcode a
 # real client id here; pass it via the GOOGLE_CLIENT_ID environment variable.

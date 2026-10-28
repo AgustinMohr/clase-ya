@@ -64,7 +64,6 @@ Monolito modular bajo `com.claseya`. Módulos:
 | `favorite` | Favoritos. |
 | `messaging` | Conversaciones/mensajes/estado de lectura. |
 | `security` | Configuración de Spring Security, JWT, `CurrentUser`, principal, handlers. |
-| `web` | **Temporal**: endpoints de prueba de seguridad `/api/test/*` (a eliminar cuando existan pruebas reales de UI). |
 
 Dirección de dependencias: **`model` y `common` son módulos hoja.** Los módulos pueden usar
 `model`, `common`, `security`, `user`. Se permite reutilizar helpers de presentación entre módulos
