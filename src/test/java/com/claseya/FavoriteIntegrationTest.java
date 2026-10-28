@@ -240,6 +240,40 @@ class FavoriteIntegrationTest extends AbstractWebIntegrationTest {
         doGet("/api/favorites?page=-1", token, 400);
     }
 
+    @Test
+    void list_excludesSuspendedTeacherEvenIfFavorited() throws Exception {
+        User student = createStudentUser("s@example.com");
+        createStudentProfile(student);
+        String token = bearer(student);
+        TeacherProfile visible = visibleTeacher("Visible", "visible@example.com");
+        TeacherProfile suspended = visibleTeacher("Suspended", "suspended@example.com");
+        doPost("/api/favorites/" + visible.getId(), token, 201);
+        doPost("/api/favorites/" + suspended.getId(), token, 201);
+
+        suspended.getUser().setStatus(UserStatus.SUSPENDED);
+        userRepository.saveAndFlush(suspended.getUser());
+
+        JsonNode page = toJson(doGet("/api/favorites", token, 200));
+        assertThat(teacherNames(page)).containsExactly("Visible");
+        assertThat(page.get("totalElements").asLong()).isEqualTo(1);
+    }
+
+    @Test
+    void list_excludesTeacherWhoseAnnouncementIsNoLongerPublished() throws Exception {
+        User student = createStudentUser("s@example.com");
+        createStudentProfile(student);
+        String token = bearer(student);
+        TeacherProfile hidden = visibleTeacher("Hidden", "hidden@example.com");
+        doPost("/api/favorites/" + hidden.getId(), token, 201);
+
+        hidden.setBio(null);
+        teacherProfileRepository.saveAndFlush(hidden);
+
+        JsonNode page = toJson(doGet("/api/favorites", token, 200));
+        assertThat(page.get("content").size()).isZero();
+        assertThat(page.get("totalElements").asLong()).isZero();
+    }
+
     // ------------------------------------------------------------------ delete
 
     @Test

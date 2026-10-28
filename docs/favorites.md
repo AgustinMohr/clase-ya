@@ -43,6 +43,10 @@ impossible and covered by tests.
 - **Visible teacher only**: adding favorites is restricted to publicly visible teachers
   (TEACHER-001 D1): `User.status = ACTIVE` **and** a PUBLISHED announcement. Non-verified teachers
   can be favorited; INACTIVE/SUSPENDED users → **404** (hidden profiles are not revealed).
+- **Listing applies the same D1 rule**: if a favorited teacher stops being visible (suspended,
+  unpublished, incomplete announcement), their card is omitted from `GET /api/favorites` and from
+  `totalElements`, preserving exact pagination. The favorite row is kept and reappears if the
+  teacher becomes visible again; no hidden profile data is returned.
 - **Duplicate** → **409** (pre-check + DB `UNIQUE` as final guard).
 - **Delete of a non-existent favorite** → **404** (no silent idempotency).
 

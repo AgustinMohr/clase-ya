@@ -10,6 +10,7 @@ import com.claseya.favorite.repository.FavoriteRepository;
 import com.claseya.model.Favorite;
 import com.claseya.model.StudentProfile;
 import com.claseya.model.TeacherProfile;
+import com.claseya.model.enums.UserStatus;
 import com.claseya.student.repository.StudentProfileRepository;
 import com.claseya.teacher.dto.SearchResultPage;
 import com.claseya.teacher.dto.TeacherSummaryResponse;
@@ -96,7 +97,8 @@ public class FavoriteService {
 
         Sort sort = Sort.by(Sort.Order.desc("createdAt"), Sort.Order.asc("id"));
         Pageable pageable = PageRequest.of(page, size, sort);
-        Page<Favorite> favorites = favoriteRepository.findByStudent_Id(student.getId(), pageable);
+        Page<Favorite> favorites =
+                favoriteRepository.findVisibleByStudent(student.getId(), UserStatus.ACTIVE, pageable);
 
         List<TeacherProfile> teachers = favorites.getContent().stream()
                 .map(Favorite::getTeacher)
