@@ -23,8 +23,8 @@ Los riesgos principales no son de “OWASP clásico” sino de **integridad del 
 Además, el flujo **email + contraseña** quedó a mitad de camino: el backend registra cuentas `PENDING` sin endpoint de activación, el frontend no tiene pantalla de registro y el modal de login sí ofrece email/contraseña. El producto define Google OAuth como obligatorio, así que la recomendación principal es **alinear el código con esa decisión** (retirar o aislar el flujo legado) o completarlo de extremo a extremo; hoy es una fuente de confusión y soporte.
 
 **Veredicto (actualizado):** los bloqueantes EVID-01, SEC-01, DEP-01 y PRIV-01, junto con AUTH-01,
-ARCH-01, CI-01, SEC-02, BUG-02, BUG-03, SEC-03, OPS-02, QUAL-01 y TEST-01, están corregidos y
-verificados (301 tests backend + 21 unit del frontend + 40 E2E). SEC-04 queda parcial (política y
+ARCH-01, CI-01, SEC-02, BUG-02, BUG-03, SEC-03, OPS-02, QUAL-01, TEST-01 y QUAL-02, están corregidos
+y verificados (301 tests backend + 24 unit del frontend + 40 E2E). SEC-04 queda parcial (política y
 enumeración resueltas; HIBP/CAPTCHA diferidos por `ADR-023`) y OPS-01 parcial (health listo; faltan
 métricas/logs). Quedan hallazgos MEDIUM/LOW; CI está configurado, pero requiere activar branch
 protection para ser un gate obligatorio.
@@ -488,8 +488,8 @@ ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-jar", "/app/app.jar"]
 ### Deuda planificada (backlog)
 
 11. **PERF-01/PERF-02:** optimización de búsqueda y de la precarga del perfil con medición.
-12. **QUAL-01/QUAL-02/QUAL-03:** ✅ strict TS + ESLint hechos; quedan la división de
-    `MyListingPage` y el ADR de limpieza de modelos legacy.
+12. **QUAL-01/QUAL-02/QUAL-03:** ✅ strict TS + ESLint y división de `MyListingPage` hechos; queda
+    el ADR de limpieza de modelos legacy (`QUAL-03`).
 13. **TEST-01:** ✅ hecho — Vitest + Testing Library para lógica pura y componentes; Playwright
     queda para los flujos críticos.
 14. **STOR-01/DEV-01:** object storage + antivirus, compose/example/wrapper para onboarding.
@@ -544,5 +544,6 @@ ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-jar", "/app/app.jar"]
 | OPS-02 | ✅ Corregido en working tree (pendiente de commit) | La imagen final corre como usuario `app` (uid/gid 999), declara `HEALTHCHECK` cada 30 s contra `/actuator/health` y arranca con `-XX:MaxRAMPercentage=75`. `.dockerignore` excluye `application-local.yml` y `.env*` para no hornear configuración local. Verificado con `docker build` + contenedor contra PostgreSQL local: `healthy`, health 200 y `id` no-root. |
 | QUAL-01 | ✅ Corregido en working tree (pendiente de commit) | `tsconfig` con `strict`, `noUnusedLocals` y `noUnusedParameters`; `any` reemplazado por `ApiErrorBody`; ESLint 10 flat config con `typescript-eslint` y reglas de hooks (`rules-of-hooks`/`exhaustive-deps`) activas; `npm run lint` en CI. Las reglas nuevas del React Compiler (`refs`, `set-state-in-effect`) y Prettier quedan fuera por decisión (`QUAL-001`). |
 | TEST-01 | ✅ Corregido en working tree (pendiente de commit) | Vitest 5 + jsdom + Testing Library; 21 tests en 4 archivos (formato, validación de registro, rutas y `Field`). La validación del registro se extrajo a `lib/validation.ts` y se testea sin DOM. `npm test` corre en el job de frontend del CI; Playwright conserva los flujos críticos. |
+| QUAL-02 | ✅ Corregido en working tree (pendiente de commit) | `MyListingPage` pasa de 698 a 127 líneas: `useTeacherListing` (carga + mutaciones), `useAcademicCascade` y secciones (`Profile`, `Subjects`, `Modalities`, `Education`, `Availability`, `AnnouncementStatus`). El mapeo `TeacherProfile → TeacherProfileInput` vive en `lib/teacherProfile.ts` y tiene tests. JSX, labels y `data-testid` intactos; 24 unit y E2E 40/40 verdes. |
 
 > El informe original se generó en modo solo lectura. La corrección de EVID-01 se aplicó después de la auditoría (backend + guard de UI); el resto del código de producto no se modificó. El conteo de la tabla resumen refleja el estado al momento de la auditoría.
