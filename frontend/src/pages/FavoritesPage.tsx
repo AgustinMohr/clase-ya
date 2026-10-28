@@ -1,5 +1,5 @@
 import { Heart } from 'lucide-react';
-import { Link, useNavigate } from 'react-router';
+import { useNavigate } from 'react-router';
 import type { TeacherSummary } from '../api';
 import { usePageMeta } from '../hooks/usePageMeta';
 import { Button } from '../components/ui/Button';
@@ -10,12 +10,11 @@ import { ROUTES } from '../routes';
 interface Props {
   teachers: TeacherSummary[];
   loading: boolean;
-  favorites: Set<string>;
   onToggleFavorite: (teacher: TeacherSummary) => void;
 }
 
 /** "Mis favoritos": the teachers the student saved. Only mounted for authenticated students. */
-export default function FavoritesPage({ teachers, loading, favorites, onToggleFavorite }: Props) {
+export default function FavoritesPage({ teachers, loading, onToggleFavorite }: Props) {
   const navigate = useNavigate();
   usePageMeta({
     title: 'Mis favoritos | ClaseYa',

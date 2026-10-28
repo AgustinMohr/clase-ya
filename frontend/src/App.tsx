@@ -255,7 +255,6 @@ export default function App() {
                   <FavoritesPage
                     teachers={favoriteTeachers}
                     loading={favoritesLoading}
-                    favorites={favorites}
                     onToggleFavorite={toggleFavorite}
                   />
                 </ProtectedRoute>

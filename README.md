@@ -164,11 +164,12 @@ email). No es un producto terminado.
 ### Infraestructura y calidad
 - **Dockerfile** multi-stage (build con Maven, runtime con JRE). La imagen final corre como usuario
   no-root, con `HEALTHCHECK` contra `/actuator/health` y `-XX:MaxRAMPercentage=75`.
+- **TypeScript estricto + ESLint** en el frontend: `npm run lint` se ejecuta en el gate de CI.
 - **Dependabot** para Maven (raíz: Spring/Testcontainers) y npm (`frontend`: Vite + React).
 - **Tests** con Maven + Testcontainers y E2E con Playwright; scripts de PowerShell para
   test/verify/E2E/seed.
 - **CI en GitHub Actions** (`.github/workflows/ci.yml`): backend `mvn clean verify` con
-  Testcontainers, frontend typecheck/build/audit, E2E Playwright con PostgreSQL + demo seed y
+  Testcontainers, frontend lint/typecheck/build/audit, E2E Playwright con PostgreSQL + demo seed y
   dependency review en pull requests. Para que sea un gate obligatorio, activar branch protection
   en `main` con los checks `Backend`, `Frontend`, `E2E` y `Dependency review`.
 
@@ -454,6 +455,8 @@ cd frontend
 npm install
 Copy-Item .env.example .env      # completá VITE_GOOGLE_CLIENT_ID para habilitar el login con Google
 npm run dev                       # http://localhost:5173
+npm run lint                      # ESLint (TypeScript + hooks)
+npm run build                     # tsc estricto + build + chequeo de CSP
 ```
 
 En local **no** se define `VITE_API_URL`: el proxy de Vite envía `/api` a `http://localhost:8080`, así

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { ApiError } from '../api';
+import { ApiError, type ApiErrorBody } from '../api';
 import { useAuth } from '../auth/AuthContext';
 import { Button } from '../components/ui/Button';
 import { Field, Input } from '../components/ui/Field';
@@ -15,7 +15,7 @@ interface Props {
 
 function fieldErrorsOf(error: unknown): Record<string, string> {
   if (!(error instanceof ApiError)) return {};
-  const body = error.body as { fieldErrors?: Record<string, string> } | undefined;
+  const body = error.body as ApiErrorBody | undefined;
   return body?.fieldErrors ?? {};
 }
 

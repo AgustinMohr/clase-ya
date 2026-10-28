@@ -314,6 +314,15 @@ export class ApiError extends Error {
   }
 }
 
+/** Shared error payload returned by GlobalExceptionHandler. */
+export interface ApiErrorBody {
+  status?: number;
+  error?: string;
+  message?: string;
+  path?: string;
+  fieldErrors?: Record<string, string>;
+}
+
 /**
  * CSRF token for one unsafe request. The token is intentionally not cached: the server rotates
  * the HttpOnly cookie after writes and a stale in-memory copy would turn the next write into a
@@ -348,9 +357,9 @@ async function request<T>(method: string, url: string, body?: unknown, auth = fa
     window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
   }
   if (!res.ok) {
-    let parsed: any;
+    let parsed: ApiErrorBody | undefined;
     try {
-      parsed = await res.json();
+      parsed = (await res.json()) as ApiErrorBody;
     } catch {
       /* body no JSON (p. ej. CORS) */
     }

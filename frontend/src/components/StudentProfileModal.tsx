@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { api, ApiError, MAX_STUDENT_BIO_LENGTH, type AcademicUnit, type Career, type StudentProfile, type University } from '../api';
 import Modal from './ui/Modal';
 import { Button } from './ui/Button';
-import { Field, Input, Select, Textarea } from './ui/Field';
+import { Field, Select, Textarea } from './ui/Field';
 
 interface Props {
   open: boolean;
