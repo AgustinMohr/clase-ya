@@ -7,6 +7,11 @@
 # vite ^8, so a Dependabot PR that bumps vite on its own leaves an incompatible tree
 # (ERESOLVE on `npm install`). The groups below keep both packages in the same pull
 # request, for version updates and for security updates.
+#
+# React is on 18.3 and the runtime and its types must move together: a PR that bumps only
+# react-dom (or only @types/react-dom) to 19 leaves an unsatisfiable peer and breaks the build.
+# The `react` group keeps the four packages in one PR, and the ignore rules keep major bumps
+# manual until the React 19 migration is planned as its own change.
 version: 2
 updates:
   - package-ecosystem: "maven"
@@ -41,3 +46,19 @@ updates:
         patterns:
           - "vite"
           - "@vitejs/plugin-react"
+      react:
+        patterns:
+          - "react"
+          - "react-dom"
+          - "@types/react"
+          - "@types/react-dom"
+    ignore:
+      # React 18.3: the runtime and its type packages share a major. Upgrade them deliberately.
+      - dependency-name: "react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-dom"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/react-dom"
+        update-types: ["version-update:semver-major"]
