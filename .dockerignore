@@ -9,9 +9,13 @@ node_modules/
 docs/
 scripts/
 .env.local
+.env
+.env.*
 .neon
 neon.ts
 package.json
 package-lock.json
 skills-lock.json
 *.md
+# Never bake local (gitignored) configuration into the image.
+src/main/resources/application-local.yml

@@ -162,7 +162,8 @@ email). No es un producto terminado.
 - Ver [Seguridad](#5-seguridad) para el detalle y las limitaciones.
 
 ### Infraestructura y calidad
-- **Dockerfile** multi-stage (build con Maven, runtime con JRE) para empaquetar el backend.
+- **Dockerfile** multi-stage (build con Maven, runtime con JRE). La imagen final corre como usuario
+  no-root, con `HEALTHCHECK` contra `/actuator/health` y `-XX:MaxRAMPercentage=75`.
 - **Dependabot** para Maven (raíz: Spring/Testcontainers) y npm (`frontend`: Vite + React).
 - **Tests** con Maven + Testcontainers y E2E con Playwright; scripts de PowerShell para
   test/verify/E2E/seed.
