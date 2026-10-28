@@ -11,7 +11,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Transactional
 class StudentProfileIntegrationTest extends AbstractWebIntegrationTest {
 
-    private record Seed(String universityId, String careerId) {
+    private record Seed(String universityId, String unitId, String careerId) {
     }
 
     private Seed seedUniversityCareer(String universityName, String unitName, String careerName) throws Exception {
@@ -28,7 +28,7 @@ class StudentProfileIntegrationTest extends AbstractWebIntegrationTest {
                 """
                 {"name":"%s"}
                 """.formatted(careerName), 201));
-        return new Seed(universityId, careerId);
+        return new Seed(universityId, unitId, careerId);
     }
 
     private String profileBody(String universityId, String careerId, int year) {
@@ -48,6 +48,7 @@ class StudentProfileIntegrationTest extends AbstractWebIntegrationTest {
 
         String me = getJson("/api/students/me", bearer(student), 200);
         assertThat(toJson(me).get("careerName").asText()).startsWith("Ingenier");
+        assertThat(toJson(me).get("academicUnitId").asText()).isEqualTo(unl.unitId);
         assertThat(toJson(me).get("currentYear").asInt()).isEqualTo(2);
     }
 

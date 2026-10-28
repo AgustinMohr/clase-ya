@@ -72,6 +72,7 @@ export interface StudentProfile {
   userId: string;
   universityId: string;
   universityName: string;
+  academicUnitId: string;
   careerId: string;
   careerName: string;
   currentYear: number;

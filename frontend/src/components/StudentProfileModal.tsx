@@ -29,16 +29,13 @@ export default function StudentProfileModal({ open, onClose, onSaved, initial }:
   const [bio, setBio] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  // Prefilling the unit of an existing profile needs a scan over its units.
-  const [prefillDone, setPrefillDone] = useState(false);
 
   // The form resets every time it opens.
   useEffect(() => {
     if (!open) return;
-    setPrefillDone(false);
     setError('');
     setUniversityId(initial?.universityId ?? '');
-    setUnitId('');
+    setUnitId(initial?.academicUnitId ?? '');
     setCareerId(initial?.careerId ?? '');
     setCurrentYear(initial?.currentYear ?? 2);
     setBio(initial?.bio ?? '');
@@ -94,33 +91,8 @@ export default function StudentProfileModal({ open, onClose, onSaved, initial }:
     };
   }, [open, unitId]);
 
-  // Editing: resolve which unit owns the profile's career so the cascade is preselected.
-  // Careers are fetched for every unit at once (there are only a few) and a failing unit
-  // never aborts the scan; the loader above then fills the list for the resolved unit.
-  useEffect(() => {
-    if (!open || prefillDone) return;
-    if (!initial) {
-      setPrefillDone(true);
-      return;
-    }
-    if (universityId !== initial.universityId || units.length === 0) return;
-    let cancelled = false;
-    void (async () => {
-      const resolved = await Promise.all(
-        units.map(async (unit) => ({ unit, careers: await api.careers(unit.id).catch(() => []) })),
-      );
-      if (cancelled) return;
-      const match = resolved.find((entry) => entry.careers.some((career) => career.id === initial.careerId));
-      if (match) {
-        setUnitId(match.unit.id);
-        setCareerId(initial.careerId);
-      }
-      setPrefillDone(true);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [open, prefillDone, initial, units, universityId]);
+  // Editing: the API returns the academic unit, so the cascade is preselected with a single
+  // careers request instead of scanning every faculty (PERF-02).
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
