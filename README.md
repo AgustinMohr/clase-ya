@@ -165,13 +165,15 @@ email). No es un producto terminado.
 - **Dockerfile** multi-stage (build con Maven, runtime con JRE). La imagen final corre como usuario
   no-root, con `HEALTHCHECK` contra `/actuator/health` y `-XX:MaxRAMPercentage=75`.
 - **TypeScript estricto + ESLint** en el frontend: `npm run lint` se ejecuta en el gate de CI.
+- **Vitest + Testing Library** para lógica pura y componentes (`npm test`); Playwright queda para
+  los flujos críticos.
 - **Dependabot** para Maven (raíz: Spring/Testcontainers) y npm (`frontend`: Vite + React).
 - **Tests** con Maven + Testcontainers y E2E con Playwright; scripts de PowerShell para
   test/verify/E2E/seed.
 - **CI en GitHub Actions** (`.github/workflows/ci.yml`): backend `mvn clean verify` con
-  Testcontainers, frontend lint/typecheck/build/audit, E2E Playwright con PostgreSQL + demo seed y
-  dependency review en pull requests. Para que sea un gate obligatorio, activar branch protection
-  en `main` con los checks `Backend`, `Frontend`, `E2E` y `Dependency review`.
+  Testcontainers, frontend lint/unit tests/typecheck/build/audit, E2E Playwright con PostgreSQL +
+  demo seed y dependency review en pull requests. Para que sea un gate obligatorio, activar branch
+  protection en `main` con los checks `Backend`, `Frontend`, `E2E` y `Dependency review`.
 
 ---
 
@@ -456,6 +458,7 @@ npm install
 Copy-Item .env.example .env      # completá VITE_GOOGLE_CLIENT_ID para habilitar el login con Google
 npm run dev                       # http://localhost:5173
 npm run lint                      # ESLint (TypeScript + hooks)
+npm test                          # Vitest: lógica pura y componentes (sin Docker)
 npm run build                     # tsc estricto + build + chequeo de CSP
 ```
 

@@ -5,6 +5,7 @@ import { useAuth } from '../auth/AuthContext';
 import { Button } from '../components/ui/Button';
 import { Field, Input } from '../components/ui/Field';
 import { Card } from '../components/ui/primitives';
+import { validateRegistration } from '../lib/validation';
 import { ROUTES } from '../routes';
 
 type AccountRole = 'STUDENT' | 'TEACHER';
@@ -32,12 +33,7 @@ export default function RegisterPage({ onLogin }: Props) {
   const [sentTo, setSentTo] = useState<string | null>(null);
 
   function validate(): boolean {
-    const next: Record<string, string> = {};
-    if (!email.trim()) next.email = 'Ingresá tu email.';
-    if (password.length < 10 || !/\p{L}/u.test(password) || !/\d/.test(password)) {
-      next.password = 'Usá al menos 10 caracteres, con letras y números.';
-    }
-    if (confirmation !== password) next.confirmation = 'Las contraseñas no coinciden.';
+    const next = validateRegistration({ email, password, confirmation });
     setErrors(next);
     return Object.keys(next).length === 0;
   }
