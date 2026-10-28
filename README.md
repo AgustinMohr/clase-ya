@@ -1,5 +1,7 @@
 # ClaseYa
 
+[![CI](https://github.com/AgustinMohr/clase-ya/actions/workflows/ci.yml/badge.svg)](https://github.com/AgustinMohr/clase-ya/actions/workflows/ci.yml)
+
 **Directorio y contacto seguro entre estudiantes y profesores particulares.**
 
 ClaseYa ayuda a estudiantes de todas las edades —y a sus padres, madres o tutores— a encontrar
@@ -118,7 +120,6 @@ email, flujo de activación de cuentas). No es un producto terminado.
 - **Chat en tiempo real (WebSockets)**: no implementado (los servicios están preparados para
   reutilizarse).
 - **Reservas / agenda / pagos / Calendly**: **fuera del rumbo del producto** (ver sección 10).
-- **Rate limiting / anti-spam**: documentado como trabajo futuro.
 - Endpoints temporales `/api/test/*` de validación de seguridad (andamiaje a eliminar).
 
 ---
@@ -134,11 +135,12 @@ email, flujo de activación de cuentas). No es un producto terminado.
 - Componentes propios; **lucide-react** para iconografía; **class-variance-authority** + `clsx` +
   `tailwind-merge` para variantes de componentes.
 - **@react-oauth/google** para el botón de Google Identity.
+- **react-router 7** (modo librería) para rutas reales, deep links y estado de búsqueda en la URL.
 - Tipografías empaquetadas con **@fontsource** (Bungee para títulos, Open Sans para texto).
 - **Playwright** para tests end-to-end.
 
 ### Backend (`src/`)
-- **Java 17**, **Maven**, **Spring Boot 3.2.6**.
+- **Java 17**, **Maven**, **Spring Boot 3.5.16**.
 - Arquitectura de **monolito modular** (paquetes por dominio bajo `com.claseya`), con capas
   `controller → service → repository`.
 - **Spring Web** (REST), **Spring Security** (JWT sin estado), **Spring Data JPA / Hibernate**,
@@ -153,18 +155,20 @@ email, flujo de activación de cuentas). No es un producto terminado.
 - **Testcontainers (postgres:16)** para los tests de integración.
 
 ### Seguridad
-- Autenticación **JWT sin estado** (header `Authorization: Bearer`), contraseñas con **BCrypt**,
+- Autenticación **JWT sin estado** (cookie `HttpOnly` para el navegador; Bearer solo para la suite de integración/tooling), contraseñas con **BCrypt**,
   autorización por roles (`ROLE_STUDENT` / `ROLE_TEACHER` / `ROLE_ADMIN`).
 - **Google OAuth** (validación de `id_token`). CORS restringido a orígenes configurados.
 - Ver [Seguridad](#5-seguridad) para el detalle y las limitaciones.
 
 ### Infraestructura y calidad
 - **Dockerfile** multi-stage (build con Maven, runtime con JRE) para empaquetar el backend.
-- **Dependabot** (agrupa `vite` + `@vitejs/plugin-react` en un mismo PR).
+- **Dependabot** para Maven (raíz: Spring/Testcontainers) y npm (`frontend`: Vite + React).
 - **Tests** con Maven + Testcontainers y E2E con Playwright; scripts de PowerShell para
   test/verify/E2E/seed.
-- Git para control de versiones. *(No hay pipeline de CI configurado en el repositorio: solo
-  Dependabot.)*
+- **CI en GitHub Actions** (`.github/workflows/ci.yml`): backend `mvn clean verify` con
+  Testcontainers, frontend typecheck/build/audit, E2E Playwright con PostgreSQL + demo seed y
+  dependency review en pull requests. Para que sea un gate obligatorio, activar branch protection
+  en `main` con los checks `Backend`, `Frontend`, `E2E` y `Dependency review`.
 
 ---
 
@@ -176,7 +180,7 @@ ClaseYa tiene dos componentes desplegables independientes —una **SPA** y una *
 ```mermaid
 flowchart LR
   subgraph Cliente["Cliente (navegador)"]
-    SPA["SPA React + TypeScript<br/>(Vite) · sesión JWT en sessionStorage"]
+    SPA["SPA React + TypeScript<br/>(Vite) · sesión en cookie HttpOnly"]
   end
 
   subgraph Backend["Backend Spring Boot · monolito modular (com.claseya)"]
@@ -189,7 +193,7 @@ flowchart LR
   DB[("PostgreSQL<br/>schema por Flyway")]
   GOOGLE["Google Identity<br/>(validación de id_token)"]
 
-  SPA -->|"REST /api · JSON + Bearer JWT"| SEC
+  SPA -->|"REST /api · JSON + cookie HttpOnly + CSRF"| SEC
   SEC --> CTRL --> SVC --> REPO --> DB
   SVC -.->|"verifica firma/aud/iss/exp"| GOOGLE
 ```
@@ -197,8 +201,9 @@ flowchart LR
 ### Responsabilidades
 
 - **Frontend (SPA):** experiencia de usuario, estado de sesión y llamadas a la API. No aplica reglas
-  de negocio ni de visibilidad: esas viven en el backend. Guarda el JWT en `sessionStorage` y lo
-  adjunta como `Authorization: Bearer` en cada request autenticado.
+  de negocio ni de visibilidad: esas viven en el backend. La sesión viaja en una cookie `HttpOnly`
+  (`credentials: 'include'`); el JWT nunca es accesible desde JavaScript. Los métodos unsafe envían
+  `X-XSRF-TOKEN` con un token pedido a `/api/auth/csrf`.
 - **Backend (API REST):** expone `/api/**`, aplica seguridad, valida entradas, ejecuta las reglas de
   negocio y devuelve **DTOs (records)**, nunca entidades JPA.
 
@@ -207,7 +212,8 @@ flowchart LR
 - **En desarrollo:** el dev server de Vite hace de **proxy** de `/api` hacia `http://localhost:8080`,
   así que no hay CORS en local. La SPA usa una URL relativa (`api.ts`).
 - **En producción:** la SPA apunta al backend con `VITE_API_URL` y el backend permite ese origen vía
-  `FRONTEND_URL` (CORS).
+  `FRONTEND_URL` (CORS). El hosting del frontend debe reescribir las rutas desconocidas a
+  `index.html` (fallback SPA); sin eso, un refresh en `/profesores/:id` devuelve 404 del servidor.
 - El contrato es **REST + JSON**. Las respuestas de listado reutilizan una forma de página genérica
   (`content / page / size / totalElements / totalPages`).
 
@@ -218,8 +224,8 @@ Dentro de cada módulo, el flujo es siempre el mismo:
 ```
 HTTP request
   → Cadena de filtros de Spring Security (JWT sin estado)
-        JwtAuthenticationFilter: lee "Authorization: Bearer", valida firma + expiración,
-        recarga el usuario por id, exige status = ACTIVE y setea el SecurityContext
+        JwtAuthenticationFilter: lee la cookie CLASEYA_SESSION (o "Authorization: Bearer"),
+        valida firma + expiración, recarga el usuario y exige status = ACTIVE
   → Controller  (mapea HTTP + @Valid)
   → Service     (@Transactional; valida ownership e invariantes)
   → Repository  (Spring Data JPA / JPQL) → PostgreSQL
@@ -262,13 +268,13 @@ sequenceDiagram
   Estudiante->>SPA: Elige un profesor y toca "Contactar"
   SPA->>SPA: Sin sesión o sin perfil -> pide login / perfil de estudiante
   SPA->>API: POST /api/conversations { teacherId, message }
-  API->>API: Valida el JWT y resuelve la identidad (SecurityContext)
+  API->>API: Valida la cookie/JWT y resuelve la identidad (SecurityContext)
   API->>DB: ¿El profesor está ACTIVE y con anuncio PUBLISHED?
   API->>DB: Crea (o reutiliza) Conversation + participantes + primer mensaje
   DB-->>API: conversationId
   API-->>SPA: 201 Conversation
   SPA-->>Estudiante: Abre "Mensajes" en la conversación
-  Profesor->>API: GET /api/conversations (con su JWT)
+  Profesor->>API: GET /api/conversations (con su cookie)
   Profesor->>API: POST /api/conversations/{id}/messages
   API->>DB: Persiste el mensaje
   API-->>Profesor: 201 Message
@@ -282,8 +288,9 @@ sequenceDiagram
 > Usar JWT **no** hace al sistema seguro por sí solo: estas son las medidas concretas y sus límites.
 
 ### Autenticación y sesión
-- **JWT sin estado**: no hay sesión HTTP ni cookies (`SessionCreationPolicy.STATELESS`). El token
-  viaja en `Authorization: Bearer`.
+- **JWT sin estado**: no hay sesión HTTP de servidor (`SessionCreationPolicy.STATELESS`). El token
+  viaja en la cookie `CLASEYA_SESSION` (`HttpOnly`/`Secure`/`SameSite`) para el navegador; la suite
+  de integración puede usar `Authorization: Bearer`.
 - El filtro **recarga el usuario en cada request**, así que una cuenta deshabilitada deja de operar
   de inmediato, incluso con un token todavía válido.
 - **Contraseñas**: solo BCrypt (`password_hash`); nunca se guardan, loguean ni devuelven en texto.
@@ -324,13 +331,18 @@ sequenceDiagram
 ### CORS, errores y otras medidas
 - **CORS restringido** a `cors.allowed-origins` (`FRONTEND_URL`), sin wildcard, con los headers
   `Authorization` y `Content-Type`.
-- **CSRF deshabilitado**: la API no usa cookies ni sesiones y se autentica por header; no hay
-  superficie CSRF. *(Es intencional; ver la justificación en `SecurityConfig`.)*
+- **CSRF activo para cookies**: los requests unsafe autenticados por cookie exigen
+  `X-XSRF-TOKEN` (doble submit); los requests con Bearer están exentos porque un sitio cross-site
+  no puede poner ese header. La SPA pide un token nuevo antes de cada escritura.
 - **Anti-enumeración**: los fallos de login devuelven un único mensaje genérico.
+- **Rate limiting (RATE-001)**: límites por IP para login/registro/Google y por usuario para contacto,
+  mensajes y subida de evidencia; respuesta `429` con `Retry-After`. Es **por instancia** (sin Redis)
+  y las claves se guardan hasheadas, nunca como IP/email crudos. Ver `docs/architecture/security.md`.
 - Errores estandarizados como `ApiError`, sin trazas ni SQL.
 
 ### Limitaciones y pendientes (no resueltas en el código)
-- Sin **rate limiting / anti-spam** ni límites de frecuencia de contactos.
+- **Rate limiting distribuido**: el limitador es en memoria; con varias instancias el límite efectivo
+  se multiplica. Migrar a Redis requiere una spec/ADR futura.
 - Sin **refresh tokens**, verificación de email, activación ni recuperación de contraseña.
 - Sin MFA ni otros proveedores sociales.
 
@@ -385,11 +397,19 @@ desarrollo**:
 | `DB_USERNAME` / `DB_PASSWORD` | `claseya` / `claseya` | Credenciales de la base |
 | `JWT_SECRET` | placeholder de dev | Clave de firma JWT. **Obligatoria** y ≥32 bytes fuera de `local` |
 | `JWT_EXPIRATION` | `3600` | Vida del token (segundos) |
+| `COOKIE_SECURE` | `true` | Flag `Secure` de las cookies de sesión/CSRF. `false` **solo** para HTTP local |
+| `COOKIE_SAME_SITE` | `Lax` | `Lax` para SPA/API same-site; `None` (+ `Secure`) si el API está en otro sitio |
 | `FRONTEND_URL` | `http://localhost:3000,http://localhost:5173` | Orígenes permitidos por CORS (lista separada por comas) |
 | `GOOGLE_CLIENT_ID` | *(vacío)* | Client ID de Google; necesario para el login con Google |
 | `GOOGLE_ISSUER` | `https://accounts.google.com` | Emisor esperado del `id_token` |
 | `DEMO_SEED` | `false` | Sembrar el dataset demo al arrancar (opt-in) |
 | `PORT` | `8080` | Puerto del servidor |
+| `RATE_LIMIT_ENABLED` | `true` | Activa/desactiva el limitador (RATE-001) |
+| `RATE_LIMIT_TRUST_FORWARDED_HEADERS` | `false` | Confía en `X-Forwarded-For`/`Forwarded` solo detrás de un proxy confiable |
+
+Los límites de cada scope (`RATE_LIMIT_LOGIN_IP_LIMIT`, `RATE_LIMIT_LOGIN_ACCOUNT_LIMIT`,
+`RATE_LIMIT_CONTACT_USER_LIMIT`, etc.) tienen defaults en `application.yml` y se pueden sobrescribir
+por entorno. Ver `docs/architecture/security.md` y el ADR-017.
 
 ### Base de datos local (Docker)
 
@@ -477,7 +497,7 @@ scripts/verify.ps1                             # verificación reproducible (rep
 - **Build/chequeo de tipos:** `npm run build` (ejecuta `tsc` + `vite build`).
 - **End-to-end (Playwright):** levanta el stack real (backend con perfil `local` + Vite) sobre la base
   demo y recorre flujos críticos (sesión, búsqueda, perfil de profesor, favoritos, mensajería,
-  “Mi anuncio”, transparencia de datos).
+  “Mi anuncio”, transparencia de datos y routing/deep links).
 
 ```powershell
 # desde la raíz; requiere Docker y el contenedor claseya-pg
@@ -519,7 +539,7 @@ clase-ya/
 ├─ src/test/java/com/claseya/  Tests unitarios e integración (Testcontainers)
 ├─ frontend/                 SPA React + TypeScript + Vite
 │  ├─ src/api.ts             Cliente de la API REST (tipado)
-│  ├─ src/auth/              Contexto de sesión (JWT)
+│  ├─ src/auth/              Contexto de sesión (cookie HttpOnly + /api/auth/me)
 │  ├─ src/pages/             Landing, Búsqueda, Perfil de profesor, Mensajes, Mi anuncio
 │  ├─ src/components/        Componentes de UI y de profesor
 │  └─ tests/                 Suite E2E de Playwright
@@ -549,7 +569,7 @@ reutilización deliberada de helpers de presentación entre módulos (favoritos 
 ### En desarrollo
 - **Opiniones y rating** (modelo listo, sin lógica de creación todavía).
 - **Flujo de activación de cuentas** y notificaciones por email.
-- Endurecimiento/anti-abuso (rate limiting) y chat en tiempo real (WebSockets).
+- Chat en tiempo real (WebSockets); el rate limiting básico ya está implementado (RATE-001).
 
 ### Fuera del alcance actual (documentado, no descartado a futuro)
 - **Reservas, agenda online y Calendly** quedaron **deprecadas como rumbo de producto**; las specs y

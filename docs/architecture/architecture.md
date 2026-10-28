@@ -6,7 +6,7 @@ requiere un ADR.
 
 ## Forma
 
-- **Java 17 / Spring Boot 3.2.6 / Maven**, un único artefacto desplegable bajo `com.claseya`.
+- **Java 17 / Spring Boot 3.5.16 / Maven**, un único artefacto desplegable bajo `com.claseya`.
 - **Monolito modular**: el código se agrupa por paquetes de dominio; un solo contexto de Spring,
   una sola base de datos.
 - Capas dentro de cada módulo: `controller` (solo HTTP) → `service` (reglas de negocio,
@@ -40,8 +40,9 @@ se mantiene a nivel service/DTO; los repositories no se alcanzan cruzando contro
 ```
 HTTP request
   → Cadena de filtros de Spring Security (JWT sin estado)
-      JwtAuthenticationFilter: lee "Authorization: Bearer", valida firma+expiración,
-      recarga el usuario por id, exige status=ACTIVE, setea el SecurityContext
+      JwtAuthenticationFilter: lee la cookie CLASEYA_SESSION (o "Authorization: Bearer"),
+      valida firma+expiración, recarga el usuario por id, exige status=ACTIVE,
+      setea el SecurityContext; los writes con cookie exigen CSRF (X-XSRF-TOKEN)
   → Controller (mapea HTTP + @Valid)
   → Service (@Transactional; valida ownership/invariantes)
   → Repository (Spring Data / JPQL) → PostgreSQL
@@ -61,7 +62,7 @@ cliente para decidir *quién* actúa.
 
 ## Persistencia
 
-- El schema lo define Flyway (`src/main/resources/db/migration/V1..V4`); Hibernate corre con
+- El schema lo define Flyway (`src/main/resources/db/migration/V1..V8`); Hibernate corre con
   `spring.jpa.hibernate.ddl-auto=validate`.
 - Las entidades viven en `model`; cada asociación se mapea del lado owning (`@ManyToOne`/
   `@OneToOne` + `@JoinColumn`), las relaciones N:M son entidades join explícitas (sin

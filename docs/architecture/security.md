@@ -8,17 +8,21 @@ real; ver el paquete `security` y `SecurityConfig`.
 - JWT sin estado. `POST /api/auth/register` (solo STUDENT/TEACHER; ADMIN no puede
   auto-registrarse) crea una cuenta `PENDING`; `POST /api/auth/login` autentica email+password a
   través del `AuthenticationManager` de Spring Security → `DaoAuthenticationProvider` con
-  `AppUserDetailsService` + `BCryptPasswordEncoder`, y devuelve
-  `{accessToken, tokenType:"Bearer", expiresIn}`.
+  `AppUserDetailsService` + `BCryptPasswordEncoder`, y devuelve `{user, expiresIn}` + cookie
+  `CLASEYA_SESSION` (`HttpOnly`, `Secure`, `SameSite`). El JWT no viaja en el body.
 - **Ciclo de cuenta**: solo `status = ACTIVE` puede autenticarse. Las cuentas
   `PENDING`/`INACTIVE`/`SUSPENDED` se tratan como deshabilitadas (`AppUserDetails.isEnabled()`),
   por lo que un token ya emitido se rechaza en el siguiente request (el filtro recarga el usuario
   en cada petición).
-- **Decisiones de seguridad IMPLEMENTADAS**: sin sesión HTTP
-  (`SessionCreationPolicy.STATELESS`); CSRF deshabilitado (API sin cookies/sesiones); un único
-  mensaje genérico de login (anti-enumeración).
-- **FUTURO**: refresh tokens, verificación de email, flujo de activación (el registro queda PENDING
-  hasta que exista un mecanismo de activación), password reset, MFA, otros proveedores sociales.
+- **Decisiones de seguridad IMPLEMENTADAS**: sin sesión HTTP de servidor
+  (`SessionCreationPolicy.STATELESS`); cookie de sesión `HttpOnly` para el navegador (Bearer queda
+  para la suite de integración/tooling); CSRF por doble submit (`X-XSRF-TOKEN`) para requests
+  autenticados por cookie;
+  `GET /api/auth/me` resuelve el rol sin claims de rol; un único mensaje genérico de login
+  (anti-enumeración).
+- **FUTURO**: refresh tokens, revocación server-side de JWT (usar `jti`), verificación de email,
+  flujo de activación (el registro queda PENDING hasta que exista un mecanismo de activación),
+  password reset, MFA, otros proveedores sociales.
 - **Google OAuth (OAUTH-001, implementado)**: `POST /api/auth/google` valida el `id_token` de
   Google (firma/JWKS, `iss`, `aud`, `exp`, `email_verified`) y vincula por `users.google_sub`
   (único). Nuevos por Google = `ACTIVE`; una cuenta password solo se vincula si está `ACTIVE` y su
@@ -30,8 +34,15 @@ real; ver el paquete `security` y `SecurityConfig`.
 - Contraseñas hasheadas con BCrypt; solo se guarda `password_hash`. Nunca se loguea ni se devuelve.
 - `JWT_SECRET`/`JWT_EXPIRATION`/`DB_*`/`FRONTEND_URL` vienen de variables de entorno.
   `application.yml` tiene defaults **solo de desarrollo**; no son secretos de producción.
-- Claims del JWT mínimos: `sub` (id de usuario), `email`, `role`, `iat`, `exp`. Nada sensible
-  (hashes/tokens) dentro del token.
+- Claims del JWT mínimos: `sub` (id de usuario), `jti` (único), `iat`, `exp`. **Sin email, nombre
+  ni rol**: el backend recarga usuario y authorities desde la base en cada request. `jti` habilita
+  una futura lista de revocación.
+- Cookies: `CLASEYA_SESSION` (`HttpOnly`, `Secure` configurable, `SameSite` configurable) y
+  `XSRF-TOKEN` (`HttpOnly`) para el doble submit. Variables `COOKIE_SECURE` /
+  `COOKIE_SAME_SITE`; ver ADR-020.
+- Cabeceras del API: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
+  `Referrer-Policy: no-referrer` y `Permissions-Policy` con cámara/micrófono/geolocalización/pagos
+  deshabilitados. El HTML versiona `_headers` y una CSP (SEC-002).
 
 ## Autorización
 
@@ -79,6 +90,32 @@ errores de método/validación/recurso → `GlobalExceptionHandler`. Sin stack t
 SUSPENDED/INACTIVE no pueden autenticarse, por lo que las rutas protegidas responden 401; los
 datos históricos (conversaciones, favoritos, perfiles) nunca se borran para cuentas deshabilitadas.
 
+## Rate limiting y anti-abuso (RATE-001, IMPLEMENTADO)
+
+Limitador de token buckets **en memoria y por instancia** (Bucket4j `bucket4j_jdk17-core`), aplicado
+en un filtro de Spring Security después del JWT y antes de la autorización:
+
+| Scope | Clave | Default |
+|---|---|---|
+| Login | IP | 30/min |
+| Login | email normalizado | 5 fallos/15 min (se resetea con login exitoso) |
+| Registro | IP | 20/h |
+| Google login | IP | 30/min |
+| Crear conversación | usuario | 10/h |
+| Enviar mensaje | usuario | 60/min |
+| Subir evidencia | usuario | 20/h |
+
+- Las requests bloqueadas reciben **429** con `ApiError` genérico, `Retry-After` y `Cache-Control:
+  no-store`.
+- Las claves se derivan con SHA-256 + salt por proceso; no se persisten ni se loguean IPs/emails
+  crudos (solo scope + hash truncado).
+- `security.rate-limit.trust-forwarded-headers` debe quedar en `false` si la app puede recibir
+  tráfico directo; activarlo solo detrás de un proxy que saneé el header.
+- Si la evaluación del limitador falla, la request se permite y se registra `ERROR` (fail-open); el
+  limitador es defensa en profundidad.
+- **Limitación:** al ser en memoria, con N instancias el límite efectivo puede ser N veces el
+  configurado. La versión distribuida (Redis) queda fuera de alcance hasta una spec futura.
+
 ## CORS
 
 Restringido a `cors.allowed-origins` (`FRONTEND_URL`, default `http://localhost:3000`); métodos,
@@ -86,5 +123,6 @@ headers `Authorization`/`Content-Type`; credenciales permitidas; sin wildcard.
 
 ## FUTURO (documentado, no implementado)
 
-Rate limiting/anti-spam; refresh tokens; verificación de email/activación; password reset; MFA;
-social login; panel de moderación admin; transporte WebSockets (reutiliza los services existentes).
+Rate limiting **distribuido** (Redis); refresh tokens; verificación de email/activación; password
+reset; MFA; social login; panel de moderación admin; transporte WebSockets (reutiliza los services
+existentes).

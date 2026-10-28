@@ -424,7 +424,19 @@ Reglas:
 - **Modal**: `Escape`, backdrop, focus trap y restauración de foco.
 - **Mensajería**: `Enter` envía / `Shift+Enter` nueva línea; composer auto-crece hasta 200px; scroll solo dentro del hilo; hilos cacheados para no re-mostrar skeletons.
 - **Favoritos**: corazón con `aria-pressed`; si el usuario no tiene perfil de estudiante (API 409) se abre el formulario de perfil.
-- **Navegación**: por estado en `App.tsx` (sin router); `history.pushState` para back/forward; cada cambio de vista vuelve al top de la página.
+- **Navegación**: `react-router` en modo librería (ARCH-001). Cada pantalla tiene URL propia; atrás/adelante del navegador restauran la vista y el estado de búsqueda vive en query params (`materia`, `modalidad`, `rating`, `precioMin`, `precioMax`, `verificados`, `pagina`). Las páginas se cargan con `React.lazy` y un fallback de skeletons.
+
+  | Ruta | Pantalla | Acceso |
+  |---|---|---|
+  | `/` | Landing | Público |
+  | `/buscar` | Búsqueda y resultados | Público |
+  | `/profesores/:teacherId` | Perfil público | Público |
+  | `/favoritos` | Mis favoritos | STUDENT |
+  | `/mensajes` / `/mensajes/:conversationId` | Mensajería | Autenticado |
+  | `/mi-anuncio` | Mi anuncio | TEACHER |
+  | `*` | No encontrada | Público |
+
+- **Sesión**: cookie `HttpOnly` (`CLASEYA_SESSION`) + `/api/auth/me`; la SPA nunca ve el JWT. Los writes piden un CSRF nuevo a `/api/auth/csrf` y envían `X-XSRF-TOKEN` (SEC-002).
 - **Verificación**: carga de documentos + submit por credencial; estado por `Badge` (`Pendiente`/`En revisión`/`Verificado`/`Rechazado`).
 - **Acciones destructivas**: si son **reversibles** (quitar materia, desactivar disponibilidad) → se ejecutan y se ofrece **`Toast` con "Deshacer"**. Si son **irreversibles** (quitar formación con documentos/verificación asociados, eliminar un documento ya subido) → **`ConfirmDialog`** (`Modal` + `Button variant="danger"`). Nunca destructivo sin una de las dos.
 
@@ -473,7 +485,7 @@ Reglas:
 - **Merge de clases**: `cn()` (`clsx` + `tailwind-merge`). Nunca concatenar strings a mano cuando hay conflicto de variantes.
 - **Variantes**: `class-variance-authority` para componentes con variantes (Button, Badge).
 - **Tokens antes que hex**: usar clases semánticas/de paleta; no hardcodear colores ni espaciados repetidos.
-- **Librerías aprobadas**: `lucide-react`, `clsx`, `tailwind-merge`, `class-variance-authority`, `@fontsource/*`, `@react-oauth/google`. Dependencia nueva → justificación (AGENTS.md).
+- **Librerías aprobadas**: `react-router`, `lucide-react`, `clsx`, `tailwind-merge`, `class-variance-authority`, `@fontsource/*`, `@react-oauth/google`. Dependencia nueva → justificación (AGENTS.md).
 - **Sin `framer-motion`**: la animación es CSS/Tailwind.
 
 ---
@@ -492,7 +504,7 @@ Reglas:
    - Fuentes: una iteración anterior usó Coiny + Cabin Condensed; hoy es **Bungee + Open Sans**.
 2. **Referencias**: `AGENTS.md` apunta (a partir de este cambio) a `docs/frontend/DESIGN.md`.
 3. **Botones `sm` de 36px** por debajo del objetivo táctil de 44px (ver §13).
-4. **Sin router**: la navegación es por estado; la URL no cambia por pantalla.
+4. **Sin SSR**: el router y los metadatos funcionan en el cliente. Los previews sociales (Open Graph) y el `sitemap.xml` dinámico quedan pendientes hasta una fase de renderizado en servidor (ver ADR-019).
 
 ---
 
