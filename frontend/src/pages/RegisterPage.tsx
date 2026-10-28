@@ -5,6 +5,7 @@ import { useAuth } from '../auth/AuthContext';
 import { Button } from '../components/ui/Button';
 import { Field, Input } from '../components/ui/Field';
 import { Card } from '../components/ui/primitives';
+import TurnstileWidget from '../components/TurnstileWidget';
 import { validateRegistration } from '../lib/validation';
 import { ROUTES } from '../routes';
 
@@ -26,6 +27,7 @@ export default function RegisterPage({ onLogin }: Props) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
+  const [captchaToken, setCaptchaToken] = useState('');
   const [role, setRole] = useState<AccountRole>('STUDENT');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState('');
@@ -44,7 +46,7 @@ export default function RegisterPage({ onLogin }: Props) {
     if (!validate()) return;
     setLoading(true);
     try {
-      await register(email.trim(), password, role);
+      await register(email.trim(), password, role, captchaToken || undefined);
       setSentTo(email.trim());
     } catch (error) {
       if (error instanceof ApiError && error.status === 400) {
@@ -171,7 +173,9 @@ export default function RegisterPage({ onLogin }: Props) {
             </p>
           )}
 
-          <Button type="submit" block loading={loading}>
+          <TurnstileWidget onToken={setCaptchaToken} onError={setFormError} />
+
+          <Button type="submit" block loading={loading} disabled={Boolean(import.meta.env.VITE_TURNSTILE_SITE_KEY) && !captchaToken}>
             Crear cuenta
           </Button>
         </form>

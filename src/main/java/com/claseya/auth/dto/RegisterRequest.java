@@ -18,6 +18,10 @@ public record RegisterRequest(
         String password,
 
         @NotNull(message = "Role is required")
-        UserRole role
+        UserRole role,
+
+        /** Turnstile token; required only when CAPTCHA_ENABLED=true. */
+        @Size(max = 2048, message = "Captcha token is too long")
+        String captchaToken
 ) {
 }

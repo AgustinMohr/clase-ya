@@ -17,7 +17,7 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<void>;
   loginWithGoogle: (idToken: string, role?: AccountRole) => Promise<void>;
   /** AUTH-001/SEC-04: creates a PENDING account; the user still has to open the emailed link. */
-  register: (email: string, password: string, role: AccountRole) => Promise<void>;
+  register: (email: string, password: string, role: AccountRole, captchaToken?: string) => Promise<void>;
   activate: (token: string) => Promise<void>;
   resendActivation: (email: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -69,7 +69,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const register = useCallback(
-    (email: string, password: string, role: AccountRole) => api.register(email, password, role),
+    (email: string, password: string, role: AccountRole, captchaToken?: string) =>
+      api.register(email, password, role, captchaToken),
     [],
   );
 

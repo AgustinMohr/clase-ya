@@ -1,5 +1,6 @@
 package com.claseya.auth.service;
 
+import com.claseya.auth.captcha.CaptchaVerifier;
 import com.claseya.auth.dto.IssuedSession;
 import com.claseya.auth.dto.LoginRequest;
 import com.claseya.auth.dto.RegisterRequest;
@@ -39,6 +40,7 @@ public class AuthService {
     private final LoginAttemptService loginAttemptService;
     private final CurrentUser currentUser;
     private final AccountActivationService accountActivationService;
+    private final CaptchaVerifier captchaVerifier;
 
     public AuthService(UserRepository userRepository,
                        PasswordEncoder passwordEncoder,
@@ -46,7 +48,8 @@ public class AuthService {
                        JwtService jwtService,
                        LoginAttemptService loginAttemptService,
                        CurrentUser currentUser,
-                       AccountActivationService accountActivationService) {
+                       AccountActivationService accountActivationService,
+                       CaptchaVerifier captchaVerifier) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.authenticationManager = authenticationManager;
@@ -54,6 +57,7 @@ public class AuthService {
         this.loginAttemptService = loginAttemptService;
         this.currentUser = currentUser;
         this.accountActivationService = accountActivationService;
+        this.captchaVerifier = captchaVerifier;
     }
 
     @Transactional
@@ -63,6 +67,10 @@ public class AuthService {
         if (request.role() == UserRole.ADMIN) {
             throw new InvalidRoleException("ADMIN cannot self-register");
         }
+
+        // SEC-04: the human challenge is checked before any account lookup, so enumeration
+        // attempts pay the same cost as legitimate registrations.
+        captchaVerifier.verify(request.captchaToken());
 
         // SEC-04: the response is always 202, whether the email is new, pending or already active.
         // An existing pending account only gets a new activation link; the password is never

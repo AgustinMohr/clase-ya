@@ -1,5 +1,6 @@
 package com.claseya;
 
+import com.claseya.auth.captcha.CaptchaVerifier;
 import com.claseya.auth.service.ActivationMailSender;
 import com.claseya.model.User;
 import com.claseya.model.enums.UserRole;
@@ -47,6 +48,9 @@ class RateLimitIntegrationTest extends AbstractPostgresTest {
 
     /** AUTH-001: registration sends an activation email; never contact SMTP in tests. */
     @MockitoBean private ActivationMailSender activationMailSender;
+
+    /** SEC-04: never contact Turnstile in tests. */
+    @MockitoBean private CaptchaVerifier captchaVerifier;
 
     @Test
     void login_fromTheSameIp_isLimitedToTheConfiguredRate() throws Exception {

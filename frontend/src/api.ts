@@ -425,8 +425,9 @@ export const api = {
   loginWithGoogle: (idToken: string, role?: 'STUDENT' | 'TEACHER') =>
     request<LoginResponse>('POST', '/api/auth/google', role ? { idToken, role } : { idToken }),
   /** AUTH-001/SEC-04: always 202; the account stays PENDING until the emailed link is opened. */
-  register: (email: string, password: string, role: 'STUDENT' | 'TEACHER') =>
-    request<void>('POST', '/api/auth/register', { email, password, role }),
+  register: (email: string, password: string, role: 'STUDENT' | 'TEACHER', captchaToken?: string) =>
+    request<void>('POST', '/api/auth/register',
+      captchaToken ? { email, password, role, captchaToken } : { email, password, role }),
   activate: (token: string) => request<void>('POST', '/api/auth/activate', { token }),
   /** Always 202: the backend never reveals whether the email is registered. */
   resendActivation: (email: string) => request<void>('POST', '/api/auth/resend-activation', { email }),

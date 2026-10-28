@@ -8,12 +8,19 @@ import { defineConfig, loadEnv, type Plugin } from 'vite';
  * meta tag cannot enforce it (see frontend/public/_headers).
  */
 function cspPlugin(dev: boolean, apiOrigin: string): Plugin {
-  const connect = ["'self'", 'https://accounts.google.com', apiOrigin, dev ? 'ws:' : '']
+  const connect = [
+    "'self'",
+    'https://accounts.google.com',
+    'https://challenges.cloudflare.com',
+    apiOrigin,
+    dev ? 'ws:' : '',
+  ]
     .filter(Boolean)
     .join(' ');
   const script = [
     "'self'",
     'https://accounts.google.com',
+    'https://challenges.cloudflare.com',
     dev ? "'unsafe-inline' 'unsafe-eval'" : '',
   ]
     .filter(Boolean)
@@ -24,11 +31,11 @@ function cspPlugin(dev: boolean, apiOrigin: string): Plugin {
     "object-src 'none'",
     "form-action 'self'",
     `script-src ${script}`,
-    "style-src 'self' 'unsafe-inline' https://accounts.google.com",
+    "style-src 'self' 'unsafe-inline' https://accounts.google.com https://challenges.cloudflare.com",
     "img-src 'self' data: https:",
     "font-src 'self' data:",
     `connect-src ${connect}`,
-    'frame-src https://accounts.google.com',
+    'frame-src https://accounts.google.com https://challenges.cloudflare.com',
     "manifest-src 'self'",
     "worker-src 'self'",
   ].join('; ');

@@ -1,5 +1,6 @@
 package com.claseya;
 
+import com.claseya.auth.captcha.CaptchaVerifier;
 import com.claseya.auth.service.ActivationMailSender;
 import com.claseya.model.User;
 import com.claseya.model.enums.UserRole;
@@ -56,6 +57,10 @@ public abstract class AbstractWebIntegrationTest extends AbstractPostgresTest {
     /** AUTH-001: integration tests never contact a real SMTP server. */
     @MockitoBean
     protected ActivationMailSender activationMailSender;
+
+    /** SEC-04: integration tests never contact Turnstile. */
+    @MockitoBean
+    protected CaptchaVerifier captchaVerifier;
 
     private static final String APPLICATION_JSON_UTF8 = MediaType.APPLICATION_JSON_VALUE + ";charset=UTF-8";
 

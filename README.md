@@ -421,6 +421,9 @@ desarrollo**:
 | `MAIL_HOST` / `MAIL_PORT` | *(vacío)* / `587` | SMTP del email de activación; sin host el registro responde `503` |
 | `MAIL_USERNAME` / `MAIL_PASSWORD` | *(vacío)* | Credenciales SMTP |
 | `MAIL_FROM` | `no-reply@claseya.app` | Remitente del email de activación |
+| `CAPTCHA_ENABLED` | `false` | Exige CAPTCHA (Turnstile) en el registro |
+| `TURNSTILE_SECRET` | *(vacío)* | Secret de Turnstile; obligatorio si `CAPTCHA_ENABLED=true` |
+| `TURNSTILE_VERIFY_URL` | `https://challenges.cloudflare.com/turnstile/v0/siteverify` | Endpoint de verificación |
 | `RATE_LIMIT_TRUST_FORWARDED_HEADERS` | `false` | Confía en `X-Forwarded-For`/`Forwarded` solo detrás de un proxy confiable |
 | `LOGGING_STRUCTURED_FORMAT_CONSOLE` | *(vacío)* | `ecs` para logs JSON en producción; el `requestId` viaja en el MDC |
 
@@ -479,6 +482,7 @@ que no hay CORS. Variables del frontend:
 | Variable | Para qué |
 |---|---|
 | `VITE_GOOGLE_CLIENT_ID` | Client ID de Google (debe ser **el mismo** que `GOOGLE_CLIENT_ID` del backend) |
+| `VITE_TURNSTILE_SITE_KEY` | Site key pública de Turnstile; si falta, el widget no se renderiza |
 | `VITE_API_URL` | Origen del backend; **vacío** en local y en Vercel con el rewrite de `ADR-022` |
 
 ### Google OAuth (configuración externa necesaria)
@@ -512,6 +516,8 @@ la cookie CSRF (`SameSite=Lax`) no viaja entre sitios y el login responde `403 A
   `COOKIE_SAME_SITE=Lax`, `COOKIE_SECURE=true` y `RATE_LIMIT_TRUST_FORWARDED_HEADERS=true` (Vercel
   sobrescribe `X-Forwarded-For`; sin esto todos los usuarios comparten el bucket de rate limit).
 - Agregá `https://<proyecto>.vercel.app` a *Authorized JavaScript origins* de Google.
+- Si activás CAPTCHA: `CAPTCHA_ENABLED=true` y `TURNSTILE_SECRET` en el backend;
+  `VITE_TURNSTILE_SITE_KEY` en Vercel (variable de build).
 
 Si el proyecto de Vercel usa la raíz del repo como root (en lugar de `frontend/`), mové
 `vercel.json` a la raíz y agregá `"buildCommand": "npm --prefix frontend run build"` y

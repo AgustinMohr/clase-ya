@@ -45,6 +45,10 @@ POST /api/auth/register
   - existing `PENDING` → the previous token is invalidated and a new link is sent;
   - existing `ACTIVE` → no email, and the password is **not** changed.
 - `role` must be `STUDENT` or `TEACHER`. `ADMIN` **cannot** self-register (400).
+- **CAPTCHA (SEC-003):** when `CAPTCHA_ENABLED=true`, the request must include `captchaToken`
+  (Cloudflare Turnstile). A missing/invalid token → **400**; Turnstile unavailable → **503**. The
+  SPA renders the widget only when `VITE_TURNSTILE_SITE_KEY` is configured. Disabled by default in
+  local/tests.
 - The activation email is sent inside the registration transaction: if there is no mail transport
   (or SMTP fails), the account is **rolled back** and the API answers **503**.
 

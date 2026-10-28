@@ -14,6 +14,9 @@ app:
       # Development only: writes the activation link to the log instead of using SMTP.
       # Never enable this outside a local machine.
       log-links: true
+    captcha:
+      # Turnstile stays off locally; production enables it with TURNSTILE_SECRET.
+      enabled: false
 
 oauth:
   google:
