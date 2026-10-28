@@ -1,5 +1,6 @@
 package com.claseya.verification.controller;
 
+import com.claseya.common.exception.BadRequestException;
 import com.claseya.model.enums.DocumentType;
 import com.claseya.security.CurrentUser;
 import com.claseya.verification.dto.CredentialVerificationView;
@@ -63,10 +64,16 @@ public class TeacherVerificationController {
     @PostMapping("/education/{educationId}/documents")
     public ResponseEntity<VerificationDocumentResponse> upload(@PathVariable UUID educationId,
                                                                @RequestParam("type") DocumentType type,
-                                                               @RequestParam("file") MultipartFile file)
-            throws IOException {
+                                                               @RequestParam("file") MultipartFile file) {
+        byte[] content;
+        try {
+            content = file.getBytes();
+        } catch (IOException ex) {
+            // An unreadable upload is a client problem: 400, never an unhandled 500.
+            throw new BadRequestException("The uploaded document could not be read");
+        }
         VerificationDocumentResponse response = documentService.upload(
-                currentUser.id(), educationId, type, file.getBytes(), file.getOriginalFilename());
+                currentUser.id(), educationId, type, content, file.getOriginalFilename());
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 

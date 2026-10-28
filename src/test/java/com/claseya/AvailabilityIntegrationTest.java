@@ -123,6 +123,20 @@ class AvailabilityIntegrationTest extends AbstractWebIntegrationTest {
     }
 
     @Test
+    void createWithoutDayOfWeek_returns400() throws Exception {
+        // Regression: a missing dayOfWeek used to unbox to null and blow up with a 500.
+        Teacher t = newTeacher("r@example.com", "Ra", VerificationStatus.VERIFIED, UserStatus.ACTIVE);
+        create(t.token(), "{\"startTime\":\"18:00\",\"endTime\":\"19:00\"}", 400);
+    }
+
+    @Test
+    void updateWithoutDayOfWeek_returns400() throws Exception {
+        Teacher t = newTeacher("s@example.com", "Sa", VerificationStatus.VERIFIED, UserStatus.ACTIVE);
+        String id = toJson(create(t.token(), body(1, "09:00", "10:00"), 201)).get("id").asText();
+        putJson("/api/availability/" + id, t.token(), "{\"startTime\":\"10:00\",\"endTime\":\"11:00\"}", 400);
+    }
+
+    @Test
     void tooShortOrInvalidWindows_areRejected() throws Exception {
         Teacher t = newTeacher("c@example.com", "Ca", VerificationStatus.VERIFIED, UserStatus.ACTIVE);
         String token = t.token();

@@ -4,6 +4,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -15,8 +16,10 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.bind.ServletRequestBindingException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.HashMap;
@@ -96,6 +99,16 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.FORBIDDEN, "Forbidden", "Access denied", request);
     }
 
+    @ExceptionHandler(RateLimitExceededException.class)
+    public ResponseEntity<ApiError> handleRateLimitExceeded(RateLimitExceededException ex,
+                                                            HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header(HttpHeaders.RETRY_AFTER, Long.toString(ex.getRetryAfterSeconds()))
+                .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .body(ApiError.of(HttpStatus.TOO_MANY_REQUESTS.value(), "Too Many Requests",
+                        ex.getMessage(), request.getRequestURI()));
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiError> handleValidation(MethodArgumentNotValidException ex, HttpServletRequest request) {
         Map<String, String> fieldErrors = new HashMap<>();
@@ -131,6 +144,28 @@ public class GlobalExceptionHandler {
                                                                 HttpServletRequest request) {
         return build(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "Unsupported Media Type",
                 "Content-Type is not supported", request);
+    }
+
+    /**
+     * A required request value (parameter, header or path variable) is missing: a client error
+     * (400), not a server failure. Without this handler it fell through to the catch-all and
+     * answered a misleading 500 — the same class of bug as the unsupported Content-Type above.
+     */
+    @ExceptionHandler(ServletRequestBindingException.class)
+    public ResponseEntity<ApiError> handleRequestBinding(ServletRequestBindingException ex,
+                                                         HttpServletRequest request) {
+        return build(HttpStatus.BAD_REQUEST, "Bad Request", "Required request data is missing", request);
+    }
+
+    /**
+     * A required multipart part (e.g. the uploaded file) is missing. It extends
+     * {@link jakarta.servlet.ServletException}, not {@code ServletRequestBindingException}, so it
+     * needs its own handler to avoid the catch-all turning a client error into a 500.
+     */
+    @ExceptionHandler(MissingServletRequestPartException.class)
+    public ResponseEntity<ApiError> handleMissingPart(MissingServletRequestPartException ex,
+                                                      HttpServletRequest request) {
+        return build(HttpStatus.BAD_REQUEST, "Bad Request", "Required request data is missing", request);
     }
 
     @ExceptionHandler(Exception.class)
