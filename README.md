@@ -85,7 +85,8 @@ email). No es un producto terminado.
 
 **Cuenta y acceso**
 - Registro e inicio de sesión con **email + contraseña** (BCrypt), con activación por enlace de un
-  solo uso enviado por email.
+  solo uso enviado por email. La contraseña exige mínimo 10 caracteres, letras y números; el
+  registro responde siempre `202` para no revelar si el email existe.
 - Inicio de sesión con **Google OAuth** (validación de `id_token` en el backend).
 - Perfil de estudiante: universidad, carrera, año y descripción.
 

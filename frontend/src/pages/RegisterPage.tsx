@@ -34,7 +34,9 @@ export default function RegisterPage({ onLogin }: Props) {
   function validate(): boolean {
     const next: Record<string, string> = {};
     if (!email.trim()) next.email = 'Ingresá tu email.';
-    if (password.length < 8) next.password = 'La contraseña debe tener al menos 8 caracteres.';
+    if (password.length < 10 || !/\p{L}/u.test(password) || !/\d/.test(password)) {
+      next.password = 'Usá al menos 10 caracteres, con letras y números.';
+    }
     if (confirmation !== password) next.confirmation = 'Las contraseñas no coinciden.';
     setErrors(next);
     return Object.keys(next).length === 0;
@@ -49,9 +51,7 @@ export default function RegisterPage({ onLogin }: Props) {
       await register(email.trim(), password, role);
       setSentTo(email.trim());
     } catch (error) {
-      if (error instanceof ApiError && error.status === 409) {
-        setErrors({ email: 'Ese email ya está registrado. Probá ingresar o reenviar la activación.' });
-      } else if (error instanceof ApiError && error.status === 400) {
+      if (error instanceof ApiError && error.status === 400) {
         setErrors(fieldErrorsOf(error));
         if (Object.keys(fieldErrorsOf(error)).length === 0) setFormError(error.message);
       } else if (error instanceof ApiError && error.status === 503) {
@@ -70,8 +70,9 @@ export default function RegisterPage({ onLogin }: Props) {
         <Card className="p-6 sm:p-8">
           <h1 className="font-display text-3xl text-primary-700 dark:text-primary-200">Revisá tu email</h1>
           <p className="mt-3 text-content-muted" role="status">
-            Te enviamos un enlace de activación a <strong className="text-content">{sentTo}</strong>. Abrilo
-            para activar la cuenta: el enlace vence en 24 horas y se puede usar una sola vez.
+            Si el email no tenía una cuenta, te enviamos un enlace de activación a{' '}
+            <strong className="text-content">{sentTo}</strong>. Si ya existía, ingresá con tu
+            contraseña. El enlace vence en 24 horas y se puede usar una sola vez.
           </p>
           <p className="mt-2 text-sm text-content-muted">
             Si no llega en unos minutos, revisá spam o pedí un enlace nuevo desde el ingreso.
@@ -140,7 +141,7 @@ export default function RegisterPage({ onLogin }: Props) {
 
           <Field
             label="Contraseña"
-            hint="Mínimo 8 caracteres."
+            hint="Al menos 10 caracteres, con letras y números."
             error={errors.password}
           >
             {(props) => (

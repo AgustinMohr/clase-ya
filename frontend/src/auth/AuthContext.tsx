@@ -2,7 +2,6 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import {
   api,
   type LoginResponse,
-  type RegisterResponse,
   type SessionUser,
   UNAUTHORIZED_EVENT,
 } from '../api';
@@ -17,8 +16,8 @@ interface AuthContextValue {
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   loginWithGoogle: (idToken: string, role?: AccountRole) => Promise<void>;
-  /** AUTH-001: creates a PENDING account; the user still has to open the emailed link. */
-  register: (email: string, password: string, role: AccountRole) => Promise<RegisterResponse>;
+  /** AUTH-001/SEC-04: creates a PENDING account; the user still has to open the emailed link. */
+  register: (email: string, password: string, role: AccountRole) => Promise<void>;
   activate: (token: string) => Promise<void>;
   resendActivation: (email: string) => Promise<void>;
   logout: () => Promise<void>;

@@ -3,11 +3,10 @@ package com.claseya.auth.service;
 import com.claseya.auth.dto.IssuedSession;
 import com.claseya.auth.dto.LoginRequest;
 import com.claseya.auth.dto.RegisterRequest;
-import com.claseya.auth.dto.RegisterResponse;
 import com.claseya.auth.dto.SessionUserResponse;
-import com.claseya.common.exception.EmailAlreadyExistsException;
 import com.claseya.common.exception.InvalidCredentialsException;
 import com.claseya.common.exception.InvalidRoleException;
+import com.claseya.common.exception.RegistrationConflictException;
 import com.claseya.common.exception.ResourceNotFoundException;
 import com.claseya.model.User;
 import com.claseya.model.enums.UserRole;
@@ -28,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.Locale;
+import java.util.Optional;
 
 @Service
 public class AuthService {
@@ -57,15 +57,21 @@ public class AuthService {
     }
 
     @Transactional
-    public RegisterResponse register(RegisterRequest request) {
+    public void register(RegisterRequest request) {
         String email = normalizeEmail(request.email());
 
         if (request.role() == UserRole.ADMIN) {
             throw new InvalidRoleException("ADMIN cannot self-register");
         }
 
-        if (userRepository.existsByEmail(email)) {
-            throw new EmailAlreadyExistsException();
+        // SEC-04: the response is always 202, whether the email is new, pending or already active.
+        // An existing pending account only gets a new activation link; the password is never
+        // changed here because the caller may not own the email.
+        Optional<User> existing = userRepository.findByEmail(email);
+        if (existing.isPresent()) {
+            existing.filter(user -> user.getStatus() == UserStatus.PENDING)
+                    .ifPresent(accountActivationService::issueAndSend);
+            return;
         }
 
         User user = new User();
@@ -77,18 +83,17 @@ public class AuthService {
         user.setStatus(UserStatus.PENDING);
 
         try {
-            userRepository.save(user);
+            userRepository.saveAndFlush(user);
         } catch (DataIntegrityViolationException ex) {
-            // Race-safety: rely on the unique constraint as the final guard.
-            throw new EmailAlreadyExistsException();
+            // Concurrent registration for the same email: the request that won owns the flow.
+            // The handler answers 202 as well, so the status never reveals existence.
+            throw new RegistrationConflictException();
         }
 
         // AUTH-001: the account stays PENDING until the owner clicks the emailed link. The send
         // happens inside this transaction on purpose: if there is no mail transport the account is
         // rolled back instead of leaving an account that the owner cannot activate.
         accountActivationService.issueAndSend(user);
-
-        return new RegisterResponse(user.getId(), user.getEmail(), user.getRole(), user.getStatus());
     }
 
     /** Consumes a single-use activation token (AUTH-001). */

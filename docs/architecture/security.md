@@ -35,6 +35,8 @@ real; ver el paquete `security` y `SecurityConfig`.
 ## Contraseñas y secretos
 
 - Contraseñas hasheadas con BCrypt; solo se guarda `password_hash`. Nunca se loguea ni se devuelve.
+- Política de alta (AUTH-002): mínimo 10 caracteres, al menos una letra y un dígito, máximo 72 bytes
+  UTF-8 (límite real de BCrypt). El registro responde **202 genérico** para no enumerar cuentas.
 - `JWT_SECRET`/`JWT_EXPIRATION`/`DB_*`/`FRONTEND_URL` vienen de variables de entorno.
   `application.yml` tiene defaults **solo de desarrollo**; no son secretos de producción.
 - Claims del JWT mínimos: `sub` (id de usuario), `jti` (único), `iat`, `exp`. **Sin email, nombre

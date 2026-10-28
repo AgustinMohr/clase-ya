@@ -23,8 +23,9 @@ Los riesgos principales no son de “OWASP clásico” sino de **integridad del 
 Además, el flujo **email + contraseña** quedó a mitad de camino: el backend registra cuentas `PENDING` sin endpoint de activación, el frontend no tiene pantalla de registro y el modal de login sí ofrece email/contraseña. El producto define Google OAuth como obligatorio, así que la recomendación principal es **alinear el código con esa decisión** (retirar o aislar el flujo legado) o completarlo de extremo a extremo; hoy es una fuente de confusión y soporte.
 
 **Veredicto (actualizado):** los bloqueantes EVID-01, SEC-01, DEP-01 y PRIV-01, junto con AUTH-01,
-ARCH-01, CI-01, SEC-02, BUG-02, BUG-03 y SEC-03, están corregidos y verificados (294 tests backend +
-40 E2E). Quedan hallazgos MEDIUM/LOW; CI está configurado, pero requiere activar branch protection
+ARCH-01, CI-01, SEC-02, BUG-02, BUG-03 y SEC-03, están corregidos y verificados (301 tests backend +
+40 E2E). SEC-04 queda parcial (política y enumeración resueltas; HIBP/CAPTCHA diferidos por
+`ADR-023`). Quedan hallazgos MEDIUM/LOW; CI está configurado, pero requiere activar branch protection
 para ser un gate obligatorio.
 
 ---
@@ -476,8 +477,8 @@ ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-jar", "/app/app.jar"]
 
 6. **AUTH-01:** ✅ hecho — se eligió completar la activación (spec `AUTH-001`, `ADR-021`).
 7. **ARCH-01:** router + URLs reales + metadatos por perfil (aunque el prerender/SSR quede para después).
-8. **SEC-02/SEC-03/SEC-04:** CSP y retiro de `/api/test/*` hechos; política de contraseñas y
-   respuesta de registro (`SEC-04`) sigue pendiente.
+8. **SEC-02/SEC-03/SEC-04:** CSP, retiro de `/api/test/*`, política de contraseñas y registro
+   genérico hechos; HIBP/CAPTCHA quedan pendientes (`ADR-023`).
 9. **OPS-01/OPS-02:** health listo; faltan métricas/logs/request IDs (`OPS-01`) y Docker no-root +
    `HEALTHCHECK` (`OPS-02`).
 10. **BUG-02/BUG-03:** ✅ hechos — 401 para un token de usuario borrado y visibilidad D1 completa en
@@ -536,5 +537,6 @@ ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-jar", "/app/app.jar"]
 | BUG-03 | ✅ Corregido en working tree (pendiente de commit) | `AvailabilityWindowSpecifications.visible()` reutiliza la regla D1 completa mediante `TeacherSpecifications.visibleTeacher(...)`; `GET /api/availability?teacherId=` de un profesor oculto responde **404** y la búsqueda pública ya no expone sus franjas. Tests de disponibilidad actualizados (18) y suite completa **292/292**. |
 | SEC-03 | ✅ Corregido en working tree (pendiente de commit) | Eliminado `web/SecurityTestController` y las reglas `/api/test/**`. El andamiaje ya no forma parte del artefacto; Playwright usa `GET /actuator/health` como sonda. Los tests de roles/identidad se reescribieron contra endpoints reales (`/api/favorites`, `/api/teachers/me`, `/api/admin/verifications`, `/api/auth/me`, `/api/teachers`). |
 | OPS-01 | 🟡 Parcial (working tree) | Actuator con **solo** `health` expuesto, `show-details=never` y el indicador de mail desactivado (el SMTP es opcional). Faltan métricas, logs estructurados, request IDs y alertas. |
+| SEC-04 | 🟡 Parcial (working tree) | Política de contraseñas con `@ValidPassword`: mínimo 10 caracteres, letras + números y máximo 72 bytes UTF-8 (límite real de BCrypt). `POST /api/auth/register` ahora responde **202 sin body** siempre (nuevo, `PENDING` o `ACTIVE`), reenvía el enlace a una cuenta pendiente y nunca cambia su contraseña; la carrera de duplicados también responde 202. Tests unitarios del validador y de integración. HIBP/CAPTCHA quedan diferidos por `ADR-023`. |
 
 > El informe original se generó en modo solo lectura. La corrección de EVID-01 se aplicó después de la auditoría (backend + guard de UI); el resto del código de producto no se modificó. El conteo de la tabla resumen refleja el estado al momento de la auditoría.

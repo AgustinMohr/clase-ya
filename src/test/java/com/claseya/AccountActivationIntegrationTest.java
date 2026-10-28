@@ -35,13 +35,16 @@ class AccountActivationIntegrationTest extends AbstractWebIntegrationTest {
     private EmailVerificationTokenRepository tokenRepository;
 
     private void register(String email) throws Exception {
+        register(email, PASSWORD);
+    }
+
+    private void register(String email, String password) throws Exception {
         mockMvc.perform(post("/api/auth/register")
                         .contentType("application/json")
                         .content("""
                                 {"email":"%s","password":"%s","role":"STUDENT"}
-                                """.formatted(email, PASSWORD)))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.status").value("PENDING"));
+                                """.formatted(email, password)))
+                .andExpect(status().isAccepted());
     }
 
     /** Last activation token captured from the mocked sender. */
@@ -76,6 +79,21 @@ class AccountActivationIntegrationTest extends AbstractWebIntegrationTest {
         assertThat(user(email).getEmailVerifiedAt()).isNull();
         assertThat(tokenRepository.findByUser_Id(user(email).getId())).hasSize(1);
         assertThat(lastToken(email)).isNotBlank();
+    }
+
+    @Test
+    void register_existingPendingAccount_resendsLinkWithoutChangingPassword() throws Exception {
+        String email = "re-register-" + UUID.randomUUID() + "@example.com";
+        register(email);
+        String firstToken = lastToken(email);
+
+        register(email, "Different456");
+
+        String secondToken = lastToken(email);
+        assertThat(secondToken).isNotEqualTo(firstToken);
+        assertThat(passwordEncoder.matches("Different456", user(email).getPasswordHash())).isFalse();
+        assertThat(passwordEncoder.matches(PASSWORD, user(email).getPasswordHash())).isTrue();
+        assertThat(tokenRepository.findByUser_Id(user(email).getId())).hasSize(2);
     }
 
     @Test

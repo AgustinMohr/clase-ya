@@ -17,6 +17,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -63,27 +64,41 @@ class AuthIntegrationTest extends AbstractWebIntegrationTest {
         mockMvc.perform(post("/api/auth/register")
                         .contentType("application/json")
                         .content(registerBody("student@example.com", PASSWORD, "STUDENT")))
-                .andExpect(status().isCreated())
-                .andExpect(header().string("Content-Type", containsString("application/json")))
-                .andExpect(jsonPath("$.email").value("student@example.com"))
-                .andExpect(jsonPath("$.role").value("STUDENT"))
-                .andExpect(jsonPath("$.status").value("PENDING"))
-                .andExpect(jsonPath("$.id").isNotEmpty());
+                .andExpect(status().isAccepted());
 
         Optional<User> stored = userRepository.findByEmail("student@example.com");
         assertThat(stored).isPresent();
+        assertThat(stored.get().getStatus()).isEqualTo(UserStatus.PENDING);
         assertThat(stored.get().getPasswordHash()).isNotEqualTo(PASSWORD);
         assertThat(passwordEncoder.matches(PASSWORD, stored.get().getPasswordHash())).isTrue();
     }
 
     @Test
-    void register_duplicateEmail_returns409() throws Exception {
+    void register_existingActiveEmail_returns202WithoutSendingMail() throws Exception {
         createUser("dup@example.com", UserRole.STUDENT, UserStatus.ACTIVE);
 
         mockMvc.perform(post("/api/auth/register")
                         .contentType("application/json")
                         .content(registerBody("dup@example.com", PASSWORD, "STUDENT")))
-                .andExpect(status().isConflict());
+                .andExpect(status().isAccepted());
+
+        verifyNoInteractions(activationMailSender);
+    }
+
+    @Test
+    void register_weakPasswords_areRejected() throws Exception {
+        for (String weak : new String[]{"Password1", "passwordonly", "1234567890"}) {
+            mockMvc.perform(post("/api/auth/register")
+                            .contentType("application/json")
+                            .content(registerBody("weak-" + Math.abs(weak.hashCode()) + "@example.com", weak, "STUDENT")))
+                    .andExpect(status().isBadRequest());
+        }
+        // 37 accents + "a1" = 76 UTF-8 bytes, over BCrypt's 72-byte limit.
+        String tooLong = "á".repeat(37) + "a1";
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType("application/json")
+                        .content(registerBody("toolong@example.com", tooLong, "STUDENT")))
+                .andExpect(status().isBadRequest());
     }
 
     @Test

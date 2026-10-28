@@ -33,15 +33,15 @@ public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
-    @ExceptionHandler(EmailAlreadyExistsException.class)
-    public ResponseEntity<ApiError> handleEmailAlreadyExists(EmailAlreadyExistsException ex,
-                                                             HttpServletRequest request) {
-        return build(HttpStatus.CONFLICT, "Conflict", ex.getMessage(), request);
-    }
-
     @ExceptionHandler(InvalidRoleException.class)
     public ResponseEntity<ApiError> handleInvalidRole(InvalidRoleException ex, HttpServletRequest request) {
         return build(HttpStatus.BAD_REQUEST, "Bad Request", ex.getMessage(), request);
+    }
+
+    /** SEC-04: a concurrent duplicate must look exactly like a successful registration. */
+    @ExceptionHandler(RegistrationConflictException.class)
+    public ResponseEntity<Void> handleRegistrationConflict(RegistrationConflictException ex) {
+        return ResponseEntity.status(HttpStatus.ACCEPTED).build();
     }
 
     @ExceptionHandler(InvalidAssociationException.class)

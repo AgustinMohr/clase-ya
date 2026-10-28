@@ -281,13 +281,6 @@ export interface LoginResponse {
   expiresIn: number;
 }
 
-export interface RegisterResponse {
-  id: string;
-  email: string;
-  role: 'STUDENT' | 'TEACHER';
-  status: string;
-}
-
 interface CsrfResponse {
   token: string;
 }
@@ -364,7 +357,9 @@ async function request<T>(method: string, url: string, body?: unknown, auth = fa
     throw new ApiError(res.status, parsed?.message ?? `Error ${res.status}`, parsed);
   }
   if (res.status === 204) return undefined as T;
-  return (await res.json()) as T;
+  // 202 responses (e.g. registration) intentionally have no body.
+  const text = await res.text();
+  return (text ? (JSON.parse(text) as T) : (undefined as T));
 }
 
 async function requestForm<T>(url: string, formData: FormData): Promise<T> {
@@ -419,9 +414,9 @@ export const api = {
   login: (email: string, password: string) => request<LoginResponse>('POST', '/api/auth/login', { email, password }),
   loginWithGoogle: (idToken: string, role?: 'STUDENT' | 'TEACHER') =>
     request<LoginResponse>('POST', '/api/auth/google', role ? { idToken, role } : { idToken }),
-  /** AUTH-001: the account stays PENDING until the emailed link is opened. */
+  /** AUTH-001/SEC-04: always 202; the account stays PENDING until the emailed link is opened. */
   register: (email: string, password: string, role: 'STUDENT' | 'TEACHER') =>
-    request<RegisterResponse>('POST', '/api/auth/register', { email, password, role }),
+    request<void>('POST', '/api/auth/register', { email, password, role }),
   activate: (token: string) => request<void>('POST', '/api/auth/activate', { token }),
   /** Always 202: the backend never reveals whether the email is registered. */
   resendActivation: (email: string) => request<void>('POST', '/api/auth/resend-activation', { email }),

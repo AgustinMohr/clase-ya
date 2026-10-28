@@ -6,7 +6,6 @@ import com.claseya.auth.dto.IssuedSession;
 import com.claseya.auth.dto.LoginRequest;
 import com.claseya.auth.dto.LoginResponse;
 import com.claseya.auth.dto.RegisterRequest;
-import com.claseya.auth.dto.RegisterResponse;
 import com.claseya.auth.dto.ResendActivationRequest;
 import com.claseya.auth.dto.SessionUserResponse;
 import com.claseya.auth.service.AuthService;
@@ -14,7 +13,6 @@ import com.claseya.security.AuthCookieFactory;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -35,9 +33,14 @@ public class AuthController {
         this.cookieFactory = cookieFactory;
     }
 
+    /**
+     * SEC-04: always 202, with no account data. The caller cannot tell whether the email was new,
+     * pending (a new link is sent) or already active.
+     */
     @PostMapping("/register")
-    public ResponseEntity<RegisterResponse> register(@Valid @RequestBody RegisterRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(authService.register(request));
+    public ResponseEntity<Void> register(@Valid @RequestBody RegisterRequest request) {
+        authService.register(request);
+        return ResponseEntity.accepted().build();
     }
 
     @PostMapping("/login")

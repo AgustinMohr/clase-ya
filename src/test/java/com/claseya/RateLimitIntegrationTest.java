@@ -98,7 +98,7 @@ class RateLimitIntegrationTest extends AbstractPostgresTest {
                     {"email":"rate-register-%d@example.com","password":"%s","role":"STUDENT"}
                     """.formatted(i, PASSWORD);
             mockMvc.perform(json(post("/api/auth/register"), "10.30.0.1", body))
-                    .andExpect(status().isCreated());
+                    .andExpect(status().isAccepted());
         }
 
         String third = """

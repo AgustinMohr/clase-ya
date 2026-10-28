@@ -32,14 +32,19 @@ suite/tooling may still send `Authorization: Bearer <jwt>`. The SPA never sees t
 POST /api/auth/register
 { "email": "student@example.com", "password": "Password123", "role": "STUDENT" }
 
-201 Created
-{ "id": "<uuid>", "email": "student@example.com", "role": "STUDENT", "status": "PENDING" }
+202 Accepted
+(no body)
 ```
 
 - Email is normalized to lowercase before save and lookup.
-- Password is BCrypt-hashed; the raw value is never stored or logged.
+- **Password policy (AUTH-002 / SEC-04):** at least 10 characters, at least one letter and one
+  digit, and at most **72 UTF-8 bytes** (BCrypt silently truncates beyond that). Violations →
+  **400** with `fieldErrors.password`.
+- The response is **always 202** and never reveals whether the email exists (anti-enumeration):
+  - new email → `PENDING` account + activation email;
+  - existing `PENDING` → the previous token is invalidated and a new link is sent;
+  - existing `ACTIVE` → no email, and the password is **not** changed.
 - `role` must be `STUDENT` or `TEACHER`. `ADMIN` **cannot** self-register (400).
-- Duplicate email → **409**. Validation errors → **400** with `fieldErrors`.
 - The activation email is sent inside the registration transaction: if there is no mail transport
   (or SMTP fails), the account is **rolled back** and the API answers **503**.
 
