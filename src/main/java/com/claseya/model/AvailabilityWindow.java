@@ -27,8 +27,8 @@ import java.util.UUID;
  *
  * <p>Stores day of week (1 = Monday .. 7 = Sunday) and a wall-clock range in
  * minutes since midnight (hora de reloj). A recurring pattern is NOT an instant,
- * so UTC/Instant rules do not apply here; concrete dates are materialized later
- * by the booking feature. A {@code mode} of null means the teacher is available
+ * so UTC/Instant rules do not apply here; it is declarative availability, not a
+ * booking agenda. A {@code mode} of null means the teacher is available
  * in both modalities during this window.
  */
 @Entity

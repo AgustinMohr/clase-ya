@@ -28,8 +28,8 @@ users 1:0..1 teacher_profiles 1:N teacher_education
 universities 1:N academic_units 1:N careers 1:N career_subjects N:1 subjects
 student_profiles N:M teacher_profiles (vía favorites)
 users N:M conversations (vía conversation_participants) 1:N messages
-bookings 1:0..1 reviews            (reservas/reviews: schema listo, sin lógica)
-reports/notifications/calendly_integrations (modelo preparado, sin lógica)
+bookings 1:0..1 reviews            (LEGACY: dirección descartada; tablas sin entidades ni lógica)
+reports/notifications/calendly_integrations (LEGACY: tablas sin entidades ni lógica)
 ```
 
 `users.name` (V3) es el nombre público opcional que alimenta `displayName` en búsqueda/favoritos/
@@ -42,7 +42,8 @@ mensajería.
   `subjects.normalized_name`, pares `(university_id, name/code)`, `(academic_unit_id, code)`,
   `(career_id, subject_id)`, `(teacher_id, career_subject_id)`.
 - `favorites (student_id, teacher_id)`; `conversation_participants (conversation_id, user_id)`;
-  `reviews.booking_id`; `calendly_integrations.teacher_id`.
+  `reviews.booking_id`; `calendly_integrations.teacher_id`. Las tablas de bookings/reviews/reports/
+  notifications/calendly son **legacy** (ver `ADR-024`): se conservan en el schema, sin entidades JPA.
 - CHECK de rangos (rating 1-5, lat/lng, `current_year`, `duration_minutes`, años, semestre),
   CHECK de enums y `reporter_id <> reported_user_id`.
 - `messages`: FK compuesta `(conversation_id, sender_id)` → `conversation_participants` — garantiza
@@ -73,10 +74,10 @@ mensajería.
 ## Borrado y normalización
 
 - **Soft delete** en catálogo (`active=false`) y en cuentas (`status`); borrado físico casi no
-  existe. FKs `RESTRICT` protegen datos históricos (bookings/reviews/mensajes/participantes);
-  `CASCADE` solo en datos de propiedad efímera (education, teacher_subjects, modalities,
-  notifications, integración Calendly).
+  existe. FKs `RESTRICT` protegen datos históricos (bookings/reviews/mensajes/participantes; los
+  primeros son legacy, ver `ADR-024`); `CASCADE` solo en datos de propiedad efímera (education,
+  teacher_subjects, modalities, notifications, integración Calendly).
 - Normalización ~3NF: nombres de universidad/carrera/materia nunca duplicados; referencias por FK.
   Excepciones justificadas: `teacher_profiles.rating_average/count` (agregados cacheados para
-  ordenar/buscar; los mantendrá el módulo de reviews) y `career_subjects.name_override` (dato de
-  dominio: el nombre que la carrera usa para la materia).
+  ordenar/buscar; hoy no hay módulo de reviews: son legacy) y `career_subjects.name_override` (dato
+  de dominio: el nombre que la carrera usa para la materia).
