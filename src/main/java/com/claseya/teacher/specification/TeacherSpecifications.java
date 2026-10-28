@@ -10,6 +10,7 @@ import com.claseya.model.enums.VerificationStatus;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Expression;
+import jakarta.persistence.criteria.Path;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 import jakarta.persistence.criteria.Subquery;
@@ -38,9 +39,20 @@ public final class TeacherSpecifications {
      * label is applied by the presentation layer).
      */
     public static Specification<TeacherProfile> visible() {
-        return (root, query, cb) -> cb.and(
-                cb.equal(root.get("user").get("status"), UserStatus.ACTIVE),
-                published(root, query, cb));
+        return (root, query, cb) -> visibleTeacher(root, query, cb);
+    }
+
+    /**
+     * The same D1 rule for a teacher path reached from another entity (for example
+     * {@code AvailabilityWindow.teacher}). Keeping one definition prevents modules from drifting
+     * (BUG-03).
+     */
+    public static Predicate visibleTeacher(Path<TeacherProfile> teacher,
+                                           CriteriaQuery<?> query,
+                                           CriteriaBuilder cb) {
+        return cb.and(
+                cb.equal(teacher.get("user").get("status"), UserStatus.ACTIVE),
+                published(teacher, query, cb));
     }
 
     /** Optional "Solo verificados" search filter (D1). */
@@ -56,29 +68,29 @@ public final class TeacherSpecifications {
      * RF-2/RF-3: an announcement is PUBLISHED when it has a name, a bio, at least one active
      * subject, at least one modality and at least one declared availability window.
      */
-    private static Predicate published(Root<TeacherProfile> root, CriteriaQuery<?> query, CriteriaBuilder cb) {
+    private static Predicate published(Path<TeacherProfile> teacher, CriteriaQuery<?> query, CriteriaBuilder cb) {
         List<Predicate> parts = new ArrayList<>();
-        parts.add(cb.isNotNull(root.get("user").get("name")));
-        parts.add(cb.notEqual(cb.trim(root.get("user").<String>get("name")), ""));
-        parts.add(cb.isNotNull(root.get("bio")));
-        parts.add(cb.notEqual(cb.trim(root.<String>get("bio")), ""));
+        parts.add(cb.isNotNull(teacher.get("user").get("name")));
+        parts.add(cb.notEqual(cb.trim(teacher.get("user").<String>get("name")), ""));
+        parts.add(cb.isNotNull(teacher.get("bio")));
+        parts.add(cb.notEqual(cb.trim(teacher.<String>get("bio")), ""));
 
         Subquery<TeacherSubject> subject = query.subquery(TeacherSubject.class);
         Root<TeacherSubject> ts = subject.from(TeacherSubject.class);
         subject.select(ts);
-        subject.where(cb.and(cb.equal(ts.get("teacher"), root), cb.isTrue(ts.get("active"))));
+        subject.where(cb.and(cb.equal(ts.get("teacher"), teacher), cb.isTrue(ts.get("active"))));
         parts.add(cb.exists(subject));
 
         Subquery<TeacherModality> modality = query.subquery(TeacherModality.class);
         Root<TeacherModality> tm = modality.from(TeacherModality.class);
         modality.select(tm);
-        modality.where(cb.equal(tm.get("teacher"), root));
+        modality.where(cb.equal(tm.get("teacher"), teacher));
         parts.add(cb.exists(modality));
 
         Subquery<AvailabilityWindow> availability = query.subquery(AvailabilityWindow.class);
         Root<AvailabilityWindow> aw = availability.from(AvailabilityWindow.class);
         availability.select(aw);
-        availability.where(cb.equal(aw.get("teacher"), root));
+        availability.where(cb.equal(aw.get("teacher"), teacher));
         parts.add(cb.exists(availability));
 
         return cb.and(parts.toArray(Predicate[]::new));

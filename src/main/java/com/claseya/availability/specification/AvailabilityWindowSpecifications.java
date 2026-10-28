@@ -1,10 +1,11 @@
 package com.claseya.availability.specification;
 
 import com.claseya.model.AvailabilityWindow;
+import com.claseya.model.TeacherProfile;
 import com.claseya.model.enums.AvailabilityDayPart;
 import com.claseya.model.enums.AvailabilityStatus;
 import com.claseya.model.enums.TeachingModality;
-import com.claseya.model.enums.UserStatus;
+import com.claseya.teacher.specification.TeacherSpecifications;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.jpa.domain.Specification;
 
@@ -13,9 +14,9 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Public availability queries: only AVAILABLE windows of active teachers (D9: no longer requires
- * VERIFIED — publishing availability is independent from the credential review).
- * Optional filters: teacher, day, mode, day part.
+ * Public availability queries. A window is publicly visible only when it is AVAILABLE and its
+ * teacher satisfies the full D1 rule (ACTIVE user + published announcement), the same definition
+ * used by search, the public profile and favorites. Optional filters: teacher, day, mode, day part.
  */
 public final class AvailabilityWindowSpecifications {
 
@@ -25,7 +26,7 @@ public final class AvailabilityWindowSpecifications {
     public static Specification<AvailabilityWindow> visible() {
         return (root, query, cb) -> cb.and(
                 cb.equal(root.get("status"), AvailabilityStatus.AVAILABLE),
-                cb.equal(root.get("teacher").get("user").get("status"), UserStatus.ACTIVE));
+                TeacherSpecifications.visibleTeacher(root.<TeacherProfile>get("teacher"), query, cb));
     }
 
     public static Specification<AvailabilityWindow> publicSearch(UUID teacherId, Integer dayOfWeek,

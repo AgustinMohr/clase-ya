@@ -60,6 +60,17 @@ class AvailabilityIntegrationTest extends AbstractWebIntegrationTest {
         return postJson("/api/availability", token, json, expected);
     }
 
+    /**
+     * Completes the announcement (D1) without adding a window: the tests create their own. A
+     * teacher with name + bio + an active subject + a modality is published as soon as it has a
+     * window.
+     */
+    private void publish(Teacher teacher) throws Exception {
+        postJson("/api/teachers/me/subjects", teacher.token(),
+                "{\"careerSubjectId\":\"%s\"}".formatted(createCareerSubject()), 201);
+        postJson("/api/teachers/me/modalities", teacher.token(), "{\"modality\":\"ONLINE\"}", 201);
+    }
+
     private JsonNode searchPublic(String query, int expected) throws Exception {
         return toJson(getJson("/api/availability" + query, null, expected));
     }
@@ -194,6 +205,7 @@ class AvailabilityIntegrationTest extends AbstractWebIntegrationTest {
     void disableAndEnable_ownerOnly() throws Exception {
         Teacher a = newTeacher("h@example.com", "Ha", VerificationStatus.VERIFIED, UserStatus.ACTIVE);
         Teacher b = newTeacher("i@example.com", "Ia", VerificationStatus.VERIFIED, UserStatus.ACTIVE);
+        publish(a);
 
         String w = toJson(create(a.token(), body(3, "18:00", "20:00"), 201)).get("id").asText();
         postNoBody("/api/availability/" + w + "/disable", b.token(), 404);
@@ -216,18 +228,25 @@ class AvailabilityIntegrationTest extends AbstractWebIntegrationTest {
     // ------------------------------------------------------------------ public / privacy / listing
 
     @Test
-    void publicSearch_onlyShowsAvailableWindowsOfActiveTeachers() throws Exception {
+    void publicSearch_onlyShowsWindowsOfPublishedActiveTeachers() throws Exception {
         Teacher active = newTeacher("j@example.com", "Ja", VerificationStatus.VERIFIED, UserStatus.ACTIVE);
-        Teacher pending = newTeacher("k@example.com", "Ke", VerificationStatus.VERIFIED, UserStatus.ACTIVE);
+        Teacher pendingVerification = newTeacher("k@example.com", "Ke", VerificationStatus.VERIFIED, UserStatus.ACTIVE);
         Teacher inactive = newTeacher("l@example.com", "Le", VerificationStatus.VERIFIED, UserStatus.ACTIVE);
+        Teacher unpublished = newTeacher("u@example.com", "Ua", VerificationStatus.VERIFIED, UserStatus.ACTIVE);
+
+        publish(active);
+        publish(pendingVerification);
+        publish(inactive);
 
         create(active.token(), body(1, "18:00", "19:00"), 201);
-        create(pending.token(), body(1, "18:00", "19:00"), 201);
+        create(pendingVerification.token(), body(1, "18:00", "19:00"), 201);
         create(inactive.token(), body(1, "18:00", "19:00"), 201);
+        create(unpublished.token(), body(1, "18:00", "19:00"), 201);
 
-        // D9: only the teacher whose USER is not active is hidden; verification is not a gate here.
-        pending.profile().setVerificationStatus(VerificationStatus.PENDING);
-        teacherProfileRepository.saveAndFlush(pending.profile());
+        // D9: verification is not a gate to exist. D1 still applies: an active user with a
+        // published announcement. BUG-03: this endpoint used to skip the announcement checks.
+        pendingVerification.profile().setVerificationStatus(VerificationStatus.PENDING);
+        teacherProfileRepository.saveAndFlush(pendingVerification.profile());
         inactive.profile().getUser().setStatus(UserStatus.INACTIVE);
         userRepository.saveAndFlush(inactive.profile().getUser());
 
@@ -235,13 +254,20 @@ class AvailabilityIntegrationTest extends AbstractWebIntegrationTest {
         assertThat(all.get("totalElements").asLong()).isEqualTo(2);
         String content = all.get("content").toString();
         assertThat(content).contains(active.profile().getId().toString());
-        assertThat(content).contains(pending.profile().getId().toString());
+        assertThat(content).contains(pendingVerification.profile().getId().toString());
+        assertThat(content).doesNotContain(inactive.profile().getId().toString());
+        assertThat(content).doesNotContain(unpublished.profile().getId().toString());
         assertThat(content).doesNotContain("j@example.com").doesNotContain("passwordHash");
+
+        // BUG-03: a hidden teacher behaves as 404, not as an empty availability page.
+        searchPublic("?teacherId=" + inactive.profile().getId(), 404);
+        searchPublic("?teacherId=" + unpublished.profile().getId(), 404);
     }
 
     @Test
     void publicSearch_filtersByDayModeDayPart() throws Exception {
         Teacher t = newTeacher("m@example.com", "Ma", VerificationStatus.VERIFIED, UserStatus.ACTIVE);
+        publish(t);
         String id = t.profile().getId().toString();
         create(t.token(), body(1, "08:00", "09:00"), 201);   // Monday morning
         create(t.token(), body(1, "20:00", "21:00"), 201);   // Monday night

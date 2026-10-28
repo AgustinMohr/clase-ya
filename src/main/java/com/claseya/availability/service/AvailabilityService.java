@@ -15,6 +15,7 @@ import com.claseya.model.enums.AvailabilityStatus;
 import com.claseya.model.enums.TeachingModality;
 import com.claseya.teacher.dto.SearchResultPage;
 import com.claseya.teacher.repository.TeacherProfileRepository;
+import com.claseya.teacher.service.TeacherVisibilityService;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -37,11 +38,14 @@ public class AvailabilityService {
 
     private final AvailabilityWindowRepository windowRepository;
     private final TeacherProfileRepository teacherProfileRepository;
+    private final TeacherVisibilityService teacherVisibilityService;
 
     public AvailabilityService(AvailabilityWindowRepository windowRepository,
-                               TeacherProfileRepository teacherProfileRepository) {
+                               TeacherProfileRepository teacherProfileRepository,
+                               TeacherVisibilityService teacherVisibilityService) {
         this.windowRepository = windowRepository;
         this.teacherProfileRepository = teacherProfileRepository;
+        this.teacherVisibilityService = teacherVisibilityService;
     }
 
     @Transactional
@@ -104,6 +108,10 @@ public class AvailabilityService {
                                                                      AvailabilityDayPart dayPart,
                                                                      int page, int size) {
         validatePagination(page, size);
+        // BUG-03: a hidden teacher must behave as 404, not as "an empty agenda".
+        if (teacherId != null) {
+            teacherVisibilityService.requireVisible(teacherId);
+        }
         Specification<AvailabilityWindow> spec = AvailabilityWindowSpecifications.visible()
                 .and(AvailabilityWindowSpecifications.publicSearch(teacherId, dayOfWeek, mode, dayPart));
         Pageable pageable = PageRequest.of(page, size,
