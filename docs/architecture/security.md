@@ -47,8 +47,9 @@ real; ver el paquete `security` y `SecurityConfig`.
   `[A-Za-z0-9._-]{8,128}` (evita inyección de headers/logs) y si no genera un UUID. El id viaja en
   la respuesta y en el MDC (`requestId`), que el patrón de logs incluye.
 - `LOGGING_STRUCTURED_FORMAT_CONSOLE=ecs` habilita logs JSON en producción (Spring Boot).
-- `GET /actuator/health` es público y no muestra detalles. **Pendientes:** métricas, trazas
-  distribuidas y alertas (resto de OPS-01).
+- `GET /actuator/health` es público y no muestra detalles. `GET /actuator/metrics` (Micrometer) es
+  **ADMIN-only**; el resto de `/actuator/**` no está expuesto. **Pendientes de infraestructura:**
+  Prometheus, trazas distribuidas y alertas.
 - `JWT_SECRET`/`JWT_EXPIRATION`/`DB_*`/`FRONTEND_URL` vienen de variables de entorno.
   `application.yml` tiene defaults **solo de desarrollo**; no son secretos de producción.
 - Claims del JWT mínimos: `sub` (id de usuario), `jti` (único), `iat`, `exp`. **Sin email, nombre

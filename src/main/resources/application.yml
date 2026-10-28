@@ -108,13 +108,13 @@ logging:
   pattern:
     level: "%5p [%X{requestId:-}]"
 
-# OPS-001: only the health probe is exposed. Details are never shown, so the
-# endpoint cannot leak database/host information.
+# OPS-001: health is public; metrics require ADMIN (see SecurityConfig). Details are
+# never shown, so the health endpoint cannot leak database/host information.
 management:
   endpoints:
     web:
       exposure:
-        include: health
+        include: health,metrics
   endpoint:
     health:
       show-details: never

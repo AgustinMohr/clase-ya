@@ -346,7 +346,8 @@ sequenceDiagram
   mensajes y subida de evidencia; respuesta `429` con `Retry-After`. Es **por instancia** (sin Redis)
   y las claves se guardan hasheadas, nunca como IP/email crudos. Ver `docs/architecture/security.md`.
 - **Health check**: `GET /actuator/health` es público y devuelve solo el estado (`{"status":"UP"}`);
-  no expone detalles ni métricas. Es la sonda que usa el despliegue.
+  no expone detalles ni métricas. `GET /actuator/metrics` requiere rol **ADMIN**. Es la sonda que usa
+  el despliegue.
 - Errores estandarizados como `ApiError`, sin trazas ni SQL.
 
 ### Limitaciones y pendientes (no resueltas en el código)

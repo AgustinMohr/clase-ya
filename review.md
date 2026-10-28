@@ -23,11 +23,12 @@ Los riesgos principales no son de “OWASP clásico” sino de **integridad del 
 Además, el flujo **email + contraseña** quedó a mitad de camino: el backend registra cuentas `PENDING` sin endpoint de activación, el frontend no tiene pantalla de registro y el modal de login sí ofrece email/contraseña. El producto define Google OAuth como obligatorio, así que la recomendación principal es **alinear el código con esa decisión** (retirar o aislar el flujo legado) o completarlo de extremo a extremo; hoy es una fuente de confusión y soporte.
 
 **Veredicto (actualizado):** los bloqueantes EVID-01, SEC-01, DEP-01 y PRIV-01, junto con AUTH-01,
-ARCH-01, CI-01, SEC-02, BUG-02, BUG-03, SEC-03, OPS-02, QUAL-01, TEST-01, QUAL-02, QUAL-03, SEC-05
-y SEC-06, están corregidos y verificados (301 tests backend + 24 unit del frontend + 40 E2E). SEC-04
-queda parcial (política y enumeración resueltas; HIBP/CAPTCHA diferidos por `ADR-023`) y OPS-01
-parcial (health listo; faltan métricas/logs). Quedan hallazgos MEDIUM/LOW; CI está configurado, pero
-requiere activar branch protection para ser un gate obligatorio.
+ARCH-01, CI-01, SEC-02, BUG-02, BUG-03, SEC-03, OPS-01, OPS-02, QUAL-01, TEST-01, QUAL-02, QUAL-03,
+SEC-05, SEC-06, DOC-01, UX-01, DEV-01, PERF-02 y DEP-02, están corregidos y verificados (310 tests
+backend + 24 unit del frontend + 40 E2E). Quedan **SEC-04** (parcial: falta HIBP/CAPTCHA, decisión en
+`ADR-023`), **PERF-01** (parcial: falta el flag denormalizado/medición) y **STOR-01** (decisión de
+object storage/antivirus). CI está configurado, pero requiere activar branch protection para ser un
+gate obligatorio.
 
 ---
 
@@ -539,7 +540,7 @@ ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-jar", "/app/app.jar"]
 | BUG-02 | ✅ Corregido en working tree (pendiente de commit) | `JwtAuthenticationFilter` ahora captura `AuthenticationException` (incluye `UsernameNotFoundException`): un token válido de una cuenta borrada deja la request sin autenticar y responde **401** en lugar de 500. Regresión agregada en `AuthIntegrationTest`. |
 | BUG-03 | ✅ Corregido en working tree (pendiente de commit) | `AvailabilityWindowSpecifications.visible()` reutiliza la regla D1 completa mediante `TeacherSpecifications.visibleTeacher(...)`; `GET /api/availability?teacherId=` de un profesor oculto responde **404** y la búsqueda pública ya no expone sus franjas. Tests de disponibilidad actualizados (18) y suite completa **292/292**. |
 | SEC-03 | ✅ Corregido en working tree (pendiente de commit) | Eliminado `web/SecurityTestController` y las reglas `/api/test/**`. El andamiaje ya no forma parte del artefacto; Playwright usa `GET /actuator/health` como sonda. Los tests de roles/identidad se reescribieron contra endpoints reales (`/api/favorites`, `/api/teachers/me`, `/api/admin/verifications`, `/api/auth/me`, `/api/teachers`). |
-| OPS-01 | 🟡 Parcial (working tree) | Health + `X-Request-Id` (validado contra inyección, en respuesta y MDC) + logs estructurados opt-in (`LOGGING_STRUCTURED_FORMAT_CONSOLE=ecs`). Faltan métricas, trazas distribuidas y alertas. |
+| OPS-01 | ✅ Corregido en working tree (pendiente de commit) | Health público sin detalles, `GET /actuator/metrics` (Micrometer) **ADMIN-only**, `X-Request-Id` validado en respuesta y MDC, y logs estructurados opt-in (`LOGGING_STRUCTURED_FORMAT_CONSOLE=ecs`). Tests de health, métricas por rol y request id. Prometheus/trazas/alertas quedan como configuración de infraestructura. |
 | SEC-04 | 🟡 Parcial (working tree) | Política de contraseñas con `@ValidPassword`: mínimo 10 caracteres, letras + números y máximo 72 bytes UTF-8 (límite real de BCrypt). `POST /api/auth/register` ahora responde **202 sin body** siempre (nuevo, `PENDING` o `ACTIVE`), reenvía el enlace a una cuenta pendiente y nunca cambia su contraseña; la carrera de duplicados también responde 202. Tests unitarios del validador y de integración. HIBP/CAPTCHA quedan diferidos por `ADR-023`. |
 | OPS-02 | ✅ Corregido en working tree (pendiente de commit) | La imagen final corre como usuario `app` (uid/gid 999), declara `HEALTHCHECK` cada 30 s contra `/actuator/health` y arranca con `-XX:MaxRAMPercentage=75`. `.dockerignore` excluye `application-local.yml` y `.env*` para no hornear configuración local. Verificado con `docker build` + contenedor contra PostgreSQL local: `healthy`, health 200 y `id` no-root. |
 | QUAL-01 | ✅ Corregido en working tree (pendiente de commit) | `tsconfig` con `strict`, `noUnusedLocals` y `noUnusedParameters`; `any` reemplazado por `ApiErrorBody`; ESLint 10 flat config con `typescript-eslint` y reglas de hooks (`rules-of-hooks`/`exhaustive-deps`) activas; `npm run lint` en CI. Las reglas nuevas del React Compiler (`refs`, `set-state-in-effect`) y Prettier quedan fuera por decisión (`QUAL-001`). |
