@@ -20,9 +20,12 @@ real; ver el paquete `security` y `SecurityConfig`.
   autenticados por cookie;
   `GET /api/auth/me` resuelve el rol sin claims de rol; un único mensaje genérico de login
   (anti-enumeración).
-- **FUTURO**: refresh tokens, revocación server-side de JWT (usar `jti`), verificación de email,
-  flujo de activación (el registro queda PENDING hasta que exista un mecanismo de activación),
-  password reset, MFA, otros proveedores sociales.
+- **AUTH-001 (implementado)**: el registro por contraseña queda `PENDING` hasta que el dueño abre
+  un enlace de activación de un solo uso (token SHA-256, TTL 24 h). `POST /api/auth/activate`,
+  reenvío genérico `202`, y activación manual por ADMIN. Sin SMTP el registro responde `503` y no
+  crea la cuenta.
+- **FUTURO**: refresh tokens, revocación server-side de JWT (usar `jti`), password reset, MFA,
+  otros proveedores sociales.
 - **Google OAuth (OAUTH-001, implementado)**: `POST /api/auth/google` valida el `id_token` de
   Google (firma/JWKS, `iss`, `aud`, `exp`, `email_verified`) y vincula por `users.google_sub`
   (único). Nuevos por Google = `ACTIVE`; una cuenta password solo se vincula si está `ACTIVE` y su
@@ -39,7 +42,9 @@ real; ver el paquete `security` y `SecurityConfig`.
   una futura lista de revocación.
 - Cookies: `CLASEYA_SESSION` (`HttpOnly`, `Secure` configurable, `SameSite` configurable) y
   `XSRF-TOKEN` (`HttpOnly`) para el doble submit. Variables `COOKIE_SECURE` /
-  `COOKIE_SAME_SITE`; ver ADR-020.
+  `COOKIE_SAME_SITE`; ver ADR-020. En producción el SPA y el API se sirven bajo el mismo origen
+  (proxy `/api` en Vercel, ADR-022): una cookie `SameSite=Lax` cross-site no llega y el login
+  responde `403 Access denied`.
 - Cabeceras del API: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
   `Referrer-Policy: no-referrer` y `Permissions-Policy` con cámara/micrófono/geolocalización/pagos
   deshabilitados. El HTML versiona `_headers` y una CSP (SEC-002).

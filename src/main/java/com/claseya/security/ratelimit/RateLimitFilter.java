@@ -99,7 +99,11 @@ public class RateLimitFilter extends OncePerRequestFilter {
         return switch (path) {
             case "/api/auth/login" -> RateLimitScope.LOGIN_IP;
             case "/api/auth/register" -> RateLimitScope.REGISTER_IP;
+            // AUTH-001: activation/resend share the registration bucket (no new scope in this change).
+            case "/api/auth/resend-activation" -> RateLimitScope.REGISTER_IP;
+            case "/api/auth/activate" -> RateLimitScope.REGISTER_IP;
             case "/api/auth/google" -> RateLimitScope.GOOGLE_IP;
+
             case "/api/conversations" -> RateLimitScope.CONTACT_USER;
             default -> {
                 if (MESSAGE_PATH.matcher(path).matches()) {

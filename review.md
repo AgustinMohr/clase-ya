@@ -22,7 +22,10 @@ Los riesgos principales no son de “OWASP clásico” sino de **integridad del 
 
 Además, el flujo **email + contraseña** quedó a mitad de camino: el backend registra cuentas `PENDING` sin endpoint de activación, el frontend no tiene pantalla de registro y el modal de login sí ofrece email/contraseña. El producto define Google OAuth como obligatorio, así que la recomendación principal es **alinear el código con esa decisión** (retirar o aislar el flujo legado) o completarlo de extremo a extremo; hoy es una fuente de confusión y soporte.
 
-**Veredicto (actualizado):** los bloqueantes EVID-01, SEC-01, DEP-01 y PRIV-01 están corregidos y verificados (280 tests backend + 35 E2E). Quedan hallazgos MEDIUM/LOW; CI está configurado, pero requiere activar branch protection para ser un gate obligatorio.
+**Veredicto (actualizado):** los bloqueantes EVID-01, SEC-01, DEP-01 y PRIV-01, junto con AUTH-01,
+ARCH-01, CI-01 y SEC-02, están corregidos y verificados (291 tests backend + 40 E2E). Quedan
+hallazgos MEDIUM/LOW; CI está configurado, pero requiere activar branch protection para ser un gate
+obligatorio.
 
 ---
 
@@ -471,7 +474,7 @@ ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-jar", "/app/app.jar"]
 
 ### Corto plazo (1–2 sprints)
 
-6. **AUTH-01:** decidir y ejecutar la estrategia (Google-only o activación completa).
+6. **AUTH-01:** ✅ hecho — se eligió completar la activación (spec `AUTH-001`, `ADR-021`).
 7. **ARCH-01:** router + URLs reales + metadatos por perfil (aunque el prerender/SSR quede para después).
 8. **SEC-02/SEC-03/SEC-04:** CSP, retirar `/api/test/*`, política de contraseñas y respuesta de registro.
 9. **OPS-01/OPS-02:** Actuator, logs estructurados, Docker no-root y health check.
@@ -525,5 +528,6 @@ ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-jar", "/app/app.jar"]
 | CI-01 | ✅ Corregido en working tree (pendiente de commit) | Workflow `.github/workflows/ci.yml`: backend `mvn clean verify` + Testcontainers, frontend typecheck/build/audit, E2E Playwright con PostgreSQL + demo seed y dependency review en PRs. Backend verificado con `mvn clean verify` (**275/275**) y E2E local (**25/25**). Falta activar branch protection para que el pipeline sea un gate obligatorio. |
 | ARCH-01 | ✅ Corregido en working tree (pendiente de commit) | `react-router` 7 en modo librería: rutas reales (`/`, `/buscar`, `/profesores/:id`, `/favoritos`, `/mensajes/:id`, `/mi-anuncio`, 404), estado de búsqueda en query params con whitelist, guardas de sesión/rol, metadatos por página y lazy loading por página. ADR-019 y spec ARCH-001. 10 tests E2E nuevos de deep links/historial/guardas y suite completa **35/35**; `npx tsc --noEmit` y `npm run build` verdes. SSR/prerender, Open Graph social y sitemap quedan diferidos a una fase posterior. |
 | SEC-02 | ✅ Corregido en working tree (pendiente de commit) | Sesión migrada a cookie `CLASEYA_SESSION` `HttpOnly`/`Secure`/`SameSite` (login y Google), `GET /api/auth/me`, `POST /api/auth/logout` y CSRF por doble submit (`X-XSRF-TOKEN`) con token pedido antes de cada escritura. JWT con `sub`/`jti`/`iat`/`exp` sin email/role. CSP con allowlist de Google y chequeo en `npm run build`, cabeceras del API, `_headers`, tema externalizado. Bearer se mantiene para integración/tooling. ADR-020 y spec SEC-002. Backend **280/280** y E2E **35/35**. Logout no revoca el JWT (documentado). |
+| AUTH-01 | ✅ Corregido en working tree (pendiente de commit) | Registro completo con activación por email (`AUTH-001`, `ADR-021`): token de un solo uso hasheado (SHA-256, TTL 24 h), `V9` con `email_verification_tokens` + `users.email_verified_at`, `POST /api/auth/activate`, reenvío genérico `202`, activación manual por ADMIN, `spring-boot-starter-mail` (sin SMTP el registro responde `503` y revierte) y, en desarrollo, `AUTH_LOG_ACTIVATION_LINKS`. SPA con `/registro`, `/activar`, enlace desde el login y aviso de reenvío tras un 401. El `origin_mismatch` de Google se diagnostica en la UI y se documentan los orígenes exactos (es configuración de Google Cloud Console, no código). 10 tests backend nuevos, 1 de rate limit y 5 E2E nuevos; suite **291/291** y E2E **40/40**. El `409` del registro queda en SEC-04 por diseño. |
 
 > El informe original se generó en modo solo lectura. La corrección de EVID-01 se aplicó después de la auditoría (backend + guard de UI); el resto del código de producto no se modificó. El conteo de la tabla resumen refleja el estado al momento de la auditoría.

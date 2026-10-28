@@ -67,7 +67,7 @@ terminada. El repositorio (código, specs, ADRs y docs) es la única fuente de v
 
 Hoy conviven piezas **ya implementadas** (autenticación, perfiles, búsqueda, favoritos, mensajería,
 verificación documental) con piezas **en desarrollo o planificadas** (opiniones, notificaciones por
-email, flujo de activación de cuentas). No es un producto terminado.
+email). No es un producto terminado.
 
 ---
 
@@ -84,7 +84,8 @@ email, flujo de activación de cuentas). No es un producto terminado.
   distintivo **Verificado / No verificado** y botón **Contactar**.
 
 **Cuenta y acceso**
-- Registro e inicio de sesión con **email + contraseña** (BCrypt).
+- Registro e inicio de sesión con **email + contraseña** (BCrypt), con activación por enlace de un
+  solo uso enviado por email.
 - Inicio de sesión con **Google OAuth** (validación de `id_token` en el backend).
 - Perfil de estudiante: universidad, carrera, año y descripción.
 
@@ -112,9 +113,9 @@ email, flujo de activación de cuentas). No es un producto terminado.
 
 - **Opiniones y rating**: el modelo (Review) y los agregados (`ratingAverage`/`ratingCount`) existen,
   pero todavía **no hay lógica para crear opiniones**; el perfil muestra un mensaje de “próxima fase”.
-- **Flujo de activación de cuentas**: el registro por contraseña deja la cuenta en `PENDING` y **no
-  existe un endpoint de activación**; hoy se activa por seed o directamente en la base. Las cuentas
-  nuevas creadas con Google quedan `ACTIVE`.
+- **Activación de cuentas**: el registro por contraseña envía un enlace de un solo uso
+  (`POST /api/auth/activate`); sin SMTP configurado el registro responde `503`. Las cuentas nuevas
+  creadas con Google quedan `ACTIVE`.
 - **Notificaciones por email**, **contraseña olvidada**, **MFA** y **refresh tokens**: no
   implementados.
 - **Chat en tiempo real (WebSockets)**: no implementado (los servicios están preparados para
@@ -343,7 +344,7 @@ sequenceDiagram
 ### Limitaciones y pendientes (no resueltas en el código)
 - **Rate limiting distribuido**: el limitador es en memoria; con varias instancias el límite efectivo
   se multiplica. Migrar a Redis requiere una spec/ADR futura.
-- Sin **refresh tokens**, verificación de email, activación ni recuperación de contraseña.
+- Sin **refresh tokens**, recuperación de contraseña ni cambio de email.
 - Sin MFA ni otros proveedores sociales.
 
 ---
@@ -405,6 +406,12 @@ desarrollo**:
 | `DEMO_SEED` | `false` | Sembrar el dataset demo al arrancar (opt-in) |
 | `PORT` | `8080` | Puerto del servidor |
 | `RATE_LIMIT_ENABLED` | `true` | Activa/desactiva el limitador (RATE-001) |
+| `APP_BASE_URL` | `http://localhost:5173` | Origen público de la SPA; base de los enlaces de activación |
+| `AUTH_ACTIVATION_TTL` | `PT24H` | Vigencia del token de activación |
+| `AUTH_LOG_ACTIVATION_LINKS` | `false` | **Solo desarrollo**: escribe el enlace en el log en lugar de enviarlo |
+| `MAIL_HOST` / `MAIL_PORT` | *(vacío)* / `587` | SMTP del email de activación; sin host el registro responde `503` |
+| `MAIL_USERNAME` / `MAIL_PASSWORD` | *(vacío)* | Credenciales SMTP |
+| `MAIL_FROM` | `no-reply@claseya.app` | Remitente del email de activación |
 | `RATE_LIMIT_TRUST_FORWARDED_HEADERS` | `false` | Confía en `X-Forwarded-For`/`Forwarded` solo detrás de un proxy confiable |
 
 Los límites de cada scope (`RATE_LIMIT_LOGIN_IP_LIMIT`, `RATE_LIMIT_LOGIN_ACCOUNT_LIMIT`,
@@ -452,14 +459,49 @@ que no hay CORS. Variables del frontend:
 | Variable | Para qué |
 |---|---|
 | `VITE_GOOGLE_CLIENT_ID` | Client ID de Google (debe ser **el mismo** que `GOOGLE_CLIENT_ID` del backend) |
-| `VITE_API_URL` | Origen del backend (vacío en local); se define en el despliegue |
+| `VITE_API_URL` | Origen del backend; **vacío** en local y en Vercel con el rewrite de `ADR-022` |
 
 ### Google OAuth (configuración externa necesaria)
 
 El login con Google requiere un **OAuth Client ID** de tipo *Web application* en Google Cloud
 Console. No hace falta `client_secret` (el SPA no lo usa). El mismo client id debe configurarse en el
-backend (`GOOGLE_CLIENT_ID`) y en el frontend (`VITE_GOOGLE_CLIENT_ID`), y el origen
-`http://localhost:5173` debe estar entre los *Authorized JavaScript origins*.
+backend (`GOOGLE_CLIENT_ID`) y en el frontend (`VITE_GOOGLE_CLIENT_ID`).
+
+En **Authorized JavaScript origins** deben figurar, exactamente como los ve el navegador:
+
+- `http://localhost:5173` (Vite en desarrollo).
+- `http://127.0.0.1:5173` solo si abrís la app por la IP: Google lo trata como otro origen.
+- El origen de producción (por ejemplo `https://claseya.example`), sin barra final.
+
+Si falta el origen, Google responde `Error 400: origin_mismatch`. La SPA muestra el origen actual y
+esa ruta de configuración junto al botón, para que el valor a registrar no sea una adivinanza.
+
+### Despliegue en Vercel (SPA + API en el mismo origen)
+
+El SPA y el API tienen que compartir el origen público. Si el SPA llama al backend en otro dominio,
+la cookie CSRF (`SameSite=Lax`) no viaja entre sitios y el login responde `403 Access denied`
+(ver `ADR-022`).
+
+`frontend/vercel.json` ya proxea `/api/*` al backend:
+
+- En Vercel, definí `BACKEND_URL` con el origen del backend, **sin barra final** (por ejemplo
+  `https://claseya-api.onrender.com`).
+- Quitá `VITE_API_URL` del proyecto de Vercel (si queda, el SPA vuelve a llamar al backend
+  cross-site) y redeployá: es una variable de build.
+- En el backend: `FRONTEND_URL=https://<proyecto>.vercel.app` (exacto, sin barra final ni espacios),
+  `COOKIE_SAME_SITE=Lax`, `COOKIE_SECURE=true` y `RATE_LIMIT_TRUST_FORWARDED_HEADERS=true` (Vercel
+  sobrescribe `X-Forwarded-For`; sin esto todos los usuarios comparten el bucket de rate limit).
+- Agregá `https://<proyecto>.vercel.app` a *Authorized JavaScript origins* de Google.
+
+Si el proyecto de Vercel usa la raíz del repo como root (en lugar de `frontend/`), mové
+`vercel.json` a la raíz y agregá `"buildCommand": "npm --prefix frontend run build"` y
+`"outputDirectory": "frontend/dist"`.
+
+**Subidas de evidencia:** los archivos de hasta 10 MB pasan por Vercel. Verificá ese flujo después
+del cambio. Si lo corta (413), las salidas son: servir SPA y API en subdominios del mismo sitio
+(`app.example.com` + `api.example.com`, donde `SameSite=Lax` funciona sin proxy), bajar el tope de
+archivo o migrar la evidencia a object storage (`STOR-01`). Una subida directa cross-site no sirve:
+perdería la cookie de sesión.
 
 ### Datos de demo (solo desarrollo)
 

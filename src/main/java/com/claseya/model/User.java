@@ -61,4 +61,8 @@ public class User {
 
     @Column(name = "last_login_at")
     private Instant lastLoginAt;
+
+    /** Set when the owner proves ownership through the activation link (AUTH-001). */
+    @Column(name = "email_verified_at")
+    private Instant emailVerifiedAt;
 }

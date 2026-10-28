@@ -8,6 +8,10 @@
 > **Nota de implementación (SEC-002, 2026-10-27):** el login ya no devuelve `accessToken` en el
 > body; responde `{user, expiresIn}` y emite la cookie `HttpOnly` `CLASEYA_SESSION` con CSRF. Ver
 > `SEC-002-token-hardening-and-csp.md` y `ADR-020`.
+>
+> **Nota de implementación (AUTH-001, 2026-10-28):** el flujo de activación de cuentas password ya
+> existe (`POST /api/auth/activate` + enlace por email). Ver
+> `AUTH-001-email-password-registration-and-activation.md` y `ADR-021`.
 
 ---
 

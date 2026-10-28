@@ -18,6 +18,8 @@ const TeacherProfilePage = lazy(() => import('./pages/TeacherProfilePage'));
 const MessagesPage = lazy(() => import('./pages/MessagesPage'));
 const MyListingPage = lazy(() => import('./pages/MyListingPage'));
 const FavoritesPage = lazy(() => import('./pages/FavoritesPage'));
+const RegisterPage = lazy(() => import('./pages/RegisterPage'));
+const ActivateAccountPage = lazy(() => import('./pages/ActivateAccountPage'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 
 function RouteFallback() {
@@ -289,6 +291,10 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
+
+            <Route path={ROUTES.register} element={<RegisterPage onLogin={requireLogin} />} />
+
+            <Route path={ROUTES.activate} element={<ActivateAccountPage onLogin={requireLogin} />} />
 
             <Route path="*" element={<NotFoundPage />} />
           </Routes>

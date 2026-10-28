@@ -281,6 +281,13 @@ export interface LoginResponse {
   expiresIn: number;
 }
 
+export interface RegisterResponse {
+  id: string;
+  email: string;
+  role: 'STUDENT' | 'TEACHER';
+  status: string;
+}
+
 interface CsrfResponse {
   token: string;
 }
@@ -412,6 +419,12 @@ export const api = {
   login: (email: string, password: string) => request<LoginResponse>('POST', '/api/auth/login', { email, password }),
   loginWithGoogle: (idToken: string, role?: 'STUDENT' | 'TEACHER') =>
     request<LoginResponse>('POST', '/api/auth/google', role ? { idToken, role } : { idToken }),
+  /** AUTH-001: the account stays PENDING until the emailed link is opened. */
+  register: (email: string, password: string, role: 'STUDENT' | 'TEACHER') =>
+    request<RegisterResponse>('POST', '/api/auth/register', { email, password, role }),
+  activate: (token: string) => request<void>('POST', '/api/auth/activate', { token }),
+  /** Always 202: the backend never reveals whether the email is registered. */
+  resendActivation: (email: string) => request<void>('POST', '/api/auth/resend-activation', { email }),
   me: () => request<SessionUser>('GET', '/api/auth/me'),
   logout: () => request<void>('POST', '/api/auth/logout', undefined, true),
 

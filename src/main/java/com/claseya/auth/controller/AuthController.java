@@ -1,11 +1,13 @@
 package com.claseya.auth.controller;
 
+import com.claseya.auth.dto.ActivateAccountRequest;
 import com.claseya.auth.dto.CsrfResponse;
 import com.claseya.auth.dto.IssuedSession;
 import com.claseya.auth.dto.LoginRequest;
 import com.claseya.auth.dto.LoginResponse;
 import com.claseya.auth.dto.RegisterRequest;
 import com.claseya.auth.dto.RegisterResponse;
+import com.claseya.auth.dto.ResendActivationRequest;
 import com.claseya.auth.dto.SessionUserResponse;
 import com.claseya.auth.service.AuthService;
 import com.claseya.security.AuthCookieFactory;
@@ -43,6 +45,20 @@ public class AuthController {
         IssuedSession session = authService.login(request);
         response.addHeader(HttpHeaders.SET_COOKIE, cookieFactory.session(session.token()).toString());
         return new LoginResponse(session.user(), session.expiresIn());
+    }
+
+    /** Consumes the single-use link sent by email (AUTH-001). */
+    @PostMapping("/activate")
+    public ResponseEntity<Void> activate(@Valid @RequestBody ActivateAccountRequest request) {
+        authService.activate(request.token());
+        return ResponseEntity.noContent().build();
+    }
+
+    /** Always 202: the response must not reveal whether the email is registered (AUTH-001). */
+    @PostMapping("/resend-activation")
+    public ResponseEntity<Void> resendActivation(@Valid @RequestBody ResendActivationRequest request) {
+        authService.resendActivation(request.email());
+        return ResponseEntity.accepted().build();
     }
 
     /** Current session user. The SPA calls it on load because the JWT is not readable by JS. */

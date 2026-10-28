@@ -6,6 +6,8 @@ export const ROUTES = {
   messages: '/mensajes',
   conversation: (conversationId: string) => `/mensajes/${encodeURIComponent(conversationId)}`,
   myListing: '/mi-anuncio',
+  register: '/registro',
+  activate: '/activar',
 };
 
 /** Search URL with only the free-text term, used by the landing and category cards. */

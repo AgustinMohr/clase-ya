@@ -1,5 +1,6 @@
 package com.claseya;
 
+import com.claseya.auth.service.ActivationMailSender;
 import com.claseya.model.User;
 import com.claseya.model.enums.UserRole;
 import com.claseya.model.enums.UserStatus;
@@ -11,6 +12,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
@@ -42,6 +44,9 @@ class RateLimitIntegrationTest extends AbstractPostgresTest {
     @Autowired private MockMvc mockMvc;
     @Autowired private UserRepository userRepository;
     @Autowired private PasswordEncoder passwordEncoder;
+
+    /** AUTH-001: registration sends an activation email; never contact SMTP in tests. */
+    @MockitoBean private ActivationMailSender activationMailSender;
 
     @Test
     void login_fromTheSameIp_isLimitedToTheConfiguredRate() throws Exception {
@@ -105,7 +110,23 @@ class RateLimitIntegrationTest extends AbstractPostgresTest {
     }
 
     @Test
+    void resendActivation_fromTheSameIp_isLimited() throws Exception {
+        String body = """
+                {"email":"rate-resend@example.com"}
+                """;
+
+        mockMvc.perform(json(post("/api/auth/resend-activation"), "10.50.0.1", body))
+                .andExpect(status().isAccepted());
+        mockMvc.perform(json(post("/api/auth/resend-activation"), "10.50.0.1", body))
+                .andExpect(status().isAccepted());
+        mockMvc.perform(json(post("/api/auth/resend-activation"), "10.50.0.1", body))
+                .andExpect(status().is(429))
+                .andExpect(header().exists(HttpHeaders.RETRY_AFTER));
+    }
+
+    @Test
     void publicReads_areNotLimited() throws Exception {
+
         for (int i = 0; i < 3; i++) {
             mockMvc.perform(get("/api/teachers").with(remoteAddr("10.40.0.1")))
                     .andExpect(status().isOk());

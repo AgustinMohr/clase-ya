@@ -1,5 +1,6 @@
 package com.claseya;
 
+import com.claseya.auth.service.ActivationMailSender;
 import com.claseya.model.User;
 import com.claseya.model.enums.UserRole;
 import com.claseya.model.enums.UserStatus;
@@ -13,6 +14,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -50,6 +52,10 @@ public abstract class AbstractWebIntegrationTest extends AbstractPostgresTest {
 
     @Autowired
     protected ObjectMapper objectMapper;
+
+    /** AUTH-001: integration tests never contact a real SMTP server. */
+    @MockitoBean
+    protected ActivationMailSender activationMailSender;
 
     private static final String APPLICATION_JSON_UTF8 = MediaType.APPLICATION_JSON_VALUE + ";charset=UTF-8";
 

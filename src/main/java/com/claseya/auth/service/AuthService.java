@@ -38,19 +38,22 @@ public class AuthService {
     private final JwtService jwtService;
     private final LoginAttemptService loginAttemptService;
     private final CurrentUser currentUser;
+    private final AccountActivationService accountActivationService;
 
     public AuthService(UserRepository userRepository,
                        PasswordEncoder passwordEncoder,
                        AuthenticationManager authenticationManager,
                        JwtService jwtService,
                        LoginAttemptService loginAttemptService,
-                       CurrentUser currentUser) {
+                       CurrentUser currentUser,
+                       AccountActivationService accountActivationService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.authenticationManager = authenticationManager;
         this.jwtService = jwtService;
         this.loginAttemptService = loginAttemptService;
         this.currentUser = currentUser;
+        this.accountActivationService = accountActivationService;
     }
 
     @Transactional
@@ -69,8 +72,8 @@ public class AuthService {
         user.setEmail(email);
         user.setPasswordHash(passwordEncoder.encode(request.password()));
         user.setRole(request.role());
-        // No email-verification flow in this phase: accounts start PENDING and are
-        // only able to authenticate once an admin flips them to ACTIVE.
+        // Accounts start PENDING and become ACTIVE through the activation link (AUTH-001) or an
+        // explicit ADMIN action.
         user.setStatus(UserStatus.PENDING);
 
         try {
@@ -80,7 +83,24 @@ public class AuthService {
             throw new EmailAlreadyExistsException();
         }
 
+        // AUTH-001: the account stays PENDING until the owner clicks the emailed link. The send
+        // happens inside this transaction on purpose: if there is no mail transport the account is
+        // rolled back instead of leaving an account that the owner cannot activate.
+        accountActivationService.issueAndSend(user);
+
         return new RegisterResponse(user.getId(), user.getEmail(), user.getRole(), user.getStatus());
+    }
+
+    /** Consumes a single-use activation token (AUTH-001). */
+    @Transactional
+    public void activate(String token) {
+        accountActivationService.activate(token);
+    }
+
+    /** Always succeeds from the caller's point of view; never reveals whether the email exists. */
+    @Transactional
+    public void resendActivation(String email) {
+        accountActivationService.resend(email);
     }
 
     @Transactional

@@ -1,14 +1,26 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { api, type LoginResponse, type SessionUser, UNAUTHORIZED_EVENT } from '../api';
+import {
+  api,
+  type LoginResponse,
+  type RegisterResponse,
+  type SessionUser,
+  UNAUTHORIZED_EVENT,
+} from '../api';
 
 export const GOOGLE_CLIENT_ID = (import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined) || '';
+
+type AccountRole = 'STUDENT' | 'TEACHER';
 
 interface AuthContextValue {
   user: SessionUser | null;
   /** True while the session cookie is being resolved through /api/auth/me. */
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  loginWithGoogle: (idToken: string, role?: 'STUDENT' | 'TEACHER') => Promise<void>;
+  loginWithGoogle: (idToken: string, role?: AccountRole) => Promise<void>;
+  /** AUTH-001: creates a PENDING account; the user still has to open the emailed link. */
+  register: (email: string, password: string, role: AccountRole) => Promise<RegisterResponse>;
+  activate: (token: string) => Promise<void>;
+  resendActivation: (email: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -57,6 +69,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const register = useCallback(
+    (email: string, password: string, role: AccountRole) => api.register(email, password, role),
+    [],
+  );
+
+  const activate = useCallback((token: string) => api.activate(token), []);
+
+  const resendActivation = useCallback((email: string) => api.resendActivation(email), []);
+
   useEffect(() => {
     const onUnauthorized = () => {
       setUser(null);
@@ -72,9 +93,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       loading,
       login: async (email, password) => applySession(await api.login(email, password)),
       loginWithGoogle: async (idToken, role) => applySession(await api.loginWithGoogle(idToken, role)),
+      register,
+      activate,
+      resendActivation,
       logout,
     }),
-    [user, loading, applySession, logout],
+    [user, loading, applySession, register, activate, resendActivation, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

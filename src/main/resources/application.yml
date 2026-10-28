@@ -36,6 +36,21 @@ spring:
       max-file-size: 10MB
       max-request-size: 12MB
 
+  # AUTH-001: SMTP transport for the activation link. Leave MAIL_HOST empty to
+  # disable real delivery; registration then answers 503 (never an account the
+  # owner cannot activate). Development can log the link instead (see app.auth).
+  mail:
+    host: ${MAIL_HOST:}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: ${MAIL_SMTP_AUTH:true}
+          starttls:
+            enable: ${MAIL_SMTP_STARTTLS:true}
+
 # JWT configuration.
 # JWT_SECRET must be overridden in any non-development environment. The default
 # value below is a development-only placeholder and must never be used in prod.
@@ -102,3 +117,13 @@ oauth:
 app:
   demo-seed:
     enabled: ${DEMO_SEED:false}
+
+  auth:
+    activation:
+      # Public origin of the SPA: activation links point to ${base-url}/activar?token=...
+      base-url: ${APP_BASE_URL:http://localhost:5173}
+      token-ttl: ${AUTH_ACTIVATION_TTL:PT24H}
+      # NEVER enable outside development: it writes a credential (the activation
+      # link) to the application log. Use SMTP in any real environment.
+      log-links: ${AUTH_LOG_ACTIVATION_LINKS:false}
+      from: ${MAIL_FROM:no-reply@claseya.app}

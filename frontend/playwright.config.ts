@@ -31,8 +31,9 @@ export default defineConfig({
       // RATE-001 has its own integration test; E2E disables the limiter so repeated logins
       // from the same test IP do not turn into unrelated 429 failures.
       // SEC-002: the session cookie is HttpOnly+Secure in production; E2E runs over HTTP.
+      // AUTH-001: without SMTP the activation link is logged instead of emailed (test-only).
       command:
-        'mvn -q spring-boot:run -Dspring-boot.run.profiles=local "-Dspring-boot.run.jvmArguments=-Duser.timezone=UTC -Dsecurity.rate-limit.enabled=false -Dauth.cookie.secure=false"',
+        'mvn -q spring-boot:run -Dspring-boot.run.profiles=local "-Dspring-boot.run.jvmArguments=-Duser.timezone=UTC -Dsecurity.rate-limit.enabled=false -Dauth.cookie.secure=false -Dapp.auth.activation.log-links=true"',
       cwd: '..',
       url: `${BACKEND_URL}/api/test/public`,
       reuseExistingServer: process.env.E2E_REUSE_BACKEND === 'true',
