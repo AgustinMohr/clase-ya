@@ -40,6 +40,15 @@ real; ver el paquete `security` y `SecurityConfig`.
 - **Contenedor (OPS-002):** la imagen final corre como usuario `app` (no-root), declara
   `HEALTHCHECK` contra `/actuator/health` y arranca la JVM con `-XX:MaxRAMPercentage=75`. La
   configuración local (`application-local.yml`, `.env`) queda fuera del contexto de build.
+
+## Observabilidad
+
+- `RequestIdFilter` asigna `X-Request-Id` a cada request: acepta uno entrante solo si cumple
+  `[A-Za-z0-9._-]{8,128}` (evita inyección de headers/logs) y si no genera un UUID. El id viaja en
+  la respuesta y en el MDC (`requestId`), que el patrón de logs incluye.
+- `LOGGING_STRUCTURED_FORMAT_CONSOLE=ecs` habilita logs JSON en producción (Spring Boot).
+- `GET /actuator/health` es público y no muestra detalles. **Pendientes:** métricas, trazas
+  distribuidas y alertas (resto de OPS-01).
 - `JWT_SECRET`/`JWT_EXPIRATION`/`DB_*`/`FRONTEND_URL` vienen de variables de entorno.
   `application.yml` tiene defaults **solo de desarrollo**; no son secretos de producción.
 - Claims del JWT mínimos: `sub` (id de usuario), `jti` (único), `iat`, `exp`. **Sin email, nombre

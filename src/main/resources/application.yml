@@ -102,6 +102,12 @@ cors:
   # FRONTEND_URL may be a comma-separated list. Dev default includes the Vite port.
   allowed-origins: ${FRONTEND_URL:http://localhost:3000,http://localhost:5173}
 
+# OPS-001: request ids are put in the MDC by RequestIdFilter, so every log line can be correlated.
+# For JSON logs set LOGGING_STRUCTURED_FORMAT_CONSOLE=ecs.
+logging:
+  pattern:
+    level: "%5p [%X{requestId:-}]"
+
 # OPS-001: only the health probe is exposed. Details are never shown, so the
 # endpoint cannot leak database/host information.
 management:
