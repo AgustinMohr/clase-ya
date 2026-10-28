@@ -60,6 +60,7 @@ export default function App() {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [favoriteTeachers, setFavoriteTeachers] = useState<TeacherSummary[]>([]);
+  const [favoritesTotal, setFavoritesTotal] = useState(0);
   const [favoritesLoading, setFavoritesLoading] = useState(Boolean(user));
   const [loginOpen, setLoginOpen] = useState(false);
   const [pendingContact, setPendingContact] = useState<TeacherSummary | null>(null);
@@ -80,6 +81,7 @@ export default function App() {
     if (!user) {
       setFavorites(new Set());
       setFavoriteTeachers([]);
+      setFavoritesTotal(0);
       setFavoritesLoading(false);
       return;
     }
@@ -91,6 +93,7 @@ export default function App() {
         if (!active) return;
         setFavoriteTeachers(page.content.map((f) => f.teacher));
         setFavorites(new Set(page.content.map((f) => f.teacher.id)));
+        setFavoritesTotal(page.totalElements);
       })
       .catch(() => undefined)
       .finally(() => active && setFavoritesLoading(false));
@@ -154,11 +157,13 @@ export default function App() {
           return next;
         });
         setFavoriteTeachers((prev) => prev.filter((t) => t.id !== teacher.id));
+        setFavoritesTotal((prev) => Math.max(0, prev - 1));
         notify('Quitado de favoritos');
       } else {
         await api.addFavorite(teacher.id);
         setFavorites((prev) => new Set(prev).add(teacher.id));
         setFavoriteTeachers((prev) => [teacher, ...prev.filter((t) => t.id !== teacher.id)]);
+        setFavoritesTotal((prev) => prev + 1);
         notify('Guardado en favoritos');
       }
     } catch (error) {
@@ -254,6 +259,7 @@ export default function App() {
                 <ProtectedRoute role="STUDENT" onRequireLogin={requireLogin}>
                   <FavoritesPage
                     teachers={favoriteTeachers}
+                    total={favoritesTotal}
                     loading={favoritesLoading}
                     onToggleFavorite={toggleFavorite}
                   />

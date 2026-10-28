@@ -53,6 +53,7 @@ export function useTeacherListing() {
   const [modalities, setModalities] = useState<string[]>([]);
   const [education, setEducation] = useState<OwnEducation[]>([]);
   const [availability, setAvailability] = useState<AvailabilityWindow[]>([]);
+  const [availabilityTotal, setAvailabilityTotal] = useState(0);
   const [universities, setUniversities] = useState<University[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -88,7 +89,7 @@ export function useTeacherListing() {
       api.mySubjects().catch(() => []),
       api.myModalities().then((list) => list.map((m) => m.modality)).catch(() => []),
       api.myEducation().catch(() => []),
-      api.myAvailability().then((page) => page.content).catch(() => []),
+      api.myAvailability().catch(() => null),
       api.universities().catch(() => []),
     ]).then(([ann, ver, subs, mods, edu, avail, unis]) => {
       if (!active) return;
@@ -97,7 +98,8 @@ export function useTeacherListing() {
       setSubjects(subs);
       setModalities(mods);
       setEducation(edu);
-      setAvailability(avail);
+      setAvailability(avail?.content ?? []);
+      setAvailabilityTotal(avail?.totalElements ?? 0);
       setUniversities(unis);
       setLoading(false);
     });
@@ -242,6 +244,7 @@ export function useTeacherListing() {
       });
       const page = await api.myAvailability();
       setAvailability(page.content);
+      setAvailabilityTotal(page.totalElements);
       setAvailForm(EMPTY_AVAILABILITY);
       reloadAnnouncement();
       notify('Horario agregado');
@@ -287,6 +290,7 @@ export function useTeacherListing() {
     modalities,
     education,
     availability,
+    availabilityTotal,
     universities,
     form,
     setForm,

@@ -10,6 +10,7 @@ const DAYS = [1, 2, 3, 4, 5, 6, 7];
 
 interface Props {
   availability: AvailabilityWindow[];
+  total: number;
   form: AvailabilityForm;
   setForm: React.Dispatch<React.SetStateAction<AvailabilityForm>>;
   addingAvailability: boolean;
@@ -18,7 +19,7 @@ interface Props {
 }
 
 /** Declared weekly availability. Disabling is reversible (undo), so no confirmation here. */
-export default function AvailabilitySection({ availability, form, setForm, addingAvailability, onAdd, onDisable }: Props) {
+export default function AvailabilitySection({ availability, total, form, setForm, addingAvailability, onAdd, onDisable }: Props) {
   return (
     <Card className="p-6">
       <h2 className="mb-4 font-display text-xl">Disponibilidad semanal</h2>
@@ -43,6 +44,11 @@ export default function AvailabilitySection({ availability, form, setForm, addin
         </ul>
       ) : (
         <EmptyState size="compact" className="mb-4" title="Todavía no publicaste horarios" />
+      )}
+      {total > availability.length && (
+        <p role="status" className="mb-4 rounded-xl border border-border bg-surface-muted px-3 py-2 text-sm text-content-muted">
+          Se muestran los primeros {availability.length} horarios de {total}. La lista se pagina de a 50.
+        </p>
       )}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Field label="Día">

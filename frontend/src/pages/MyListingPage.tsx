@@ -115,6 +115,7 @@ export default function MyListingPage({
 
         <AvailabilitySection
           availability={listing.availability}
+          total={listing.availabilityTotal}
           form={listing.availForm}
           setForm={listing.setAvailForm}
           addingAvailability={listing.addingAvailability}

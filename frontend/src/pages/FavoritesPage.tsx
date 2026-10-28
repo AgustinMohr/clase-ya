@@ -9,12 +9,13 @@ import { ROUTES } from '../routes';
 
 interface Props {
   teachers: TeacherSummary[];
+  total: number;
   loading: boolean;
   onToggleFavorite: (teacher: TeacherSummary) => void;
 }
 
 /** "Mis favoritos": the teachers the student saved. Only mounted for authenticated students. */
-export default function FavoritesPage({ teachers, loading, onToggleFavorite }: Props) {
+export default function FavoritesPage({ teachers, total, loading, onToggleFavorite }: Props) {
   const navigate = useNavigate();
   usePageMeta({
     title: 'Mis favoritos | ClaseYa',
@@ -40,17 +41,25 @@ export default function FavoritesPage({ teachers, loading, onToggleFavorite }: P
           }
         />
       ) : (
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {teachers.map((teacher) => (
-            <TeacherCard
-              key={teacher.id}
-              teacher={teacher}
-              onOpen={(id) => navigate(ROUTES.teacher(id))}
-              onToggleFavorite={onToggleFavorite}
-              favorite
-            />
-          ))}
-        </div>
+        <>
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {teachers.map((teacher) => (
+              <TeacherCard
+                key={teacher.id}
+                teacher={teacher}
+                onOpen={(id) => navigate(ROUTES.teacher(id))}
+                onToggleFavorite={onToggleFavorite}
+                favorite
+              />
+            ))}
+          </div>
+          {total > teachers.length && (
+            <p role="status" className="mt-6 rounded-xl border border-border bg-surface-muted px-4 py-3 text-sm text-content-muted">
+              Se muestran tus primeros {teachers.length} favoritos de {total}. La lista se pagina de a 50;
+              quitá algunos para ver el resto.
+            </p>
+          )}
+        </>
       )}
     </div>
   );
