@@ -25,7 +25,12 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest(properties = "app.demo-seed.enabled=false")
+@SpringBootTest(properties = {
+        "app.demo-seed.enabled=false",
+        "security.rate-limit.enabled=false",
+        // CSRF is enabled in production; the dedicated CsrfIntegrationTest enables it explicitly.
+        "security.csrf.enabled=false"
+})
 @AutoConfigureMockMvc
 public abstract class AbstractWebIntegrationTest extends AbstractPostgresTest {
 

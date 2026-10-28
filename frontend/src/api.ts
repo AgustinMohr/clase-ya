@@ -270,13 +270,21 @@ export interface FavoriteResponse {
   teacher: TeacherSummary;
 }
 
+export interface SessionUser {
+  id: string;
+  name?: string | null;
+  role: 'STUDENT' | 'TEACHER' | 'ADMIN';
+}
+
 export interface LoginResponse {
-  accessToken: string;
-  tokenType: string;
+  user: SessionUser;
   expiresIn: number;
 }
 
-const TOKEN_KEY = 'claseya.token';
+interface CsrfResponse {
+  token: string;
+}
+
 export const UNAUTHORIZED_EVENT = 'claseya:unauthorized';
 
 /** Maximum length of a chat message, mirrors the backend validation (TEACHER/CONTACT). */
@@ -306,32 +314,37 @@ export class ApiError extends Error {
   }
 }
 
-export function getToken(): string | null {
-  return sessionStorage.getItem(TOKEN_KEY);
+/**
+ * CSRF token for one unsafe request. The token is intentionally not cached: the server rotates
+ * the HttpOnly cookie after writes and a stale in-memory copy would turn the next write into a
+ * 403. Fetching it per write also survives logout, reloads and multiple tabs (SEC-002).
+ */
+async function fetchCsrfToken(): Promise<string> {
+  const res = await fetch(`${API_BASE}/api/auth/csrf`, { credentials: 'include' });
+  if (!res.ok) {
+    throw new ApiError(res.status, 'Could not start a secure request');
+  }
+  const body = (await res.json()) as CsrfResponse;
+  return body.token;
 }
 
-export function setToken(token: string): void {
-  sessionStorage.setItem(TOKEN_KEY, token);
-}
-
-export function clearToken(): void {
-  sessionStorage.removeItem(TOKEN_KEY);
+function isWrite(method: string): boolean {
+  return method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS';
 }
 
 async function request<T>(method: string, url: string, body?: unknown, auth = false): Promise<T> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (auth) {
-    const token = getToken();
-    if (token) headers.Authorization = `Bearer ${token}`;
+  if (isWrite(method)) {
+    headers['X-XSRF-TOKEN'] = await fetchCsrfToken();
   }
   const res = await fetch(`${API_BASE}${url}`, {
     method,
     headers,
+    credentials: 'include',
     body: body === undefined ? undefined : JSON.stringify(body),
   });
 
   if (res.status === 401 && auth) {
-    clearToken();
     window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
   }
   if (!res.ok) {
@@ -348,13 +361,15 @@ async function request<T>(method: string, url: string, body?: unknown, auth = fa
 }
 
 async function requestForm<T>(url: string, formData: FormData): Promise<T> {
-  const headers: Record<string, string> = {};
-  const token = getToken();
-  if (token) headers.Authorization = `Bearer ${token}`;
-  const res = await fetch(`${API_BASE}${url}`, { method: 'POST', headers, body: formData });
+  const headers: Record<string, string> = { 'X-XSRF-TOKEN': await fetchCsrfToken() };
+  const res = await fetch(`${API_BASE}${url}`, {
+    method: 'POST',
+    headers,
+    credentials: 'include',
+    body: formData,
+  });
 
   if (res.status === 401) {
-    clearToken();
     window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
   }
   if (!res.ok) {
@@ -397,6 +412,8 @@ export const api = {
   login: (email: string, password: string) => request<LoginResponse>('POST', '/api/auth/login', { email, password }),
   loginWithGoogle: (idToken: string, role?: 'STUDENT' | 'TEACHER') =>
     request<LoginResponse>('POST', '/api/auth/google', role ? { idToken, role } : { idToken }),
+  me: () => request<SessionUser>('GET', '/api/auth/me'),
+  logout: () => request<void>('POST', '/api/auth/logout', undefined, true),
 
   favorites: () => request<Page<FavoriteResponse>>('GET', '/api/favorites?page=0&size=50', undefined, true),
   addFavorite: (teacherId: string) => request<unknown>('POST', `/api/favorites/${teacherId}`, undefined, true),

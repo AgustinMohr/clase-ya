@@ -5,9 +5,6 @@ export const PASSWORD = 'Password123';
 export const STUDENT = 'student@claseya.dev';
 export const TEACHER = 'ana.profe@claseya.dev';
 
-/** Key used by the app to keep the JWT in sessionStorage. */
-const TOKEN_KEY = 'claseya.token';
-
 export interface TeacherRef {
   id: string;
   displayName: string;
@@ -18,38 +15,29 @@ export function uniqueText(prefix: string): string {
   return `${prefix} ${Date.now()}`;
 }
 
-export async function apiToken(email: string = STUDENT): Promise<string> {
-  const context = await request.newContext({ baseURL: API_URL });
-  try {
-    const response = await context.post('/api/auth/login', { data: { email, password: PASSWORD } });
-    if (!response.ok()) {
-      throw new Error(`Login failed for ${email}: ${response.status()} ${await response.text()}`);
-    }
-    const { accessToken } = (await response.json()) as { accessToken: string };
-    return accessToken;
-  } finally {
-    await context.dispose();
+/** Fetches a CSRF token and stores its cookie in the browser context's jar. */
+async function csrfToken(context: APIRequestContext): Promise<string> {
+  const response = await context.get('/api/auth/csrf');
+  if (!response.ok()) {
+    throw new Error(`CSRF token failed: ${response.status()} ${await response.text()}`);
   }
-}
-
-export async function apiContext(token: string): Promise<APIRequestContext> {
-  return request.newContext({
-    baseURL: API_URL,
-    extraHTTPHeaders: { Authorization: `Bearer ${token}` },
-  });
+  return ((await response.json()) as { token: string }).token;
 }
 
 /**
- * Signs in through the API and injects the token before the app boots: deterministic, fast,
- * and it never touches Google.
+ * Signs in through the API so the browser context receives the HttpOnly session cookie.
+ * The SPA never sees a token: it resolves the user from `/api/auth/me` (SEC-002).
  */
-export async function loginAs(page: Page, email: string = STUDENT): Promise<string> {
-  const token = await apiToken(email);
-  await page.addInitScript(
-    ([key, value]) => window.sessionStorage.setItem(key, value),
-    [TOKEN_KEY, token],
-  );
-  return token;
+export async function loginAs(page: Page, email: string = STUDENT): Promise<void> {
+  const context = page.context().request;
+  const token = await csrfToken(context);
+  const response = await context.post('/api/auth/login', {
+    data: { email, password: PASSWORD },
+    headers: { 'X-XSRF-TOKEN': token },
+  });
+  if (!response.ok()) {
+    throw new Error(`Login failed for ${email}: ${response.status()} ${await response.text()}`);
+  }
 }
 
 /** Teachers of the public listing, in the same order the landing cards show them. */
@@ -77,27 +65,29 @@ export async function firstPublicTeacher(): Promise<TeacherRef> {
 
 /** Creates (or reuses) the student's conversation with a teacher and returns its id. */
 export async function ensureConversationWith(
-  token: string,
+  page: Page,
   teacherId: string,
   firstMessage?: string,
 ): Promise<string> {
-  const context = await apiContext(token);
-  try {
-    const response = await context.post('/api/conversations', { data: { teacherId } });
-    if (!response.ok()) {
-      throw new Error(`Starting the conversation failed: ${response.status()} ${await response.text()}`);
-    }
-    const { id } = (await response.json()) as { id: string };
-    if (firstMessage) {
-      const sent = await context.post(`/api/conversations/${id}/messages`, {
-        data: { content: firstMessage },
-      });
-      if (!sent.ok()) {
-        throw new Error(`Sending the precondition message failed: ${sent.status()}`);
-      }
-    }
-    return id;
-  } finally {
-    await context.dispose();
+  const context = page.context().request;
+  const token = await csrfToken(context);
+  const response = await context.post('/api/conversations', {
+    data: { teacherId },
+    headers: { 'X-XSRF-TOKEN': token },
+  });
+  if (!response.ok()) {
+    throw new Error(`Starting the conversation failed: ${response.status()} ${await response.text()}`);
   }
+  const { id } = (await response.json()) as { id: string };
+  if (firstMessage) {
+    const messageToken = await csrfToken(context);
+    const sent = await context.post(`/api/conversations/${id}/messages`, {
+      data: { content: firstMessage },
+      headers: { 'X-XSRF-TOKEN': messageToken },
+    });
+    if (!sent.ok()) {
+      throw new Error(`Sending the precondition message failed: ${sent.status()}`);
+    }
+  }
+  return id;
 }

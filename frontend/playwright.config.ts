@@ -28,8 +28,11 @@ export default defineConfig({
       // a stale JVM (from before a change) made the UI look broken while the tests passed.
       // E2E_REUSE_BACKEND=true is the fast path for the daily loop, and it only makes sense
       // when the running backend already has the current code compiled.
+      // RATE-001 has its own integration test; E2E disables the limiter so repeated logins
+      // from the same test IP do not turn into unrelated 429 failures.
+      // SEC-002: the session cookie is HttpOnly+Secure in production; E2E runs over HTTP.
       command:
-        'mvn -q spring-boot:run -Dspring-boot.run.profiles=local "-Dspring-boot.run.jvmArguments=-Duser.timezone=UTC"',
+        'mvn -q spring-boot:run -Dspring-boot.run.profiles=local "-Dspring-boot.run.jvmArguments=-Duser.timezone=UTC -Dsecurity.rate-limit.enabled=false -Dauth.cookie.secure=false"',
       cwd: '..',
       url: `${BACKEND_URL}/api/test/public`,
       reuseExistingServer: process.env.E2E_REUSE_BACKEND === 'true',

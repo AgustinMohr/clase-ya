@@ -1,5 +1,10 @@
 package com.claseya.security;
 
+import com.claseya.security.ratelimit.ClientIpResolver;
+import com.claseya.security.ratelimit.RateLimitFilter;
+import com.claseya.security.ratelimit.RateLimitProperties;
+import com.claseya.security.ratelimit.RateLimitService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -14,7 +19,12 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
+import org.springframework.security.web.header.writers.StaticHeadersWriter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -28,22 +38,36 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
                                                    JwtAuthenticationFilter jwtFilter,
+                                                   AuthCookieFactory cookieFactory,
+                                                   RateLimitProperties rateLimitProperties,
+                                                   RateLimitService rateLimitService,
+                                                   ClientIpResolver clientIpResolver,
+                                                   ObjectMapper objectMapper,
                                                    RestAuthenticationEntryPoint entryPoint,
-                                                   RestAccessDeniedHandler accessDeniedHandler) throws Exception {
+                                                   RestAccessDeniedHandler accessDeniedHandler,
+                                                   @Value("${security.csrf.enabled:true}") boolean csrfEnabled) throws Exception {
+        // Constructed here (not a Filter bean) so Spring Boot never auto-registers it twice.
+        RateLimitFilter rateLimitFilter = new RateLimitFilter(
+                rateLimitProperties, rateLimitService, clientIpResolver, objectMapper);
+
         http
-                // Stateless token API: authentication comes from the Authorization: Bearer
-                // header, never from a cookie, and sessions are STATELESS. A browser cannot
-                // attach that header on a cross-site request, so there is no CSRF surface to
-                // protect here — leaving CSRF enabled would only reject legitimate
-                // header-authenticated writes. (CodeQL's java/spring-disabled-csrf-protection
-                // flags this pattern regardless; it is a false positive for this architecture.)
-                .csrf(AbstractHttpConfigurer::disable)
+                // Browsers authenticate through the HttpOnly session cookie (SEC-002), so unsafe
+                // methods need a CSRF token. Bearer-authenticated requests (integration suite)
+                // are exempt because a cross-site page cannot set that header.
                 .cors(Customizer.withDefaults())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint(entryPoint)
                         .accessDeniedHandler(accessDeniedHandler))
+                .headers(headers -> headers
+                        .frameOptions(frame -> frame.deny())
+                        .contentTypeOptions(Customizer.withDefaults())
+                        .addHeaderWriter(new StaticHeadersWriter("Referrer-Policy", "no-referrer"))
+                        .addHeaderWriter(new StaticHeadersWriter(
+                                "Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()")))
                 .authorizeHttpRequests(auth -> auth
+                        // /me must be authenticated even though the rest of /api/auth is public.
+                        .requestMatchers("/api/auth/me").authenticated()
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/test/public").permitAll()
                         .requestMatchers("/api/test/student").hasRole("STUDENT")
@@ -81,7 +105,26 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/error").permitAll()
                         .anyRequest().authenticated())
-                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
+                // RATE-001: after JWT, before authorization, so user-scoped buckets have identity.
+                .addFilterBefore(rateLimitFilter, AuthorizationFilter.class);
+
+        if (csrfEnabled) {
+            CookieCsrfTokenRepository csrfTokenRepository = new CookieCsrfTokenRepository();
+            csrfTokenRepository.setCookieCustomizer(builder -> builder
+                    .path("/")
+                    .secure(cookieFactory.isSecure())
+                    .sameSite(cookieFactory.getSameSite()));
+            http.csrf(csrf -> csrf
+                    .csrfTokenRepository(csrfTokenRepository)
+                    .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
+                    .requireCsrfProtectionMatcher(new BearerAwareCsrfMatcher()));
+            // Deferred tokens only write the cookie when read; this makes every response carry it.
+            http.addFilterAfter(new CsrfCookieFilter(), BasicAuthenticationFilter.class);
+        } else {
+            // Integration tests only: the dedicated CSRF test enables it explicitly.
+            http.csrf(AbstractHttpConfigurer::disable);
+        }
 
         return http.build();
     }
@@ -102,7 +145,7 @@ public class SecurityConfig {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(List.of(allowedOrigins.split(",")));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("Authorization", "Content-Type"));
+        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-XSRF-TOKEN"));
         config.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

@@ -1,6 +1,8 @@
 # ADR-016 — Sesión de frontend y Google Sign-In en la SPA
 
-**Estado:** Aceptado (FE-OAUTH-001, implementación).
+**Estado:** Parcialmente reemplazado por ADR-020 (SEC-002). La UI de Google Sign-In sigue vigente;
+el almacenamiento del JWT pasó de `sessionStorage` a cookie `HttpOnly` con CSRF y los claims ya no
+incluyen email/role.
 
 ## Contexto
 La SPA (Vite + React) necesita iniciar sesión (Google y email/password), mantener una sesión y usar

@@ -81,6 +81,9 @@ propuestas (aún no aplicadas).
 - JWT sin estado (`jwt.secret`, `jwt.expiration`); las cuentas **PENDING/INACTIVE/SUSPENDED no
   pueden autenticarse** (solo `ACTIVE`). La visibilidad pública de un profesor exige
   `verificationStatus = VERIFIED` **y** `user.status = ACTIVE`; profesores ocultos → 404.
+- La sesión del navegador usa la cookie `CLASEYA_SESSION` (`HttpOnly`, `Secure`, `SameSite`); el JWT
+  nunca se expone a JavaScript. Los métodos unsafe autenticados por cookie exigen CSRF
+  (`X-XSRF-TOKEN`); Bearer queda solo para la suite de integración/tooling. Ver `ADR-020`.
 - Roles: `ROLE_STUDENT/ROLE_TEACHER/ROLE_ADMIN` (un único punto de mapeo en `AppUserDetails`).
   ADMIN no puede auto-registrarse. Solo STUDENT gestiona favoritos e inicia conversaciones.
 - Nunca expongas emails, direcciones, coordenadas exactas, JWT/tokens ni hashes en DTOs públicos o

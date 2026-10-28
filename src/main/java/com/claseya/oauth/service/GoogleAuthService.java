@@ -1,6 +1,7 @@
 package com.claseya.oauth.service;
 
-import com.claseya.auth.dto.LoginResponse;
+import com.claseya.auth.dto.IssuedSession;
+import com.claseya.auth.dto.SessionUserResponse;
 import com.claseya.common.exception.BadRequestException;
 import com.claseya.common.exception.ConflictException;
 import com.claseya.common.exception.InvalidCredentialsException;
@@ -41,7 +42,7 @@ public class GoogleAuthService {
     }
 
     @Transactional
-    public LoginResponse loginWithGoogle(GoogleLoginRequest request) {
+    public IssuedSession loginWithGoogle(GoogleLoginRequest request) {
         GoogleIdTokenVerifier.GoogleClaims claims = verifier.verify(request.idToken());
         String email = normalize(claims.email());
 
@@ -102,11 +103,11 @@ public class GoogleAuthService {
         }
     }
 
-    private LoginResponse issueToken(User user) {
+    private IssuedSession issueToken(User user) {
         user.setLastLoginAt(Instant.now());
         userRepository.save(user);
         String token = jwtService.generateToken(new AppUserDetails(user));
-        return new LoginResponse(token, "Bearer", jwtService.getExpirationSeconds());
+        return new IssuedSession(token, SessionUserResponse.from(user), jwtService.getExpirationSeconds());
     }
 
     private String normalize(String email) {

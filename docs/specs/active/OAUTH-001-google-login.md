@@ -5,6 +5,10 @@
 **Última actualización:** 2026-09-02
 **Referencia de producto:** `docs/product/product-requirements.md` (Google OAuth "infaltable").
 
+> **Nota de implementación (SEC-002, 2026-10-27):** el login ya no devuelve `accessToken` en el
+> body; responde `{user, expiresIn}` y emite la cookie `HttpOnly` `CLASEYA_SESSION` con CSRF. Ver
+> `SEC-002-token-hardening-and-csp.md` y `ADR-020`.
+
 ---
 
 ## 1. Objetivo

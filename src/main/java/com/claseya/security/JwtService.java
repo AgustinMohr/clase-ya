@@ -10,12 +10,18 @@ import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Date;
+import java.util.UUID;
 
 /**
  * Creates and parses HS256-signed JWTs.
  *
  * <p>The signing secret and token lifetime come from external configuration
  * ({@code jwt.secret} / {@code jwt.expiration}), never from code.
+ *
+ * <p>The token is intentionally free of personal data: only the user id ({@code sub}) and a
+ * unique {@code jti} travel inside. Role and display data are resolved from the database on
+ * every request ({@code /api/auth/me} for the UI). The token lives in an HttpOnly cookie and is
+ * never exposed to JavaScript (SEC-002 / ADR-020).
  */
 @Service
 public class JwtService {
@@ -32,9 +38,8 @@ public class JwtService {
     public String generateToken(AppUserDetails user) {
         Instant now = Instant.now();
         return Jwts.builder()
+                .id(UUID.randomUUID().toString())
                 .subject(user.getId().toString())
-                .claim("email", user.getEmail())
-                .claim("role", user.getRole().name())
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plusSeconds(expirationSeconds)))
                 .signWith(key)

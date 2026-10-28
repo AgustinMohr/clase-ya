@@ -33,7 +33,9 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @Transactional
@@ -58,10 +60,13 @@ class GoogleAuthIntegrationTest extends AbstractWebIntegrationTest {
     }
 
     @Test
-    void newUserViaGoogle_createsActiveAccountAndReturnsToken() throws Exception {
+    void newUserViaGoogle_createsActiveAccountAndSetsSessionCookie() throws Exception {
         JsonNode response = googlePost(body("jane@gmail.com", "sub-1", "STUDENT", null, null, true), 200);
-        assertThat(response.get("accessToken").asText()).isNotBlank();
-        assertThat(response.get("tokenType").asText()).isEqualTo("Bearer");
+        assertThat(response.get("user").get("id").asText()).isNotBlank();
+        assertThat(response.get("user").get("role").asText()).isEqualTo("STUDENT");
+        assertThat(response.get("expiresIn").asLong()).isEqualTo(3600);
+        assertThat(response.has("accessToken")).isFalse();
+        assertThat(response.has("tokenType")).isFalse();
 
         User user = userRepository.findByEmail("jane@gmail.com").orElseThrow();
         assertThat(user.getGoogleSub()).isEqualTo("sub-1");
@@ -160,11 +165,14 @@ class GoogleAuthIntegrationTest extends AbstractWebIntegrationTest {
     }
 
     private JsonNode googlePost(String jsonBody, int expected) throws Exception {
-        String content = mockMvc.perform(post("/api/auth/google")
+        var actions = mockMvc.perform(post("/api/auth/google")
                         .contentType("application/json;charset=UTF-8")
                         .content(jsonBody.getBytes(StandardCharsets.UTF_8)))
-                .andExpect(status().is(expected))
-                .andReturn().getResponse().getContentAsString();
+                .andExpect(status().is(expected));
+        if (expected == 200) {
+            actions.andExpect(header().string("Set-Cookie", containsString("CLASEYA_SESSION=")));
+        }
+        String content = actions.andReturn().getResponse().getContentAsString();
         return toJson(content);
     }
 

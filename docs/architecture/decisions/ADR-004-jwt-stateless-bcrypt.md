@@ -1,6 +1,7 @@
 # ADR-004 — Autenticación stateless con JWT + BCrypt + roles
 
-**Estado:** Aceptado (implementado en `com.claseya.security`).
+**Estado:** Parcialmente reemplazado por ADR-020 (SEC-002): los claims ya no incluyen email/role y
+los navegadores usan cookie HttpOnly con CSRF. La firma HMAC, el stateless y BCrypt siguen vigentes.
 
 ## Contexto
 Se necesita autenticación sin sesiones para una API consumida por un frontend SPA.

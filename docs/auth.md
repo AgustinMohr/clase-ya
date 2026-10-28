@@ -5,13 +5,19 @@ Users register with `email` + `password` + `role`, accounts start **PENDING** an
 able to authenticate once an admin flips them to **ACTIVE** (activation flow is a future phase).
 Passwords are hashed with BCrypt; tokens are short-lived HMAC-signed JWTs.
 
+Browsers keep the JWT in an **HttpOnly session cookie** (`CLASEYA_SESSION`) and protect unsafe
+requests with a CSRF token (SEC-002). The integration suite/tooling may still send
+`Authorization: Bearer <jwt>`. The SPA never sees the token.
+
 ## Quick path
 
 1. Start PostgreSQL and run the app (`mvn spring-boot:run`).
 2. `POST /api/auth/register` → user created with `status=PENDING`.
 3. Set the account `ACTIVE` (admin/seed — no activation endpoint yet).
-4. `POST /api/auth/login` → `{ accessToken, tokenType, expiresIn }`.
-5. Call protected endpoints with `Authorization: Bearer <token>`.
+4. `GET /api/auth/csrf` → `{ token }` (browser login needs it).
+5. `POST /api/auth/login` → `Set-Cookie: CLASEYA_SESSION` + `{ user, expiresIn }`.
+6. Browser: call protected endpoints with `credentials: 'include'` and `X-XSRF-TOKEN` on writes.
+   Integration tests/tooling: `Authorization: Bearer <jwt>` (no CSRF).
 
 ## Register flow
 
@@ -35,7 +41,8 @@ POST /api/auth/login
 { "email": "student@example.com", "password": "Password123" }
 
 200 OK
-{ "accessToken": "<jwt>", "tokenType": "Bearer", "expiresIn": 3600 }
+Set-Cookie: CLASEYA_SESSION=<jwt>; Path=/; HttpOnly; Secure; SameSite=Lax
+{ "user": { "id": "<uuid>", "name": "Jane", "role": "STUDENT" }, "expiresIn": 3600 }
 ```
 
 - Authenticates via Spring Security `AuthenticationManager` → `DaoAuthenticationProvider`
@@ -43,15 +50,37 @@ POST /api/auth/login
 - Only `ACTIVE` accounts can authenticate; `PENDING`/`INACTIVE`/`SUSPENDED` fail.
 - Any failed attempt → **401** with a generic `Invalid credentials` message (anti-enumeration).
 - On success, `users.last_login_at` is updated (UTC).
+- The body never contains the JWT. Browsers use the cookie; the integration suite may still use a
+  Bearer token, but the product SPA does not.
+
+### Current session and logout
+
+| Endpoint | Behavior |
+|---|---|
+| `GET /api/auth/me` | Authenticated; returns `{id, name, role}` (no email). The SPA calls it on load. |
+| `POST /api/auth/logout` | `204`; clears `CLASEYA_SESSION` (`Max-Age=0`). The JWT remains cryptographically valid until `exp` (no server-side revocation yet). |
+
+### CSRF
+
+- `GET /api/auth/csrf` → `{ "token": "..." }` and an **HttpOnly** `XSRF-TOKEN` cookie.
+- Unsafe methods authenticated by cookie require `X-XSRF-TOKEN` (double submit). A missing or stale
+  token → **403**.
+- The SPA fetches a new token **before every unsafe request** (no cache): the server rotates or
+  clears the cookie on writes.
+- Requests with `Authorization: Bearer` are exempt from CSRF (a cross-site page cannot set that
+  header); this is what keeps the integration suite working.
 
 ## JWT
 
-- **Claims**: `sub` (user id), `email`, `role`, `iat`, `exp`. Nothing sensitive.
+- **Claims**: `sub` (user id), `jti` (unique per token), `iat`, `exp`. **No email/name/role**: the
+  backend reloads the user and authorities from the DB on every request.
 - **Signature**: HMAC-SHA (jjwt) with a 256-bit+ secret from config.
 - **Expiration**: `jwt.expiration` seconds (default 3600). No refresh tokens in this phase.
-- **Request path**: header `Authorization: Bearer <jwt>` → `JwtAuthenticationFilter` validates
-  signature + expiry, loads the user, and sets the `SecurityContext`. On invalid/expired/tampered
-  tokens the request stays unauthenticated so Spring Security returns **401**.
+- **Browser path**: `JwtAuthenticationFilter` reads the `CLASEYA_SESSION` cookie, validates
+  signature + expiry, loads the user, and sets the `SecurityContext`.
+- **Integration-test path**: the same filter accepts `Authorization: Bearer <jwt>` as a fallback.
+- On invalid/expired/tampered tokens the request stays unauthenticated so Spring Security returns
+  **401**.
 - The user is re-loaded from the DB on each request, so **suspended/inactive users are blocked
   immediately**, even with a previously valid token.
 
@@ -59,7 +88,8 @@ POST /api/auth/login
 
 | Endpoint | Access |
 |----------|--------|
-| `POST /api/auth/**` | public |
+| `POST /api/auth/register`, `/login`, `/google`, `/logout`; `GET /api/auth/csrf` | public |
+| `GET /api/auth/me` | any authenticated user |
 | `GET /api/test/public` | public |
 | `GET /api/test/authenticated` | any authenticated user |
 | `GET /api/test/student` | `STUDENT` |
@@ -102,25 +132,33 @@ UUID currentUserId = currentUser.id();
 | `DB_USERNAME` / `DB_PASSWORD` | `claseya` / `claseya` | DB credentials |
 | `JWT_SECRET` | dev-only placeholder | JWT signing key (≥ 256-bit). **Must be overridden in any non-dev environment; never committed.** |
 | `JWT_EXPIRATION` | `3600` | Access token lifetime in seconds |
+| `COOKIE_SECURE` | `true` | `Secure` flag for the session/CSRF cookies. Set `false` **only** for local HTTP dev. |
+| `COOKIE_SAME_SITE` | `Lax` | `Lax` for a same-site SPA/API; `None` (+ `Secure`) if the API is on another site. |
 | `FRONTEND_URL` | `http://localhost:3000` | Allowed CORS origin(s), comma-separated |
 
-Example:
+Example (local HTTP):
 
 ```powershell
 $env:JWT_SECRET="<long-random-secret>"
 $env:JWT_EXPIRATION="3600"
-$env:FRONTEND_URL="http://localhost:3000"
+$env:FRONTEND_URL="http://localhost:5173"
+$env:COOKIE_SECURE="false"
+$env:COOKIE_SAME_SITE="Lax"
 mvn spring-boot:run
 ```
 
 ## Security decisions
 
-- **Stateless**: `SessionCreationPolicy.STATELESS`, JWT in the `Authorization` header. No HTTP
-  sessions.
-- **CSRF disabled**: the API is cookie/session-free and uses a Bearer header, so CSRF does not
-  apply. Revisit if session-based flows are ever introduced.
-- **CORS**: only configured origins (no `*`), with `Authorization`/`Content-Type` headers and
-  credentials, overridable via `FRONTEND_URL` for other environments.
+- **Stateless**: `SessionCreationPolicy.STATELESS`. No HTTP session on the server; the signed JWT
+  travels in the `CLASEYA_SESSION` HttpOnly cookie (browser) or `Authorization: Bearer` (integration tests).
+- **CSRF enabled**: cookie-authenticated unsafe methods require `X-XSRF-TOKEN` (double submit).
+  Bearer requests are exempt (`BearerAwareCsrfMatcher`).
+- **Cookies**: `HttpOnly`, `Secure` (except local HTTP), `SameSite` configurable, `Path=/`.
+  The CSRF cookie is HttpOnly too; the SPA gets the token from the `/csrf` body.
+- **Headers**: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
+  `Referrer-Policy: no-referrer`, `Permissions-Policy` (camera/mic/geo/payment disabled).
+- **CORS**: only configured origins (no `*`), with `Authorization`, `Content-Type` and
+  `X-XSRF-TOKEN` headers and credentials, overridable via `FRONTEND_URL`.
 - **Anti-enumeration**: a single generic message on all authentication failures; no per-field
   "user not found" vs "wrong password".
 - **Errors**: consistent `ApiError` JSON `{ timestamp, status, error, message, path, fieldErrors? }`
@@ -131,33 +169,45 @@ mvn spring-boot:run
 ## Testing the API
 
 ```bash
-# register
-curl -i -X POST http://localhost:8080/api/auth/register \
+# 1. CSRF token (also stores the HttpOnly cookie in cookies.txt)
+curl -c cookies.txt -b cookies.txt http://localhost:8080/api/auth/csrf
+# {"token":"<csrf>"}
+
+# optional: register (also needs the CSRF token; the account starts PENDING)
+curl -i -b cookies.txt -c cookies.txt -X POST http://localhost:8080/api/auth/register \
   -H "Content-Type: application/json" \
+  -H "X-XSRF-TOKEN: <csrf>" \
   -d '{"email":"student@example.com","password":"Password123","role":"STUDENT"}'
 
-# activate (no endpoint yet: do it directly in the DB or via seed)
-# UPDATE users SET status='ACTIVE' WHERE email='student@example.com';
-
-# login
-curl -X POST http://localhost:8080/api/auth/login \
+# 2. login (send the token from the previous response)
+curl -i -c cookies.txt -b cookies.txt -X POST http://localhost:8080/api/auth/login \
   -H "Content-Type: application/json" \
+  -H "X-XSRF-TOKEN: <csrf>" \
   -d '{"email":"student@example.com","password":"Password123"}'
+# Set-Cookie: CLASEYA_SESSION=...; HttpOnly; SameSite=Lax
+# {"user":{"id":"...","role":"STUDENT"},"expiresIn":3600}
 
-# protected endpoint with token
-curl http://localhost:8080/api/test/authenticated \
-  -H "Authorization: Bearer <token>"
+# 3. current session
+curl -b cookies.txt -c cookies.txt http://localhost:8080/api/auth/me
+
+# 4. a write: fetch a fresh CSRF token first, then send it
+curl -b cookies.txt -c cookies.txt http://localhost:8080/api/auth/csrf
+curl -b cookies.txt -c cookies.txt -X POST http://localhost:8080/api/auth/logout \
+  -H "X-XSRF-TOKEN: <csrf>"
+
+# 5. Integration tests may keep using a Bearer token (no CSRF)
+curl http://localhost:8080/api/test/authenticated -H "Authorization: Bearer <jwt>"
 ```
 
 The automated suite (`mvn test`, Testcontainers-backed) covers register/login/JWT/roles/password,
-including expired, tampered, and wrong-key tokens, duplicate email, and suspended/inactive/pending
-accounts.
+the cookie session, `/me`, logout, CSRF enforcement, and expired/tampered/wrong-key tokens.
 
 ## Google sign-in (OAUTH-001)
 
 `POST /api/auth/google` accepts a Google `id_token` (Google Identity Services on the SPA). The
 backend validates signature/issuer/audience/expiry and `email_verified`, links accounts by
-`users.google_sub` (unique), and returns the same `LoginResponse`. New Google accounts start
+`users.google_sub` (unique), and returns the same `LoginResponse` plus the `CLASEYA_SESSION` cookie.
+New Google accounts start
 `ACTIVE`; existing password accounts are linked only when ACTIVE and their email matches the
 verified Google email; disabled/PENDING accounts are never activated by Google. Config:
 `oauth.google.issuer` / `oauth.google.client-id` (env `GOOGLE_ISSUER` / `GOOGLE_CLIENT_ID`).

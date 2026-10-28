@@ -120,16 +120,21 @@ class AuthIntegrationTest extends AbstractWebIntegrationTest {
     // --------------------------------------------------------------------- login
 
     @Test
-    void login_valid_returnsTokenAndSetsLastLogin() throws Exception {
+    void login_valid_setsHttpOnlySessionCookieAndLastLogin() throws Exception {
         User user = createUser("jane@example.com", UserRole.STUDENT, UserStatus.ACTIVE);
 
         mockMvc.perform(post("/api/auth/login")
                         .contentType("application/json")
                         .content(loginBody("jane@example.com", PASSWORD)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.accessToken").isNotEmpty())
-                .andExpect(jsonPath("$.tokenType").value("Bearer"))
-                .andExpect(jsonPath("$.expiresIn").value(3600));
+                .andExpect(jsonPath("$.user.id").isNotEmpty())
+                .andExpect(jsonPath("$.user.role").value("STUDENT"))
+                .andExpect(jsonPath("$.expiresIn").value(3600))
+                .andExpect(jsonPath("$.accessToken").doesNotExist())
+                .andExpect(jsonPath("$.tokenType").doesNotExist())
+                .andExpect(header().string("Set-Cookie", containsString("CLASEYA_SESSION=")))
+                .andExpect(header().string("Set-Cookie", containsString("HttpOnly")))
+                .andExpect(header().string("Set-Cookie", containsString("SameSite=Lax")));
 
         User reloaded = userRepository.findById(user.getId()).orElseThrow();
         assertThat(reloaded.getLastLoginAt()).isNotNull();

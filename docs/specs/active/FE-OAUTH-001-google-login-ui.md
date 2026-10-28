@@ -5,6 +5,10 @@
 **Depende de:** `OAUTH-001` (backend, implementado) y `PROFILE-001` (tarjetas, parcial).
 **Referencia de producto:** `docs/product/product-requirements.md` (Google OAuth "infaltable").
 
+> **Nota de implementación (SEC-002, 2026-10-27):** la sesión ya no vive en `sessionStorage` ni el
+> login devuelve `accessToken`; se usa la cookie `HttpOnly` `CLASEYA_SESSION`, `/api/auth/me` y
+> CSRF. Ver `SEC-002-token-hardening-and-csp.md` y `ADR-020`.
+
 ---
 
 ## 1. Objetivo

@@ -43,6 +43,46 @@ jwt:
   secret: ${JWT_SECRET:dev-only-change-me-9f8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d0e9f8a}
   expiration: ${JWT_EXPIRATION:3600}
 
+# SEC-002: the JWT lives in an HttpOnly cookie. Secure must stay true outside local HTTP dev;
+# SameSite=Lax works for a same-site SPA/API, use None (+Secure) for a cross-site API.
+auth:
+  cookie:
+    secure: ${COOKIE_SECURE:true}
+    same-site: ${COOKIE_SAME_SITE:Lax}
+
+# RATE-001: in-memory abuse protection. Limits are per instance (see ADR-017).
+# Only login, registration, contact, messages and evidence upload are limited.
+security:
+  rate-limit:
+    enabled: ${RATE_LIMIT_ENABLED:true}
+    # Set true ONLY when a trusted proxy overwrites X-Forwarded-For/Forwarded.
+    trust-forwarded-headers: ${RATE_LIMIT_TRUST_FORWARDED_HEADERS:false}
+    max-entries: ${RATE_LIMIT_MAX_ENTRIES:50000}
+    idle-ttl: ${RATE_LIMIT_IDLE_TTL:PT30M}
+    cleanup-interval: ${RATE_LIMIT_CLEANUP_INTERVAL:PT5M}
+
+    login-ip:
+      limit: ${RATE_LIMIT_LOGIN_IP_LIMIT:30}
+      window: ${RATE_LIMIT_LOGIN_IP_WINDOW:PT1M}
+    login-account:
+      limit: ${RATE_LIMIT_LOGIN_ACCOUNT_LIMIT:5}
+      window: ${RATE_LIMIT_LOGIN_ACCOUNT_WINDOW:PT15M}
+    register-ip:
+      limit: ${RATE_LIMIT_REGISTER_IP_LIMIT:20}
+      window: ${RATE_LIMIT_REGISTER_IP_WINDOW:PT1H}
+    google-ip:
+      limit: ${RATE_LIMIT_GOOGLE_IP_LIMIT:30}
+      window: ${RATE_LIMIT_GOOGLE_IP_WINDOW:PT1M}
+    contact-user:
+      limit: ${RATE_LIMIT_CONTACT_USER_LIMIT:10}
+      window: ${RATE_LIMIT_CONTACT_USER_WINDOW:PT1H}
+    message-user:
+      limit: ${RATE_LIMIT_MESSAGE_USER_LIMIT:60}
+      window: ${RATE_LIMIT_MESSAGE_USER_WINDOW:PT1M}
+    upload-user:
+      limit: ${RATE_LIMIT_UPLOAD_USER_LIMIT:20}
+      window: ${RATE_LIMIT_UPLOAD_USER_WINDOW:PT1H}
+
 cors:
   # FRONTEND_URL may be a comma-separated list. Dev default includes the Vite port.
   allowed-origins: ${FRONTEND_URL:http://localhost:3000,http://localhost:5173}

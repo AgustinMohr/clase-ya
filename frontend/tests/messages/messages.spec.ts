@@ -7,12 +7,12 @@ test.describe('Mensajes', () => {
   let teacherB: TeacherRef;
 
   test.beforeEach(async ({ page }) => {
-    const token = await loginAs(page);
+    await loginAs(page);
     [teacherA, teacherB] = await publicTeachers(2);
     // Preconditions through the API: the list always has something to open, both threads
     // have content, and no assertion depends on leftovers from a previous run.
-    await ensureConversationWith(token, teacherA.id, uniqueText('precondición A'));
-    await ensureConversationWith(token, teacherB.id, uniqueText('precondición B'));
+    await ensureConversationWith(page, teacherA.id, uniqueText('precondición A'));
+    await ensureConversationWith(page, teacherB.id, uniqueText('precondición B'));
   });
 
   test(

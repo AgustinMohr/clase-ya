@@ -40,7 +40,7 @@ class JwtServiceTest {
     }
 
     @Test
-    void generateThenParse_returnsExpectedClaims() {
+    void generateThenParse_returnsMinimalClaims() {
         UUID id = UUID.randomUUID();
         AppUserDetails user = user(id, "jane@example.com", UserRole.TEACHER);
 
@@ -48,10 +48,12 @@ class JwtServiceTest {
         Claims claims = service().parseToken(token);
 
         assertEquals(id.toString(), claims.getSubject());
-        assertEquals("jane@example.com", claims.get("email", String.class));
-        assertEquals("TEACHER", claims.get("role", String.class));
+        assertNotNull(claims.getId(), "jti is required for future revocation");
         assertNotNull(claims.getIssuedAt());
         assertNotNull(claims.getExpiration());
+        // SEC-002: no PII (email) and no role: the backend reloads both from the database.
+        assertNull(claims.get("email"));
+        assertNull(claims.get("role"));
     }
 
     @Test

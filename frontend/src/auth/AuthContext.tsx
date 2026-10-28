@@ -1,69 +1,80 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { api, clearToken, getToken, LoginResponse, setToken, UNAUTHORIZED_EVENT } from '../api';
+import { api, type LoginResponse, type SessionUser, UNAUTHORIZED_EVENT } from '../api';
 
 export const GOOGLE_CLIENT_ID = (import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined) || '';
 
-export interface SessionUser {
-  id?: string;
-  email?: string;
-  name?: string;
-  role?: string;
-}
-
 interface AuthContextValue {
   user: SessionUser | null;
-  token: string | null;
+  /** True while the session cookie is being resolved through /api/auth/me. */
+  loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   loginWithGoogle: (idToken: string, role?: 'STUDENT' | 'TEACHER') => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-function decodeUser(token: string): SessionUser {
-  try {
-    const payload = token.split('.')[1];
-    const json = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
-    return { id: json.sub, email: json.email, role: json.role, name: json.email };
-  } catch {
-    return {};
-  }
-}
-
+/**
+ * Session state for the SPA. The JWT lives in an HttpOnly cookie (SEC-002 / ADR-020): it is never
+ * readable here, so the user is resolved from `/api/auth/me` on load.
+ */
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [token, setTokenState] = useState<string | null>(() => getToken());
-  const [user, setUser] = useState<SessionUser | null>(() => {
-    const t = getToken();
-    return t ? decodeUser(t) : null;
-  });
+  const [user, setUser] = useState<SessionUser | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const applySession = useCallback((response: LoginResponse) => {
-    setToken(response.accessToken);
-    setTokenState(response.accessToken);
-    setUser(decodeUser(response.accessToken));
+  useEffect(() => {
+    let active = true;
+    api
+      .me()
+      .then((session) => {
+        if (active) setUser(session);
+      })
+      .catch(() => {
+        // 401 simply means no session; a network failure leaves the UI logged out.
+        if (active) setUser(null);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
-  const logout = useCallback(() => {
-    clearToken();
-    setTokenState(null);
-    setUser(null);
+  const applySession = useCallback((response: LoginResponse) => {
+    setUser(response.user);
+    setLoading(false);
+  }, []);
+
+  const logout = useCallback(async () => {
+    try {
+      await api.logout();
+    } catch {
+      // The local session must end even if the server call fails.
+    } finally {
+      setUser(null);
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
-    const onUnauthorized = () => logout();
+    const onUnauthorized = () => {
+      setUser(null);
+      setLoading(false);
+    };
     window.addEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
     return () => window.removeEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
-  }, [logout]);
+  }, []);
 
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
-      token,
+      loading,
       login: async (email, password) => applySession(await api.login(email, password)),
       loginWithGoogle: async (idToken, role) => applySession(await api.loginWithGoogle(idToken, role)),
       logout,
     }),
-    [user, token, applySession, logout],
+    [user, loading, applySession, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

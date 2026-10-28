@@ -1,17 +1,21 @@
 package com.claseya.auth.service;
 
+import com.claseya.auth.dto.IssuedSession;
 import com.claseya.auth.dto.LoginRequest;
-import com.claseya.auth.dto.LoginResponse;
 import com.claseya.auth.dto.RegisterRequest;
 import com.claseya.auth.dto.RegisterResponse;
+import com.claseya.auth.dto.SessionUserResponse;
 import com.claseya.common.exception.EmailAlreadyExistsException;
 import com.claseya.common.exception.InvalidCredentialsException;
 import com.claseya.common.exception.InvalidRoleException;
+import com.claseya.common.exception.ResourceNotFoundException;
 import com.claseya.model.User;
 import com.claseya.model.enums.UserRole;
 import com.claseya.model.enums.UserStatus;
 import com.claseya.security.AppUserDetails;
+import com.claseya.security.CurrentUser;
 import com.claseya.security.JwtService;
+import com.claseya.security.ratelimit.LoginAttemptService;
 import com.claseya.user.UserRepository;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -32,15 +36,21 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
+    private final LoginAttemptService loginAttemptService;
+    private final CurrentUser currentUser;
 
     public AuthService(UserRepository userRepository,
                        PasswordEncoder passwordEncoder,
                        AuthenticationManager authenticationManager,
-                       JwtService jwtService) {
+                       JwtService jwtService,
+                       LoginAttemptService loginAttemptService,
+                       CurrentUser currentUser) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.authenticationManager = authenticationManager;
         this.jwtService = jwtService;
+        this.loginAttemptService = loginAttemptService;
+        this.currentUser = currentUser;
     }
 
     @Transactional
@@ -74,18 +84,26 @@ public class AuthService {
     }
 
     @Transactional
-    public LoginResponse login(LoginRequest request) {
+    public IssuedSession login(LoginRequest request) {
         String email = normalizeEmail(request.email());
+
+        // RATE-001: block before BCrypt when the account bucket is exhausted. The counter is
+        // keyed by email for every account (existing or not), so a 429 never reveals existence.
+        if (loginAttemptService.isBlocked(email)) {
+            throw loginAttemptService.blockedException(email);
+        }
 
         Authentication authentication;
         try {
             authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(email, request.password()));
         } catch (AuthenticationException ex) {
+            loginAttemptService.recordFailure(email);
             // Generic message to avoid account enumeration.
             throw new InvalidCredentialsException();
         }
 
+        loginAttemptService.reset(email);
         AppUserDetails principal = (AppUserDetails) authentication.getPrincipal();
 
         User managed = userRepository.findById(principal.getId())
@@ -94,7 +112,15 @@ public class AuthService {
         userRepository.save(managed);
 
         String token = jwtService.generateToken(principal);
-        return new LoginResponse(token, "Bearer", jwtService.getExpirationSeconds());
+        return new IssuedSession(token, SessionUserResponse.from(managed), jwtService.getExpirationSeconds());
+    }
+
+    /** Current session user for the SPA. Identity always comes from the SecurityContext. */
+    @Transactional(readOnly = true)
+    public SessionUserResponse me() {
+        User user = userRepository.findById(currentUser.id())
+                .orElseThrow(ResourceNotFoundException::new);
+        return SessionUserResponse.from(user);
     }
 
     private String normalizeEmail(String email) {
