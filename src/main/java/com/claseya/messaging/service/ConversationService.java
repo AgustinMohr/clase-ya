@@ -8,6 +8,7 @@ import com.claseya.messaging.dto.ConversationResponse;
 import com.claseya.messaging.dto.ConversationSummaryResponse;
 import com.claseya.messaging.dto.LastMessageResponse;
 import com.claseya.messaging.dto.SendMessageRequest;
+import com.claseya.messaging.repository.ConversationPairRepository;
 import com.claseya.messaging.repository.ConversationParticipantRepository;
 import com.claseya.messaging.repository.ConversationRepository;
 import com.claseya.messaging.repository.MessageRepository;
@@ -42,6 +43,7 @@ public class ConversationService {
 
     private final ConversationRepository conversationRepository;
     private final ConversationParticipantRepository participantRepository;
+    private final ConversationPairRepository conversationPairRepository;
     private final MessageRepository messageRepository;
     private final StudentProfileRepository studentProfileRepository;
     private final TeacherProfileRepository teacherProfileRepository;
@@ -50,6 +52,7 @@ public class ConversationService {
 
     public ConversationService(ConversationRepository conversationRepository,
                                ConversationParticipantRepository participantRepository,
+                               ConversationPairRepository conversationPairRepository,
                                MessageRepository messageRepository,
                                StudentProfileRepository studentProfileRepository,
                                TeacherProfileRepository teacherProfileRepository,
@@ -57,6 +60,7 @@ public class ConversationService {
                                TeacherVisibilityService teacherVisibilityService) {
         this.conversationRepository = conversationRepository;
         this.participantRepository = participantRepository;
+        this.conversationPairRepository = conversationPairRepository;
         this.messageRepository = messageRepository;
         this.studentProfileRepository = studentProfileRepository;
         this.teacherProfileRepository = teacherProfileRepository;
@@ -83,20 +87,34 @@ public class ConversationService {
         }
 
         // One conversation per student<->teacher pair for V1: reuse the existing one.
-        List<Conversation> existing =
-                conversationRepository.findBetween(studentUserId, teacher.getUser().getId());
+        UUID teacherUserId = teacher.getUser().getId();
+        List<Conversation> existing = conversationRepository.findBetween(studentUserId, teacherUserId);
         if (!existing.isEmpty()) {
             Conversation conversation = existing.get(0);
             sendInitialMessage(studentUserId, conversation.getId(), message);
             return new ConversationCreated(toResponse(conversation, studentUserId), false);
         }
 
-        Conversation conversation = new Conversation();
-        conversationRepository.saveAndFlush(conversation);
-        addParticipant(conversation, student.getUser());
-        addParticipant(conversation, teacher.getUser());
-        sendInitialMessage(studentUserId, conversation.getId(), message);
-        return new ConversationCreated(toResponse(conversation, studentUserId), true);
+        // RACE-01: a read-then-create race could create two conversations for the same pair.
+        // Create a candidate, then let the pair table (primary key on the pair) decide the owner.
+        // The request that loses deletes its empty candidate and reuses the winner's conversation.
+        Conversation candidate = new Conversation();
+        conversationRepository.saveAndFlush(candidate);
+        if (conversationPairRepository.claim(studentUserId, teacherUserId, candidate.getId()) == 0) {
+            conversationRepository.delete(candidate);
+            conversationRepository.flush();
+            Conversation winner = conversationPairRepository
+                    .findConversationId(studentUserId, teacherUserId)
+                    .flatMap(conversationRepository::findById)
+                    .orElseThrow(ResourceNotFoundException::new);
+            sendInitialMessage(studentUserId, winner.getId(), message);
+            return new ConversationCreated(toResponse(winner, studentUserId), false);
+        }
+
+        addParticipant(candidate, student.getUser());
+        addParticipant(candidate, teacher.getUser());
+        sendInitialMessage(studentUserId, candidate.getId(), message);
+        return new ConversationCreated(toResponse(candidate, studentUserId), true);
     }
 
     /**

@@ -8,12 +8,18 @@ un modelo genérico de participantes (Conversation N:N User).
 
 ## Decisión
 En V1 hay **una única conversación por par** student-teacher: al crear se busca la existente entre
-los dos usuarios y se devuelve (HTTP 200) en lugar de crear otra. La regla se garantiza en el
-**service** + tests porque no es expresable como constraint SQL simple sobre
-`conversation_participants`. La carrera de creación simultánea se documenta como limitación
-aceptada (un raro doble POST podría crear dos; el service resuelve determinísticamente después).
+los dos usuarios y se devuelve (HTTP 200) en lugar de crear otra.
+
+**Actualización (RACE-01, V12):** la unicidad ya **no** depende del service. El par es la clave
+natural de la conversación, así que vive en `conversation_pairs`
+`(student_user_id, teacher_user_id)` con PK compuesta y `conversation_id` único. La creación hace
+`INSERT ... ON CONFLICT DO NOTHING`; el request que pierde borra su conversación candidata (vacía) y
+reutiliza la del ganador. La carrera de doble POST queda cerrada por la base, no por una lectura
+previa.
 
 ## Consecuencias
 - + UX simple y sin conversaciones duplicadas en el flujo normal.
-- - Sin garantía DB absoluta de unicidad por par (limitación documentada).
+- + Garantía de unicidad por par en la base, incluidas requests concurrentes (RACE-01).
+- + Las conversaciones legacy sin fila en `conversation_pairs` siguen funcionando por el lookup
+  previo; no se hizo backfill para no colisionar con pares ya duplicados.
 - - Si el producto requiere "reabrir/agrupar" conversaciones, cambiará la regla (requiere spec).

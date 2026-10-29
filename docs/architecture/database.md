@@ -42,6 +42,7 @@ mensajería.
   `subjects.normalized_name`, pares `(university_id, name/code)`, `(academic_unit_id, code)`,
   `(career_id, subject_id)`, `(teacher_id, career_subject_id)`.
 - `favorites (student_id, teacher_id)`; `conversation_participants (conversation_id, user_id)`;
+  `conversation_pairs (student_user_id, teacher_user_id)` con `conversation_id` único (V12, RACE-01);
   `reviews.booking_id`; `calendly_integrations.teacher_id`. Las tablas de bookings/reviews/reports/
   notifications/calendly son **legacy** (ver `ADR-024`): se conservan en el schema, sin entidades JPA.
 - CHECK de rangos (rating 1-5, lat/lng, `current_year`, `duration_minutes`, años, semestre),
@@ -73,7 +74,7 @@ mensajería.
 - Histórico real: `V1` create schema · `V2` teacher_modalities · `V3` users.name + índices de
   búsqueda · `V4` índice de mensajería · `V5` availability_windows · `V6` Google OAuth · `V7`
   teacher cards · `V8` verification circuit · `V9` activación por email · `V10` object storage ·
-  `V11` índices de caminos calientes.
+  `V11` índices de caminos calientes · `V12` conversación única por par (RACE-01).
 
 ## Borrado y normalización
 
