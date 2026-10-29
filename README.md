@@ -112,13 +112,11 @@ email). No es un producto terminado.
 
 ### En desarrollo o no implementadas (no las uses como si existieran)
 
-- **Opiniones y rating**: el modelo (Review) y los agregados (`ratingAverage`/`ratingCount`) existen,
-  pero todavía **no hay lógica para crear opiniones**; el perfil muestra un mensaje de “próxima fase”.
-- **Activación de cuentas**: el registro por contraseña envía un enlace de un solo uso
-  (`POST /api/auth/activate`); sin SMTP configurado el registro responde `503`. Las cuentas nuevas
-  creadas con Google quedan `ACTIVE`.
-- **Notificaciones por email**, **contraseña olvidada**, **MFA** y **refresh tokens**: no
-  implementados.
+- **Opiniones y rating**: los agregados (`ratingAverage`/`ratingCount`) existen en el perfil, pero
+  **no hay modelo ni lógica de opiniones** (`Review` se retiró en `ADR-024`); el perfil muestra un
+  mensaje de “próxima fase”.
+- **Notificaciones por email de contactos**, **contraseña olvidada**, **MFA** y **refresh tokens**:
+  no implementados. (La activación de cuentas sí está implementada: ver “Cuenta y acceso”.)
 - **Chat en tiempo real (WebSockets)**: no implementado (los servicios están preparados para
   reutilizarse).
 - **Reservas / agenda / pagos / Calendly**: **fuera del rumbo del producto** (ver sección 10).
@@ -649,8 +647,8 @@ reutilización deliberada de helpers de presentación entre módulos (favoritos 
 - Circuito de verificación académica con evidencia documental, auditoría y decisiones de admin.
 
 ### En desarrollo
-- **Opiniones y rating** (modelo listo, sin lógica de creación todavía).
-- **Flujo de activación de cuentas** y notificaciones por email.
+- **Opiniones y rating** (sin modelo ni lógica de creación; `ADR-024` retiró el modelo legacy).
+- **Notificación de contactos por email** (la activación de cuentas ya está implementada).
 - Chat en tiempo real (WebSockets); el rate limiting básico ya está implementado (RATE-001).
 
 ### Fuera del alcance actual (documentado, no descartado a futuro)

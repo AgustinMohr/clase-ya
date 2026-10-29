@@ -4,13 +4,15 @@ Documenta cómo se ejecutan realmente los tests del proyecto.
 
 ## Tipos de tests
 
-- **Unitarios** (sin Spring ni DB): hoy `JwtServiceTest` (generación/validación de tokens:
-  claims, expirado, manipulado, clave incorrecta).
+- **Unitarios** (sin Spring ni DB, con mocks donde hace falta): JWT (`JwtServiceTest`,
+  `JwtSecretValidatorTest`), rate limiting (`security/ratelimit/*Test`), política de contraseñas,
+  CAPTCHA de Turnstile, validación del `id_token` de Google y almacenamiento/escaneo de evidencia
+  (`S3DocumentStorageTest`, `ClamAvDocumentScannerTest`, `VerificationDocumentServiceTest`).
 - **Integración** (`*IntegrationTest`, con `@SpringBootTest` + MockMvc + Testcontainers):
   prueban el stack completo sobre PostgreSQL 16 real (auth, dominio académico, perfiles, búsqueda,
-  favoritos, mensajería, disponibilidad y verificación). La suite actual tiene **301 tests**
-  (unitarios + integración). El frontend suma **24 tests de Vitest** (lógica pura y componentes) y
-  **40 E2E** de Playwright.
+  favoritos, mensajería, disponibilidad, verificación y endurecimiento HTTP). La suite actual tiene
+  **324 métodos de test** (unitarios + integración, conteo estático). El frontend suma **24 tests de
+  Vitest** (lógica pura y componentes) y **40 E2E** de Playwright.
 
 ## Infraestructura compartida
 

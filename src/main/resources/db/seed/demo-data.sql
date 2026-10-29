@@ -240,7 +240,7 @@ FROM generate_series(1, 35) AS i
 ON CONFLICT (email) DO NOTHING;
 
 -- --- Administrador -----------------------------------------------------------
--- Recuerda: ADMIN no puede auto-registrarse; esta cuenta permite probar /api/test/admin.
+-- Recuerda: ADMIN no puede auto-registrarse; esta cuenta permite probar el panel de verificación.
 INSERT INTO users (email, name, password_hash, role, status, created_at, updated_at, last_login_at)
 VALUES ('admin@claseya.dev', 'Administrador ClaseYa', crypt('Password123', gen_salt('bf')),
         'ADMIN', 'ACTIVE', now(), now(), NULL)

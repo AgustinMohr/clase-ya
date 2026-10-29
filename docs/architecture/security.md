@@ -40,9 +40,10 @@ real; ver el paquete `security` y `SecurityConfig`.
 - **Contenedor (OPS-002):** la imagen final corre como usuario `app` (no-root), declara
   `HEALTHCHECK` contra `/actuator/health` y arranca la JVM con `-XX:MaxRAMPercentage=75`. La
   configuración local (`application-local.yml`, `.env`) queda fuera del contexto de build.
-- **Evidencia (STOR-001):** bucket privado S3/R2 (`storage_key`), ClamAV INSTREAM antes de guardar
-  (infectado → 400, escáner caído → 503), sin exponer la key al navegador. Las filas legacy en
-  `bytea` se leen con dual-read. Sin URLs prefirmadas en esta fase.
+- **Evidencia (STOR-001):** bucket privado S3/R2 (`storage_key`); con `SCAN_ENABLED=true`, ClamAV
+  INSTREAM antes de guardar (infectado → 400, escáner caído → 503). Sin escáner configurado la
+  evidencia se guarda sin analizar, porque el default es `false`. Sin exponer la key al navegador;
+  las filas legacy en `bytea` se leen con dual-read. Sin URLs prefirmadas en esta fase.
 
 ## Observabilidad
 
@@ -97,9 +98,12 @@ público).
 
 ## Visibilidad pública (aplicada en backend)
 
-La búsqueda/detalle/favoritos/contacto de profesores solo considera profesores con
-`verificationStatus = VERIFIED` **y** `user.status = ACTIVE`. Cualquier otro caso se comporta como
-404. La regla se aplica en el backend, nunca delegada al frontend.
+Los resultados de búsqueda, el detalle, los favoritos, el contacto y la disponibilidad solo incluyen
+profesores con `user.status = ACTIVE` **y** el anuncio publicado (D1, TEACHER-001): nombre, bio, al
+menos una materia activa, una modalidad y una ventana de disponibilidad. La verificación **no** es
+condición de existencia: solo agrega el distintivo de confianza. Cualquier otro caso se comporta como
+404. La regla tiene una única definición (`TeacherSpecifications.visible()` y
+`TeacherVisibilityService`) y se aplica en el backend, nunca delegada al frontend.
 
 ## Datos sensibles
 
@@ -146,6 +150,6 @@ headers `Authorization`/`Content-Type`; credenciales permitidas; sin wildcard.
 
 ## FUTURO (documentado, no implementado)
 
-Rate limiting **distribuido** (Redis); refresh tokens; verificación de email/activación; password
-reset; MFA; social login; panel de moderación admin; transporte WebSockets (reutiliza los services
-existentes).
+Rate limiting **distribuido** (Redis); refresh tokens; revocación server-side de JWT (`jti`);
+password reset; MFA; panel de moderación de anuncios y reportes; transporte WebSockets (reutiliza
+los services existentes).

@@ -10,7 +10,7 @@ PUBLISHED announcement, TEACHER-001 D1) are applied server-side, with an optiona
 
 ```
 GET /api/teachers          public teacher search (paginated)
-GET /api/teachers/{id}     public teacher detail (404 unless verified + active)
+GET /api/teachers/{id}     public teacher detail (404 unless ACTIVE + published announcement, D1)
 ```
 
 `POST/PUT /api/teachers/...` (profile management) remain `TEACHER`/`ADMIN`; `GET /api/teachers/me`
@@ -124,6 +124,7 @@ location. 404 for a non-public teacher detail. No stack traces or SQL leak.
 
 ## Future (documented, not implemented)
 
-- Favorites, bookings, Calendly, reviews (will feed rating fields), notifications, messaging.
-- Elasticsearch / full-text when the catalog grows or ranking gets complex; Redis cache;
-  rate limiting. Current V1 uses PostgreSQL only.
+- Reviews and email notification of new contacts. Both need a product decision plus a spec; the
+  legacy `Review`/`Notification` models were removed in `ADR-024`.
+- Full-text ranking and Redis-backed (multi-instance) rate limiting when the catalog or the number
+  of instances grows. Current V1 uses PostgreSQL only; rate limiting is in-memory per instance.

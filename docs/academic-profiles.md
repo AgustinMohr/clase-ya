@@ -7,8 +7,8 @@ as a join table, because a teacher may offer both.
 
 ## Quick path
 
-1. Log in as an **ADMIN** (accounts start `PENDING`; activation is still a future phase, so set
-   the status to `ACTIVE` in the DB or via seed to exercise the API).
+1. Log in as an **ADMIN** (accounts start `PENDING` and activate through the emailed link,
+   `AUTH-001`; the demo seed ships already-active fixtures for local use).
 2. Create the catalog: university → academic unit → career → subject → career-subject.
 3. Log in as a **STUDENT**/**TEACHER** and `POST` their profile; the teacher then adds
    education, subjects and modalities.
@@ -148,7 +148,7 @@ POST /api/students/profile
 
 ## Future (documented, not implemented)
 
-- User activation flow (registration still creates `PENDING` accounts; only `ACTIVE` can log in).
-- Search/filters by subject, modality and proximity; PostGIS.
-- Reviews (which will maintain `ratingAverage`/`ratingCount`), bookings, messaging, favorites.
-- Full admin panel (verification workflow for teachers and education).
+- Reviews. Needs a product decision plus a spec; the legacy model was removed in `ADR-024`.
+- Moderation panel for reports and announcements (a UI for the existing verification API).
+- PostGIS for precise geography; proximity currently uses a numeric bounding box (`ADR-007`).
+- Email notification of new contacts.
