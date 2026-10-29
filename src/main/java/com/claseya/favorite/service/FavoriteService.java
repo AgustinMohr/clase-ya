@@ -10,17 +10,19 @@ import com.claseya.favorite.repository.FavoriteRepository;
 import com.claseya.model.Favorite;
 import com.claseya.model.StudentProfile;
 import com.claseya.model.TeacherProfile;
-import com.claseya.model.enums.UserStatus;
 import com.claseya.student.repository.StudentProfileRepository;
 import com.claseya.teacher.dto.SearchResultPage;
 import com.claseya.teacher.dto.TeacherSummaryResponse;
 import com.claseya.teacher.repository.TeacherProfileRepository;
 import com.claseya.teacher.service.TeacherSummaryAssembler;
 import com.claseya.teacher.service.TeacherVisibilityService;
+import com.claseya.teacher.specification.TeacherSpecifications;
+import jakarta.persistence.criteria.Path;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -97,8 +99,7 @@ public class FavoriteService {
 
         Sort sort = Sort.by(Sort.Order.desc("createdAt"), Sort.Order.asc("id"));
         Pageable pageable = PageRequest.of(page, size, sort);
-        Page<Favorite> favorites =
-                favoriteRepository.findVisibleByStudent(student.getId(), UserStatus.ACTIVE, pageable);
+        Page<Favorite> favorites = favoriteRepository.findAll(visibleTo(student.getId()), pageable);
 
         List<TeacherProfile> teachers = favorites.getContent().stream()
                 .map(Favorite::getTeacher)
@@ -125,6 +126,20 @@ public class FavoriteService {
         return favoriteRepository.findByStudent_IdAndTeacher_Id(student.getId(), teacherId)
                 .map(fav -> new FavoriteStatusResponse(teacherId, true, fav.getId()))
                 .orElseGet(() -> new FavoriteStatusResponse(teacherId, false, null));
+    }
+
+    /**
+     * D1 as a {@link Specification} over favorites: the teacher must be ACTIVE and have a
+     * published announcement. It delegates to the canonical predicate instead of restating the
+     * rule, so a change in D1 cannot leave favorites behind (ARCH-01).
+     */
+    private Specification<Favorite> visibleTo(UUID studentId) {
+        return (root, query, cb) -> {
+            Path<TeacherProfile> teacher = root.get("teacher");
+            return cb.and(
+                    cb.equal(root.get("student").get("id"), studentId),
+                    TeacherSpecifications.visibleTeacher(teacher, query, cb));
+        };
     }
 
     private StudentProfile requireStudentProfile(UUID userId) {
