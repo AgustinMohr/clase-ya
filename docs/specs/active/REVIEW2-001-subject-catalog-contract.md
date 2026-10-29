@@ -24,13 +24,15 @@ Visitante (landing/autocompletado), TEACHER (selector de materias), ADMIN (catá
 
 ## 4. Requisitos funcionales
 
-- **RF-1** `GET /api/subjects/popular?limit=12` devuelve hasta `limit` materias activas, ordenadas
-  por uso (cantidad de `teacher_subjects` activos) y, a igualdad, por nombre. `limit` 1..50.
+- **RF-1** `GET /api/subjects/popular?limit=12` devuelve hasta `limit` materias activas **con al
+  menos un docente activo**, ordenadas por uso (cantidad de `teacher_subjects` activos agrupados por
+  `career_subjects.subject_id`) y, a igualdad, por nombre. `limit` 1..50.
 - **RF-2** `GET /api/subjects` acepta `page` (>=0) y `size` (1..100) y devuelve
   `SearchResultPage<SubjectResponse>`; el default es `size=50`.
 - **RF-3** `GET /api/subjects?query=` mantiene la búsqueda por nombre, ahora paginada.
-- **RF-4** El frontend usa `popular` para la landing y el autocompletado, y `page/size` para los
-  selectores.
+- **RF-4** La landing usa `popular`. El autocompletado consulta
+  `GET /api/subjects?query=&size=10` (con debounce) y los selectores usan `page/size`; ninguno
+  precarga el catálogo completo.
 - **RF-5** Un `limit`/`size` fuera de rango devuelve 400 con `ApiError`.
 
 ## 5. Requisitos no funcionales
@@ -38,8 +40,8 @@ Visitante (landing/autocompletado), TEACHER (selector de materias), ADMIN (catá
 - La landing no debe pedir más de 12 materias ni volver a descargar el catálogo completo.
 - `popular` se resuelve en una consulta agregada (`group by subject`, `order by count desc`),
   sin N+1.
-- Ambas respuestas son cacheables con `Cache-Control: public, max-age=60`,
-  `ETag`/`If-None-Match`.
+- Ambas respuestas llevan `Cache-Control: public, max-age=60`. No se promete `ETag`: la
+  invalidación por TTL de 60 s es suficiente y más simple que versionar el catálogo.
 
 ## 6. Seguridad
 
@@ -63,6 +65,9 @@ GET /api/subjects?page=0&size=50&query=mate
 400 ApiError si page<0 o size fuera de 1..100
 ```
 
+> **Cambio incompatible:** `GET /api/subjects` pasa de `Subject[]` a `SearchResultPage`. Hay que
+> actualizar `useCatalog` y el autocompletado en el mismo cambio; no se mantienen ambas formas.
+
 ## 9. Datos afectados
 
 Sin migración nueva: V11 ya agregó el índice parcial. `popular` usa `teacher_subjects` (índice
@@ -74,7 +79,8 @@ existente por `career_subject_id`) y `subjects.active`.
 - AC-2: la landing hace una sola request y recibe <= 12 materias.
 - AC-3: `popular` ordena por cantidad de profesores y desempata por nombre.
 - AC-4: `size=0` y `size=101` → 400.
-- AC-5: el autocompletado filtra sobre `popular` sin pedir el catálogo completo.
+- AC-5: con 3.000 materias, escribir "álgebra" en el buscador encuentra la materia aunque no esté
+  entre las 12 populares (consulta server-side, sin precargar el catálogo).
 
 ## 11. Out of scope
 

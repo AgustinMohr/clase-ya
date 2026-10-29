@@ -49,7 +49,8 @@ profesor con precio/valoración/modalidad y un **contacto** protegido.
 
 ## 4. Cuentas y autenticación
 
-- **Registro e inicio de sesión con Google OAuth (obligatorio)**. Rol a elegir al registrarse:
+- **Registro e inicio de sesión con Google OAuth o email + contraseña**. El registro por email se
+  activa con un enlace de un solo uso enviado al correo. Rol a elegir al registrarse:
   **STUDENT** o **TEACHER**.
 - Política de menores: la cuenta de un menor la crea/opera su adulto responsable (términos claros).
 - Un usuario puede tener perfil de estudiante y, si corresponde, de profesor (a decidir en detalle
@@ -78,7 +79,7 @@ profesor con precio/valoración/modalidad y un **contacto** protegido.
 reservas automáticas.
 
 **Flujo de "Contact request" (v1):**
-1. El estudiante (autenticado con Google) elige un profesor → botón **Contactar**.
+1. El estudiante (autenticado con Google o email) elige un profesor → botón **Contactar**.
 2. Formulario breve: materia de interés, mensaje corto (opcional), **franja** preferida
    (mañana/tarde/noche) y rol ("soy estudiante" / "soy padre/madre de un estudiante de X").
 3. ClaseYa crea una **solicitud de contacto** y un **hilo de conversación interna**.
@@ -90,10 +91,8 @@ reservas automáticas.
 **Reglas y anti-abuso:**
 - Un "contacto" **no reserva** nada ni obliga a ninguna de las partes.
 - Límites de contacto (por usuario/día y por profesor) + rate-limit.
-- OAuth obligatorio para actuar; sin cuentas anónimas.
+- Autenticación obligatoria para actuar; sin cuentas anónimas.
 - Posibilidad de **reportar** contactos/profesores; moderación.
-- (Futuro documentado) chat en tiempo real/videollamada y coordinación de clase solo cuando ambas
-  partes lo acuerden.
 
 **Privacidad:** nunca se expone email, teléfono, dirección exacta ni coordenadas en perfiles,
 resultados ni conversaciones ajenas.

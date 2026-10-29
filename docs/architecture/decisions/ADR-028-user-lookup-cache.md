@@ -23,7 +23,12 @@ siguiente (no hay revocación de JWT). Cualquier caché amplía esa ventana.
 
 ## Decisión propuesta
 
-**B ahora, C cuando haya más de una instancia**, con estas condiciones:
+**A ahora** (eliminar las re-consultas redundantes de los services, sin caché) y **medir** antes de
+dar el siguiente paso. **B solo después de esa medición y solo con una instancia**: con N instancias
+B no es seguro, porque la invalidación en memoria no cruza instancias; allí se necesita C con caché
+distribuida, o volver a A.
+
+Si la medición justifica B, con estas condiciones:
 
 1. TTL máximo de 30 s y tamaño máximo acotado (p. ej. 10.000 entradas).
 2. El caché guarda solo `id`, `email`, `role`, `status` (sin `passwordHash`).

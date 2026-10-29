@@ -29,18 +29,28 @@ STUDENT (inicia contacto), TEACHER (recibe el aviso), ADMIN (reintentos/observab
 
 - **RF-1** Toda acción que deba enviar un email encola una fila en `notification_outbox` **dentro**
   de la transacción; el envío ocurre **después** del commit.
-- **RF-2** Un worker toma pendientes con `FOR UPDATE SKIP LOCKED`, envía con el proveedor configurado
-  y marca `SENT`/`FAILED` con `attempts`, `last_error`, `next_attempt_at`.
+- **RF-2** Un worker toma pendientes con `FOR UPDATE SKIP LOCKED`, marca `SENDING` con
+  `locked_until` (lease de 2 min), envía con el proveedor configurado y marca `SENT`/`FAILED` con
+  `attempts`, `last_error`, `next_attempt_at`. Un `SENDING` con lease vencido vuelve a `PENDING`
+  (worker caído).
 - **RF-3** Reintentos con backoff exponencial (1 min, 5, 15, 60, 240) y tope de 5 intentos;
   agotado el tope queda `DEAD` y se registra métrica/alerta.
 - **RF-4** Al crear un contacto (`POST /api/conversations`), se encola un aviso al profesor con un
-  enlace firmado de un solo uso (TTL 7 días) que abre `/mensajes/:id`.
+  enlace firmado de un solo uso (TTL 7 días) que abre `/mensajes/:id`. La clave de deduplicación es
+  `contact:<conversationId>`: un mensaje posterior en el mismo hilo **no** genera otro aviso (el PRD
+  pide avisar del contacto, no de cada mensaje).
 - **RF-5** El enlace no revela el email del estudiante ni datos de contacto.
-- **RF-6** `POST /api/auth/register` deja de fallar por SMTP: la cuenta se crea y el email se
-  reintenta. Si el transporte no está configurado, el registro responde 202 igual y la fila queda
-  `DEAD` con error explícito (nunca una cuenta inactivable silenciosa).
+- **RF-6** El outbox cubre **fallos transitorios**, no la ausencia de transporte. Sin SMTP
+  configurado el registro sigue respondiendo **503 y no crea la cuenta**: con email+contraseña como
+  camino de primera clase (PRD §4), crear una cuenta que nadie puede activar es peor que fallar. Con
+  transporte configurado, un fallo de envío después del commit deja la fila `PENDING`/`FAILED` y el
+  worker reintenta. Opcional en REVIEW: extender `ProductionConfigValidator` para exigir `MAIL_HOST`
+  fuera de `local`/`test`.
 - **RF-7** El upload de evidencia escanea y guarda **antes** de abrir la transacción de persistencia;
-  si la persistencia falla, se borra el objeto huérfano (ya existe el cleanup).
+  si la persistencia falla, se borra el objeto huérfano (ya existe el cleanup). La cuota (5
+  documentos / 25 MB) se valida **de nuevo** dentro de la transacción: si el escaneo ocurre antes,
+  dos uploads concurrentes podrían pasarse del tope. Mitigación: reservar la cuota con un
+  `SELECT ... FOR UPDATE` sobre la credencial o un contador atómico.
 
 ## 5. Requisitos no funcionales
 
@@ -85,7 +95,9 @@ create index idx_notification_outbox_due on notification_outbox (next_attempt_at
   where status in ('PENDING','FAILED');
 ```
 
-Tabla de tokens de deep link (`message_link_tokens`) si no se reutiliza `email_verification_tokens`.
+Tabla de tokens de deep link: **se crea una tabla propia** `message_link_tokens` (o
+`one_time_tokens` con `purpose`), **no** se reutiliza `email_verification_tokens`: distinto
+propósito, TTL y audiencia. Reutilizarla acopla dos flujos de seguridad y complica la revocación.
 
 ## 9. Criterios de aceptación
 

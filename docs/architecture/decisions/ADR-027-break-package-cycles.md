@@ -41,6 +41,15 @@ Invertir las dependencias con **puertos pequeños en el módulo que posee el con
 
 Regla permanente: **un módulo no importa el paquete `repository` de otro**; solo `dto`/puertos.
 
+**Los puertos viven en el módulo consumidor**, no en el proveedor: `teacher` declara lo que necesita
+de `availability`/`verification`, y esos módulos implementan. Así la flecha de compilación apunta
+del proveedor al consumidor y el ciclo desaparece.
+
+Excepciones que este ADR **no** elimina (se declaran explícitas en ArchUnit):
+`favorite → teacher.dto/TeacherSummaryAssembler` y
+`messaging → teacher.dto/student.repository/teacher.repository`. Son helpers de presentación y
+lookups de lectura, no reglas de dominio; `messaging` ya valida ownership en su propio service.
+
 ## Consecuencias
 
 - + `teacher` y `availability` dejan de depender mutuamente; `verification` depende de `teacher`
