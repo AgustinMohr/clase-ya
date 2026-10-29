@@ -1,0 +1,41 @@
+name: Container scan
+
+# The backend image is what actually ships. Scan it on main and weekly (base-image CVEs appear
+# after the build), not on every PR: the build adds minutes to a review that ci.yml already gates.
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '41 4 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  trivy:
+    name: Build image and scan (Trivy)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: claseya-backend:scan
+      - uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: claseya-backend:scan
+          format: sarif
+          output: trivy-results.sarif
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+      - uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-results.sarif
+          category: trivy-image

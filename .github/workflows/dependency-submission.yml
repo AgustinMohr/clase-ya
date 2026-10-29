@@ -1,0 +1,27 @@
+name: Dependency submission
+
+# Maven has no lockfile, so GitHub's dependency graph only knows about the pom when this job
+# submits the resolved tree. Without it, Dependabot alerts and dependency-review cannot see
+# Spring, Tomcat, Jackson or the AWS SDK (OPS-01).
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  submit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      - uses: advanced-security/maven-dependency-submission-action@v4
+        with:
+          directory: .

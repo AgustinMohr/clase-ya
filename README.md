@@ -170,10 +170,15 @@ email). No es un producto terminado.
 - **Dependabot** para Maven (raíz: Spring/Testcontainers) y npm (`frontend`: Vite + React).
 - **Tests** con Maven + Testcontainers y E2E con Playwright; scripts de PowerShell para
   test/verify/E2E/seed.
-- **CI en GitHub Actions** (`.github/workflows/ci.yml`): backend `mvn clean verify` con
+- **Cobertura medida y exigida** (JaCoCo): piso de 85 % de líneas y 70 % de ramas en `verify`
+  (baseline actual: 89,5 % / 74,5 %).
+- **CI en GitHub Actions**: `.github/workflows/ci.yml` (backend `mvn clean verify` con
   Testcontainers, frontend lint/unit tests/typecheck/build/audit, E2E Playwright con PostgreSQL +
-  demo seed y dependency review en pull requests. Para que sea un gate obligatorio, activar branch
-  protection en `main` con los checks `Backend`, `Frontend`, `E2E` y `Dependency review`.
+  demo seed y dependency review en PRs), `codeql.yml` (Java + TypeScript),
+  `dependency-submission.yml` (árbol Maven al dependency graph, que es lo que alimenta las alertas)
+  y `container-scan.yml` (Trivy sobre la imagen, semanal y en `main`). Para que sea un gate
+  obligatorio, activar branch protection en `main` con los checks `Backend`, `Frontend`, `E2E`,
+  `Dependency review`, `Analyze` y `Container scan`.
 
 ---
 
