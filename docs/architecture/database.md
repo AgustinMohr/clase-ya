@@ -63,13 +63,17 @@ mensajería.
 - Favoritos/mensajería: el UNIQUE de `favorites(student_id, teacher_id)` cubre por `student_id`;
   `conversation_participants(user_id)`, `messages(conversation_id, sender_id)`,
   `messages(conversation_id, created_at)` (V4).
+- Caminos calientes (V11): `messages(conversation_id) WHERE read_at IS NULL` (conteo y marcado de
+  no leídos) y `subjects(name) WHERE active` (catálogo de la landing).
 
 ## Reglas de migraciones
 
 - El schema es propiedad de Flyway; **nunca** editar migraciones aplicadas/históricas (`V1..V{n}`).
 - Cambios nuevos = `V{n+1}__descripcion.sql` con motivo justificado y sin tocar lo anterior.
 - Histórico real: `V1` create schema · `V2` teacher_modalities · `V3` users.name + índices de
-  búsqueda · `V4` índice de mensajería · `V5` availability_windows (AVAIL-001).
+  búsqueda · `V4` índice de mensajería · `V5` availability_windows · `V6` Google OAuth · `V7`
+  teacher cards · `V8` verification circuit · `V9` activación por email · `V10` object storage ·
+  `V11` índices de caminos calientes.
 
 ## Borrado y normalización
 
