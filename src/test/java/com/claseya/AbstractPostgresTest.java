@@ -1,5 +1,6 @@
 package com.claseya;
 
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -9,6 +10,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
  * per-class lifecycle restarts the shared container between classes and hangs on
  * this Docker setup, so the container is started once here and stopped on JVM exit.
  */
+@ActiveProfiles("test")
 public abstract class AbstractPostgresTest {
 
     protected static final String TEST_SECRET = "test-secret-that-is-at-least-thirty-two-bytes-long-for-hmac-sha-256";

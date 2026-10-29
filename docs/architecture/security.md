@@ -44,6 +44,8 @@ real; ver el paquete `security` y `SecurityConfig`.
   INSTREAM antes de guardar (infectado → 400, escáner caído → 503). Sin escáner configurado la
   evidencia se guarda sin analizar, porque el default es `false`. Sin exponer la key al navegador;
   las filas legacy en `bytea` se leen con dual-read. Sin URLs prefirmadas en esta fase.
+- **Guard de arranque (CFG-01):** `ProductionConfigValidator` impide arrancar fuera de
+  `local`/`test` si `SCAN_ENABLED` o `CAPTCHA_ENABLED` no son `true`, o si `DEMO_SEED` es `true`.
 
 ## Observabilidad
 

@@ -410,7 +410,7 @@ desarrollo**:
 | `FRONTEND_URL` | `http://localhost:3000,http://localhost:5173` | Orígenes permitidos por CORS (lista separada por comas) |
 | `GOOGLE_CLIENT_ID` | *(vacío)* | Client ID de Google; necesario para el login con Google |
 | `GOOGLE_ISSUER` | `https://accounts.google.com` | Emisor esperado del `id_token` |
-| `DEMO_SEED` | `false` | Sembrar el dataset demo al arrancar (opt-in) |
+| `DEMO_SEED` | `false` | Sembrar el dataset demo al arrancar (opt-in). **Debe ser `false` fuera de `local`/`test`** |
 | `PORT` | `8080` | Puerto del servidor |
 | `RATE_LIMIT_ENABLED` | `true` | Activa/desactiva el limitador (RATE-001) |
 | `APP_BASE_URL` | `http://localhost:5173` | Origen público de la SPA; base de los enlaces de activación |
@@ -419,7 +419,7 @@ desarrollo**:
 | `MAIL_HOST` / `MAIL_PORT` | *(vacío)* / `587` | SMTP del email de activación; sin host el registro responde `503` |
 | `MAIL_USERNAME` / `MAIL_PASSWORD` | *(vacío)* | Credenciales SMTP |
 | `MAIL_FROM` | `no-reply@claseya.app` | Remitente del email de activación |
-| `CAPTCHA_ENABLED` | `false` | Exige CAPTCHA (Turnstile) en el registro |
+| `CAPTCHA_ENABLED` | `false` | Exige CAPTCHA (Turnstile) en el registro. **Debe ser `true` fuera de `local`/`test`** |
 | `TURNSTILE_SECRET` | *(vacío)* | Secret de Turnstile; obligatorio si `CAPTCHA_ENABLED=true` |
 | `TURNSTILE_VERIFY_URL` | `https://challenges.cloudflare.com/turnstile/v0/siteverify` | Endpoint de verificación |
 | `STORAGE_PROVIDER` | `postgres` | `postgres` (bytea) o `s3` (R2/S3) |
@@ -428,7 +428,7 @@ desarrollo**:
 | `STORAGE_BUCKET` | *(vacío)* | Bucket privado de evidencia |
 | `STORAGE_ACCESS_KEY` / `STORAGE_SECRET_KEY` | *(vacío)* | Credenciales del bucket |
 | `STORAGE_PATH_STYLE` | `false` | `true` si el proveedor lo requiere |
-| `SCAN_ENABLED` | `false` | Exige ClamAV antes de guardar evidencia |
+| `SCAN_ENABLED` | `false` | Exige ClamAV antes de guardar evidencia. **Debe ser `true` fuera de `local`/`test`** |
 | `CLAMAV_HOST` / `CLAMAV_PORT` | `localhost` / `3310` | ClamAV INSTREAM |
 | `CLAMAV_TIMEOUT_MS` | `5000` | Timeout del escaneo |
 | `RATE_LIMIT_TRUST_FORWARDED_HEADERS` | `false` | Confía en `X-Forwarded-For`/`Forwarded` solo detrás de un proxy confiable |
@@ -440,6 +440,11 @@ por entorno. Ver `docs/architecture/security.md` y el ADR-017.
 
 En producción, la evidencia usa `STORAGE_PROVIDER=s3` + `SCAN_ENABLED=true` (ClamAV). Sin el
 escáner, el sistema no debe recibir evidencia real.
+
+**Guard de arranque (CFG-01):** fuera de los perfiles `local` y `test`, la aplicación **no arranca**
+si `SCAN_ENABLED` o `CAPTCHA_ENABLED` no son `true`, o si `DEMO_SEED` es `true`
+(`ProductionConfigValidator`). Es a propósito: un deploy que olvide una variable falla fuerte en vez
+de servir evidencia sin escanear o aceptar registros sin desafío.
 
 ### Base de datos local (Docker)
 
