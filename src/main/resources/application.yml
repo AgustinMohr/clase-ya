@@ -50,6 +50,12 @@ spring:
           auth: ${MAIL_SMTP_AUTH:true}
           starttls:
             enable: ${MAIL_SMTP_STARTTLS:true}
+          # Bounded on purpose: the activation email is sent inside the registration
+          # transaction, so an unresponsive SMTP server must not hold a DB connection
+          # forever (TX-01). The full fix (outbox) is tracked as a spec.
+          connectiontimeout: ${MAIL_CONNECTION_TIMEOUT_MS:5000}
+          timeout: ${MAIL_READ_TIMEOUT_MS:10000}
+          writetimeout: ${MAIL_WRITE_TIMEOUT_MS:10000}
 
 # JWT configuration.
 # JWT_SECRET must be overridden in any non-development environment. The default
@@ -166,6 +172,9 @@ app:
       access-key: ${STORAGE_ACCESS_KEY:}
       secret-key: ${STORAGE_SECRET_KEY:}
       path-style: ${STORAGE_PATH_STYLE:false}
+      # Bounded on purpose: the bucket call happens inside a DB transaction (TX-01).
+      api-call-timeout: ${STORAGE_API_CALL_TIMEOUT:PT20S}
+      api-attempt-timeout: ${STORAGE_API_ATTEMPT_TIMEOUT:PT10S}
     scan:
       # Production must enable ClamAV; without it the app stores unscanned evidence.
       enabled: ${SCAN_ENABLED:false}

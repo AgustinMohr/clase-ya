@@ -8,6 +8,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
 import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.regions.Region;
@@ -19,6 +20,7 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 
 import java.net.URI;
+import java.time.Duration;
 import java.util.UUID;
 
 /**
@@ -38,7 +40,9 @@ public class S3DocumentStorage implements DocumentStorage {
                              @Value("${app.storage.s3.bucket:}") String bucket,
                              @Value("${app.storage.s3.access-key:}") String accessKey,
                              @Value("${app.storage.s3.secret-key:}") String secretKey,
-                             @Value("${app.storage.s3.path-style:false}") boolean pathStyle) {
+                             @Value("${app.storage.s3.path-style:false}") boolean pathStyle,
+                             @Value("${app.storage.s3.api-call-timeout:PT20S}") Duration apiCallTimeout,
+                             @Value("${app.storage.s3.api-attempt-timeout:PT10S}") Duration apiAttemptTimeout) {
         if (bucket == null || bucket.isBlank()
                 || accessKey == null || accessKey.isBlank()
                 || secretKey == null || secretKey.isBlank()) {
@@ -49,6 +53,12 @@ public class S3DocumentStorage implements DocumentStorage {
                 .region(Region.of(region == null || region.isBlank() ? "auto" : region))
                 .credentialsProvider(StaticCredentialsProvider.create(
                         AwsBasicCredentials.create(accessKey, secretKey)))
+                // Bounded on purpose: the upload/download happens inside a DB transaction
+                // (TX-01), so an unresponsive bucket must not hold a connection forever.
+                .overrideConfiguration(ClientOverrideConfiguration.builder()
+                        .apiCallTimeout(apiCallTimeout)
+                        .apiCallAttemptTimeout(apiAttemptTimeout)
+                        .build())
                 .serviceConfiguration(S3Configuration.builder()
                         .pathStyleAccessEnabled(pathStyle)
                         .build());
