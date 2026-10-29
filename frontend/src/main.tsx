@@ -9,6 +9,7 @@ import '@fontsource/open-sans/latin-700.css';
 import './index.css';
 import App from './App';
 import { AuthProvider, GOOGLE_CLIENT_ID } from './auth/AuthContext';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { ThemeProvider } from './theme/ThemeProvider';
 import { ToastProvider } from './components/ui/Toast';
 
@@ -18,7 +19,9 @@ const tree = (
       <ThemeProvider>
         <AuthProvider>
           <ToastProvider>
-            <App />
+            <ErrorBoundary>
+              <App />
+            </ErrorBoundary>
           </ToastProvider>
         </AuthProvider>
       </ThemeProvider>

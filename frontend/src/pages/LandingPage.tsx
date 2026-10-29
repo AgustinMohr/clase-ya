@@ -4,11 +4,16 @@ import { api, type Subject, type TeacherSummary } from '../api';
 import { usePageMeta } from '../hooks/usePageMeta';
 import SearchInput from '../components/ui/SearchInput';
 import { Section } from '../components/ui/Section';
+import { Button } from '../components/ui/Button';
 import { Skeleton, Card } from '../components/ui/primitives';
 import { CategoryCard } from '../components/teacher/CategoryCard';
 import { TeacherCard } from '../components/teacher/TeacherCard';
 
 interface Props {
+  subjects: Subject[];
+  subjectsLoading: boolean;
+  subjectsError: boolean;
+  onRetrySubjects: () => void;
   onSearch: (term: string) => void;
   onOpenTeacher: (id: string) => void;
   onToggleFavorite?: (teacher: TeacherSummary) => void;
@@ -17,7 +22,7 @@ interface Props {
 
 const STEPS = [
   { icon: Search, title: 'Buscá por materia', text: 'Elegí la materia, modalidad y zona que necesitás.' },
-  { icon: Users, title: 'Elegí tu profe', text: 'Mirá el perfil, las opiniones y el precio por hora.' },
+  { icon: Users, title: 'Elegí tu profe', text: 'Mirá el perfil, la disponibilidad y el precio por hora.' },
   { icon: MessageCircle, title: 'Contactalo', text: 'Escribile sin exponer tus datos y coordiná la clase.' },
 ];
 
@@ -27,24 +32,31 @@ const BENEFITS = [
   { icon: Sparkles, title: 'Precios claros', text: 'Compará precio por hora, modalidad y disponibilidad real.' },
 ];
 
-export default function LandingPage({ onSearch, onOpenTeacher, onToggleFavorite, favorites }: Props) {
+export default function LandingPage({
+  subjects,
+  subjectsLoading,
+  subjectsError,
+  onRetrySubjects,
+  onSearch,
+  onOpenTeacher,
+  onToggleFavorite,
+  favorites,
+}: Props) {
   usePageMeta({
     title: 'ClaseYa — Profesores particulares',
     description: 'ClaseYa — encontrá profesores particulares por materia, modalidad y zona. Contactalos gratis.',
   });
 
-  const [subjects, setSubjects] = useState<Subject[]>([]);
   const [teachers, setTeachers] = useState<TeacherSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [heroQuery, setHeroQuery] = useState('');
 
   useEffect(() => {
     let active = true;
-    Promise.all([api.subjects(), api.teachers()])
-      .then(([subjectList, page]) => {
-        if (!active) return;
-        setSubjects(subjectList);
-        setTeachers(page.content);
+    api
+      .teachers()
+      .then((page) => {
+        if (active) setTeachers(page.content);
       })
       .catch(() => undefined)
       .finally(() => active && setLoading(false));
@@ -92,21 +104,36 @@ export default function LandingPage({ onSearch, onOpenTeacher, onToggleFavorite,
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-primary-100/80">
               Materias más buscadas
             </p>
-            <div className="flex flex-wrap gap-2">
-              {popular.map((subject) => (
+            {subjectsError ? (
+              <p role="status" className="text-sm text-primary-100/90">
+                No pudimos cargar las materias.{' '}
                 <button
-                  key={subject.id}
                   type="button"
-                  onClick={() => setHeroQuery(subject.name)}
-                  className="rounded-full border border-white/25 bg-white/10 px-3.5 py-1.5 text-sm font-semibold transition-colors hover:bg-white/20 focus-visible:ring-white"
+                  onClick={onRetrySubjects}
+                  className="font-semibold underline underline-offset-2 hover:text-white"
                 >
-                  {subject.name}
+                  Reintentar
                 </button>
-              ))}
-            </div>
-            <p className="mt-2 text-xs text-primary-100/70">
-              Tocá una materia para completar el buscador y presioná Buscar.
-            </p>
+              </p>
+            ) : (
+              <>
+                <div className="flex flex-wrap gap-2">
+                  {popular.map((subject) => (
+                    <button
+                      key={subject.id}
+                      type="button"
+                      onClick={() => setHeroQuery(subject.name)}
+                      className="rounded-full border border-white/25 bg-white/10 px-3.5 py-1.5 text-sm font-semibold transition-colors hover:bg-white/20 focus-visible:ring-white"
+                    >
+                      {subject.name}
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-2 text-xs text-primary-100/70">
+                  Tocá una materia para completar el buscador y presioná Buscar.
+                </p>
+              </>
+            )}
           </div>
         </div>
       </section>
@@ -114,11 +141,20 @@ export default function LandingPage({ onSearch, onOpenTeacher, onToggleFavorite,
       {/* CATEGORÍAS */}
       <Section title="Materias populares" subtitle="Elegí una materia y mirá los profes disponibles.">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {loading
-            ? Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-[76px]" />)
-            : categories.map((subject) => (
-                <CategoryCard key={subject.id} name={subject.name} onClick={onSearch} />
-              ))}
+          {subjectsLoading ? (
+            Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-[76px]" />)
+          ) : subjectsError ? (
+            <Card className="p-6 text-center text-content-muted sm:col-span-2 lg:col-span-4">
+              No pudimos cargar el catálogo de materias.{' '}
+              <Button variant="link" size="sm" onClick={onRetrySubjects}>
+                Reintentar
+              </Button>
+            </Card>
+          ) : (
+            categories.map((subject) => (
+              <CategoryCard key={subject.id} name={subject.name} onClick={onSearch} />
+            ))
+          )}
         </div>
       </Section>
 

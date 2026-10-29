@@ -11,6 +11,8 @@ import { TeacherCard } from '../components/teacher/TeacherCard';
 
 interface Props {
   subjects: Subject[];
+  subjectsError: boolean;
+  onRetrySubjects: () => void;
   onBack: () => void;
   onOpenTeacher: (id: string) => void;
   onToggleFavorite?: (teacher: TeacherSummary) => void;
@@ -89,7 +91,15 @@ function buildSearch(term: string, filters: Filters, page: number): URLSearchPar
   return params;
 }
 
-export default function SearchPage({ subjects, onBack, onOpenTeacher, onToggleFavorite, favorites }: Props) {
+export default function SearchPage({
+  subjects,
+  subjectsError,
+  onRetrySubjects,
+  onBack,
+  onOpenTeacher,
+  onToggleFavorite,
+  favorites,
+}: Props) {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryKey = searchParams.toString();
   const urlTerm = (searchParams.get('materia') ?? '').trim();
@@ -325,7 +335,13 @@ export default function SearchPage({ subjects, onBack, onOpenTeacher, onToggleFa
 
         {/* RESULTADOS */}
         <section aria-live="polite" aria-busy={loading}>
-          {loading && !hasSearched ? (
+          {subjectsError && loading && !hasSearched ? (
+            <EmptyState
+              title="No pudimos cargar las materias"
+              description="Sin el catálogo no podemos interpretar tu búsqueda. Revisá tu conexión e intentá de nuevo."
+              action={<Button onClick={onRetrySubjects}>Reintentar</Button>}
+            />
+          ) : loading && !hasSearched ? (
             <div className="grid gap-5 sm:grid-cols-2">
               {Array.from({ length: 4 }).map((_, i) => (
                 <Skeleton key={i} className="h-64" />

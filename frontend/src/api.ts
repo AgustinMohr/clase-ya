@@ -308,10 +308,13 @@ const API_BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/+$/, '');
 export class ApiError extends Error {
   status: number;
   body?: unknown;
-  constructor(status: number, message: string, body?: unknown) {
+  /** Seconds the server asked to wait (429/503 with a Retry-After header). */
+  retryAfterSeconds?: number;
+  constructor(status: number, message: string, body?: unknown, retryAfterSeconds?: number) {
     super(message);
     this.status = status;
     this.body = body;
+    this.retryAfterSeconds = retryAfterSeconds;
   }
 }
 
@@ -324,17 +327,44 @@ export interface ApiErrorBody {
   fieldErrors?: Record<string, string>;
 }
 
+/** Any request that hangs longer than this fails instead of blocking the UI forever. */
+const REQUEST_TIMEOUT_MS = 15_000;
+
 /**
- * CSRF token for one unsafe request. The token is intentionally not cached: the server rotates
- * the HttpOnly cookie after writes and a stale in-memory copy would turn the next write into a
- * 403. Fetching it per write also survives logout, reloads and multiple tabs (SEC-002).
+ * CSRF token for unsafe requests. It is cached for the page load: the cookie is stable until the
+ * server rotates it (for example after a session change), and a stale copy is recovered by
+ * retrying the write once on 403. Caching removes a second round-trip from every mutation (FE-02).
  */
-async function fetchCsrfToken(): Promise<string> {
-  const res = await fetch(`${API_BASE}/api/auth/csrf`, { credentials: 'include' });
+let cachedCsrfToken: string | null = null;
+
+/** Drops the cached token so the next write fetches a fresh one. */
+export function resetCsrfToken(): void {
+  cachedCsrfToken = null;
+}
+
+async function fetchWithTimeout(input: string, init: RequestInit = {}): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new ApiError(0, 'El servidor tardó demasiado en responder');
+    }
+    throw new ApiError(0, 'No pudimos conectar con el servidor');
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function fetchCsrfToken(force = false): Promise<string> {
+  if (!force && cachedCsrfToken) return cachedCsrfToken;
+  const res = await fetchWithTimeout(`${API_BASE}/api/auth/csrf`, { credentials: 'include' });
   if (!res.ok) {
-    throw new ApiError(res.status, 'Could not start a secure request');
+    throw new ApiError(res.status, 'No pudimos iniciar una petición segura');
   }
   const body = (await res.json()) as CsrfResponse;
+  cachedCsrfToken = body.token;
   return body.token;
 }
 
@@ -342,29 +372,48 @@ function isWrite(method: string): boolean {
   return method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS';
 }
 
-async function request<T>(method: string, url: string, body?: unknown, auth = false): Promise<T> {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+async function send(method: string, url: string, body?: unknown, form = false): Promise<Response> {
+  const headers: Record<string, string> = {};
   if (isWrite(method)) {
     headers['X-XSRF-TOKEN'] = await fetchCsrfToken();
   }
-  const res = await fetch(`${API_BASE}${url}`, {
+  if (!form) {
+    headers['Content-Type'] = 'application/json';
+  }
+  return fetchWithTimeout(`${API_BASE}${url}`, {
     method,
     headers,
     credentials: 'include',
-    body: body === undefined ? undefined : JSON.stringify(body),
+    body: body === undefined ? undefined : form ? (body as FormData) : JSON.stringify(body),
   });
+}
+
+async function toApiError(res: Response): Promise<ApiError> {
+  let parsed: unknown;
+  try {
+    parsed = await res.json();
+  } catch {
+    /* body no JSON (p. ej. CORS o 502 de un proxy) */
+  }
+  const message = (parsed as { message?: string } | undefined)?.message ?? `Error ${res.status}`;
+  const retryAfter = Number(res.headers.get('Retry-After'));
+  const retryAfterSeconds = Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : undefined;
+  return new ApiError(res.status, message, parsed, retryAfterSeconds);
+}
+
+async function request<T>(method: string, url: string, body?: unknown, auth = false): Promise<T> {
+  let res = await send(method, url, body);
+  if (res.status === 403 && isWrite(method)) {
+    // The cached CSRF token was stale: fetch a fresh one and retry the write once.
+    resetCsrfToken();
+    res = await send(method, url, body);
+  }
 
   if (res.status === 401 && auth) {
     window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
   }
   if (!res.ok) {
-    let parsed: ApiErrorBody | undefined;
-    try {
-      parsed = (await res.json()) as ApiErrorBody;
-    } catch {
-      /* body no JSON (p. ej. CORS) */
-    }
-    throw new ApiError(res.status, parsed?.message ?? `Error ${res.status}`, parsed);
+    throw await toApiError(res);
   }
   if (res.status === 204) return undefined as T;
   // 202 responses (e.g. registration) intentionally have no body.
@@ -373,26 +422,17 @@ async function request<T>(method: string, url: string, body?: unknown, auth = fa
 }
 
 async function requestForm<T>(url: string, formData: FormData): Promise<T> {
-  const headers: Record<string, string> = { 'X-XSRF-TOKEN': await fetchCsrfToken() };
-  const res = await fetch(`${API_BASE}${url}`, {
-    method: 'POST',
-    headers,
-    credentials: 'include',
-    body: formData,
-  });
+  let res = await send('POST', url, formData, true);
+  if (res.status === 403) {
+    resetCsrfToken();
+    res = await send('POST', url, formData, true);
+  }
 
   if (res.status === 401) {
     window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
   }
   if (!res.ok) {
-    let parsed: unknown;
-    try {
-      parsed = await res.json();
-    } catch {
-      /* body no JSON */
-    }
-    const message = (parsed as { message?: string } | undefined)?.message ?? `Error ${res.status}`;
-    throw new ApiError(res.status, message, parsed);
+    throw await toApiError(res);
   }
   return (await res.json()) as T;
 }

@@ -1,7 +1,8 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { Route, Routes, useLocation, useNavigate, useParams } from 'react-router';
-import { api, ApiError, type StudentProfile, type Subject, type TeacherSummary } from './api';
+import { api, ApiError, type StudentProfile, type TeacherSummary } from './api';
 import { useAuth } from './auth/AuthContext';
+import { useCatalog } from './hooks/useCatalog';
 import { useToast } from './components/ui/Toast';
 import { Navbar } from './components/ui/Navbar';
 import { Footer } from './components/ui/Footer';
@@ -57,7 +58,7 @@ export default function App() {
   const { notify } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
-  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const catalog = useCatalog();
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [favoriteTeachers, setFavoriteTeachers] = useState<TeacherSummary[]>([]);
   const [favoritesTotal, setFavoritesTotal] = useState(0);
@@ -72,10 +73,6 @@ export default function App() {
   const [profileOpen, setProfileOpen] = useState(false);
 
   const requireLogin = useCallback(() => setLoginOpen(true), []);
-
-  useEffect(() => {
-    api.subjects().then(setSubjects).catch(() => undefined);
-  }, []);
 
   useEffect(() => {
     if (!user) {
@@ -221,6 +218,10 @@ export default function App() {
               path={ROUTES.home}
               element={
                 <LandingPage
+                  subjects={catalog.subjects}
+                  subjectsLoading={catalog.loading}
+                  subjectsError={catalog.error}
+                  onRetrySubjects={catalog.reload}
                   onSearch={(term) => navigate(searchPath(term))}
                   onOpenTeacher={(id) => navigate(ROUTES.teacher(id))}
                   onToggleFavorite={toggleFavorite}
@@ -233,7 +234,9 @@ export default function App() {
               path={ROUTES.search}
               element={
                 <SearchPage
-                  subjects={subjects}
+                  subjects={catalog.subjects}
+                  subjectsError={catalog.error}
+                  onRetrySubjects={catalog.reload}
                   onBack={() => navigate(ROUTES.home)}
                   onOpenTeacher={(id) => navigate(ROUTES.teacher(id))}
                   onToggleFavorite={toggleFavorite}
