@@ -11,8 +11,8 @@ Documenta cómo se ejecutan realmente los tests del proyecto.
 - **Integración** (`*IntegrationTest`, con `@SpringBootTest` + MockMvc + Testcontainers):
   prueban el stack completo sobre PostgreSQL 16 real (auth, dominio académico, perfiles, búsqueda,
   favoritos, mensajería, disponibilidad, verificación y endurecimiento HTTP). La suite actual tiene
-  **324 métodos de test** (unitarios + integración, conteo estático). El frontend suma **24 tests de
-  Vitest** (lógica pura y componentes) y **40 E2E** de Playwright.
+  **333 métodos de test** (unitarios + integración, conteo estático). El frontend suma **32 tests de
+  Vitest** (lógica pura, transporte HTTP y componentes) y **40 E2E** de Playwright.
 
 ## Infraestructura compartida
 

@@ -210,7 +210,7 @@
                             <goal>report</goal>
                         </goals>
                     </execution>
-                    <!-- Floor below the measured baseline (89.5% line / 74.5% branch) so a real
+                    <!-- Floor below the measured baseline (88.7% line / 73.9% branch) so a real
                          regression fails CI without turning every refactor into a negotiation. -->
                     <execution>
                         <id>check</id>

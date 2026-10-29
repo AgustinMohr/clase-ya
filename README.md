@@ -171,7 +171,7 @@ email). No es un producto terminado.
 - **Tests** con Maven + Testcontainers y E2E con Playwright; scripts de PowerShell para
   test/verify/E2E/seed.
 - **Cobertura medida y exigida** (JaCoCo): piso de 85 % de líneas y 70 % de ramas en `verify`
-  (baseline actual: 89,5 % / 74,5 %).
+  (baseline actual: 88,7 % / 73,9 %).
 - **CI en GitHub Actions**: `.github/workflows/ci.yml` (backend `mvn clean verify` con
   Testcontainers, frontend lint/unit tests/typecheck/build/audit, E2E Playwright con PostgreSQL +
   demo seed y dependency review en PRs), `codeql.yml` (Java + TypeScript),
