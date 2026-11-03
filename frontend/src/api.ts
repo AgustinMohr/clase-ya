@@ -388,10 +388,13 @@ const REQUEST_TIMEOUT_MS = 15_000;
  * retrying the write once on 403. Caching removes a second round-trip from every mutation (FE-02).
  */
 let cachedCsrfToken: string | null = null;
+/** Shared in-flight request: concurrent writes must not race two /csrf round-trips. */
+let csrfTokenRequest: Promise<string> | null = null;
 
 /** Drops the cached token so the next write fetches a fresh one. */
 export function resetCsrfToken(): void {
   cachedCsrfToken = null;
+  csrfTokenRequest = null;
 }
 
 async function fetchWithTimeout(input: string, init: RequestInit = {}): Promise<Response> {
@@ -411,13 +414,24 @@ async function fetchWithTimeout(input: string, init: RequestInit = {}): Promise<
 
 async function fetchCsrfToken(force = false): Promise<string> {
   if (!force && cachedCsrfToken) return cachedCsrfToken;
-  const res = await fetchWithTimeout(`${API_BASE}/api/auth/csrf`, { credentials: 'include' });
-  if (!res.ok) {
-    throw new ApiError(res.status, 'No pudimos iniciar una petición segura');
+  if (!force && csrfTokenRequest) return csrfTokenRequest;
+
+  const request = (async () => {
+    const res = await fetchWithTimeout(`${API_BASE}/api/auth/csrf`, { credentials: 'include' });
+    if (!res.ok) {
+      throw new ApiError(res.status, 'No pudimos iniciar una petición segura');
+    }
+    const body = (await res.json()) as CsrfResponse;
+    cachedCsrfToken = body.token;
+    return body.token;
+  })();
+
+  csrfTokenRequest = request;
+  try {
+    return await request;
+  } finally {
+    if (csrfTokenRequest === request) csrfTokenRequest = null;
   }
-  const body = (await res.json()) as CsrfResponse;
-  cachedCsrfToken = body.token;
-  return body.token;
 }
 
 function isWrite(method: string): boolean {

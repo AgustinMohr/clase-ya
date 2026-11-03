@@ -60,6 +60,21 @@ describe('api transport', () => {
     expect(fetchMock.mock.calls[0][0]).toContain('/api/subjects/popular?limit=12');
   });
 
+  it('deduplicates concurrent CSRF fetches for parallel writes', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(json({ token: 't1' }))
+      .mockResolvedValueOnce(noContent())
+      .mockResolvedValueOnce(noContent());
+    vi.stubGlobal('fetch', fetchMock);
+
+    await Promise.all([api.addFavorite('a'), api.addFavorite('b')]);
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(callHeaders(fetchMock, 1)['X-XSRF-TOKEN']).toBe('t1');
+    expect(callHeaders(fetchMock, 2)['X-XSRF-TOKEN']).toBe('t1');
+  });
+
   it('requests a thread page with the keyset cursor and no CSRF token', async () => {
     const fetchMock = vi.fn().mockResolvedValueOnce(
       json({
