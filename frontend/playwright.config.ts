@@ -38,7 +38,7 @@ export default defineConfig({
       cwd: '..',
       url: `${BACKEND_URL}/actuator/health`,
       reuseExistingServer: process.env.E2E_REUSE_BACKEND === 'true',
-      timeout: 240_000,
+      timeout: 360_000,
       stdout: 'ignore',
       stderr: 'pipe',
     },
