@@ -28,8 +28,10 @@ ENV JAVA_TOOL_OPTIONS="-Duser.timezone=UTC"
 EXPOSE 8080
 
 # OPS-02: probe the public Actuator health endpoint (OPS-001). A 503 marks the container unhealthy.
-HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
-  CMD curl -fsS http://localhost:8080/actuator/health || exit 1
+# Render injects PORT (10000 in the log above); the probe must use it, not a hardcoded 8080.
+# Render Free + Neon can take ~200 s to boot, so keep the container in start-period long enough.
+HEALTHCHECK --interval=30s --timeout=30s --start-period=300s --retries=3 \
+  CMD curl -fsS "http://localhost:${PORT:-8080}/actuator/health" || exit 1
 
 USER app
 
