@@ -26,6 +26,11 @@ updates:
       testcontainers:
         patterns:
           - "org.testcontainers*"
+    ignore:
+      # No patched 6.2.x exists for GHSA-j9f9-w8pj-32f8 or GHSA-pc63-qcmh-9cmg.
+      # The fix requires Spring Framework 7 / Spring Boot 4. Keep the alert visible and avoid
+      # a security-update job that cannot resolve a compatible version until that migration.
+      - dependency-name: "org.springframework:spring-webmvc"
 
   - package-ecosystem: "github-actions"
     directory: "/"
