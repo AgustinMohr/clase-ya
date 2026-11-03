@@ -9,7 +9,9 @@ export class BasePage {
 
   async gotoHome(): Promise<void> {
     await this.page.goto('/');
-    await expect(this.page.getByRole('link', { name: 'ClaseYa — inicio' })).toBeVisible();
+    // The dev server can be slow after a long serial E2E run; the shell is the readiness signal.
+    await expect(this.page.getByRole('link', { name: 'ClaseYa — inicio' }))
+      .toBeVisible({ timeout: 15_000 });
   }
 
   /** True when the view stopped loading (no placeholders left). */

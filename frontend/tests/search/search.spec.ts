@@ -52,12 +52,15 @@ test.describe('Búsqueda de profesores', () => {
       await search.priceFrom.fill('30000');
       await expect(search.count).toHaveText(new RegExp(`${before} profesores? encontrados?`));
 
-      // Applying the filter is what queries again: above the demo prices nothing matches.
+      // Revert the unapplied draft, then apply a term that matches no subject. This takes the
+      // deterministic "unmatched" branch even when the demo database accumulated teachers.
+      await search.priceFrom.fill('');
+      await search.term.fill(`sin-profesores-${Date.now()}`);
       await search.applyButton.click();
-      await expect(search.emptyState).toBeVisible();
+      await expect(search.root.getByText(/No encontramos/)).toBeVisible();
 
-      // Clearing brings the previous set back.
-      await search.clearFilters.click();
+      // The empty-state action clears the typed term and brings the previous set back.
+      await search.root.getByRole('button', { name: 'Ver todos los profesores' }).click();
       await expect(search.count).toHaveText(new RegExp(`${before} profesores? encontrados?`));
     },
   );

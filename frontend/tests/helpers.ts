@@ -39,6 +39,9 @@ export async function loginAs(page: Page, email: string = STUDENT): Promise<void
   if (!response.ok()) {
     throw new Error(`Login failed for ${email}: ${response.status()} ${await response.text()}`);
   }
+  // Authentication can rotate the CSRF token. Drop the pre-login cookie so the SPA and the
+  // request context fetch a token bound to the new session instead of reusing a stale one.
+  await page.context().clearCookies({ name: 'XSRF-TOKEN' });
 }
 
 /** Teachers of the public listing, in the same order the landing cards show them. */

@@ -14,7 +14,7 @@ Documenta cómo se ejecutan realmente los tests del proyecto.
   HTTP y contratos de payload (`ApiContractIntegrationTest`). La
   suite actual tiene **430 métodos de test** (unitarios + integración, conteo estático) y **2 reglas
   ArchUnit** (`ArchitectureTest`: sin ciclos y `teacher` no depende de availability/verification).
-  El frontend suma **55 tests de Vitest** (lógica pura, transporte HTTP y componentes) y **44 E2E**
+  El frontend suma **56 tests de Vitest** (lógica pura, transporte HTTP y componentes) y **44 E2E**
   de Playwright.
 
 ## Infraestructura compartida

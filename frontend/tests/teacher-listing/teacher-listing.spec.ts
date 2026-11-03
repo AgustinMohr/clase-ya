@@ -50,7 +50,7 @@ test.describe('Mi anuncio (profesor)', () => {
       const row = listing.credentialRow(degree);
       await expect(row).toBeVisible();
 
-      await row.getByLabel('Archivo (PDF, JPG o PNG)').setInputFiles({
+      await row.getByLabel('Archivo (PDF)').setInputFiles({
         name: 'diploma.pdf',
         mimeType: 'application/pdf',
         buffer: Buffer.from('%PDF-1.4\ncontenido de prueba E2E\n'),

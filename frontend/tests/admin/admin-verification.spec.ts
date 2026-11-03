@@ -19,6 +19,7 @@ test.describe('Cola de revisión de documentación', () => {
     { tag: ['@e2e', '@admin', '@ADMIN-E2E-004'] },
     async ({ page }) => {
       const degree = uniqueText('Verificación E2E');
+      const fileName = `diploma-${Date.now()}.pdf`;
 
       // A teacher presents a credential with one PDF (the same flow the UI uses).
       await loginAs(page, TEACHER);
@@ -36,7 +37,7 @@ test.describe('Cola de revisión de documentación', () => {
         multipart: {
           type: 'DIPLOMA',
           file: {
-            name: 'diploma.pdf',
+            name: fileName,
             mimeType: 'application/pdf',
             buffer: Buffer.from('%PDF-1.4\nE2E verification\n'),
           },
@@ -55,14 +56,16 @@ test.describe('Cola de revisión de documentación', () => {
       await page.goto('/admin/verificacion');
 
       await page.getByRole('button', { name: new RegExp(degree) }).click();
-      await expect(page.getByText('diploma.pdf')).toBeVisible();
-      await expect(page.getByText('Sin escanear')).toBeVisible();
+      const card = page.getByTestId('admin-credential').filter({ hasText: degree });
+      await expect(card.getByText(fileName)).toBeVisible();
+      await expect(card.getByText('Sin escanear')).toBeVisible();
 
-      await page.getByLabel('Marcar diploma.pdf como revisado').check();
-      await expect(page.getByText(/Revisado por/)).toBeVisible();
+      // Controlled checkbox: it only flips after the refetch, so click and wait for the review text.
+      await card.getByLabel(`Marcar ${fileName} como revisado`).click();
+      await expect(card.getByText(/Revisado por/)).toBeVisible();
 
-      await page.getByRole('button', { name: 'Decidir' }).click();
-      await page.getByRole('button', { name: 'Registrar decisión' }).click();
+      await card.getByRole('button', { name: 'Decidir' }).click();
+      await card.getByRole('button', { name: 'Registrar decisión' }).click();
 
       await expect(page.getByText('Decisión registrada')).toBeVisible();
     },
