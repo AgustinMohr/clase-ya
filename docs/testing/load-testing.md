@@ -13,8 +13,9 @@ profesores).
 
 ## Dependencia
 
-k6 se ejecuta desde la imagen oficial **`grafana/k6`** de Docker. No agrega dependencias Maven ni
-npm. El runner usa `grafana/k6:latest` por defecto y acepta `-K6Image` para fijar una versión.
+k6 se ejecuta desde la imagen oficial **`grafana/k6:2.3.0`** de Docker. No agrega dependencias
+Maven ni npm. El runner fija `grafana/k6:2.3.0` por defecto y acepta `-K6Image` para cambiar la
+versión de forma explícita.
 
 Alternativa sin Docker: instalar k6 nativo (`winget install k6` o el binario oficial) y ejecutar
 `k6 run scripts/load/search-and-inbox.js` con las mismas variables de entorno.

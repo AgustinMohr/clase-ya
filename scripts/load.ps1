@@ -14,7 +14,7 @@ param(
     [string]$Duration = '30s',
     [string]$Email = 'student@claseya.dev',
     [string]$Password = 'Password123',
-    [string]$K6Image = 'grafana/k6:latest'
+    [string]$K6Image = 'grafana/k6:2.3.0'
 )
 
 $ErrorActionPreference = 'Stop'

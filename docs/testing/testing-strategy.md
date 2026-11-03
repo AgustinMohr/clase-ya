@@ -31,7 +31,7 @@ Documenta cómo se ejecutan realmente los tests del proyecto.
 ## Load smoke (k6)
 
 - `scripts/load.ps1` ejecuta `scripts/load/search-and-inbox.js` con la imagen Docker
-  `grafana/k6` (fijable con `-K6Image`); no agrega dependencias Maven/npm.
+  `grafana/k6:2.3.0` (fijable con `-K6Image`); no agrega dependencias Maven/npm.
 - Mide `GET /api/teachers` y `GET /api/conversations` con `p95 < 800 ms` y
   `http_req_failed < 1 %` como presupuesto inicial.
 - Requiere un backend corriendo y `claseya-pg`; para el dataset de ~5.000 profesores se apunta
