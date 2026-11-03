@@ -48,3 +48,6 @@ node_modules/
 
 ### CodeGraph (local index, machine-specific) ###
 .codegraph/
+
+.vercel
+.env*

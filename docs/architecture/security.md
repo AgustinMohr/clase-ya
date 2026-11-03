@@ -76,6 +76,10 @@ real; ver el paquete `security` y `SecurityConfig`.
 - Cabeceras del API: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
   `Referrer-Policy: no-referrer` y `Permissions-Policy` con cámara/micrófono/geolocalización/pagos
   deshabilitados. El HTML versiona `_headers` y una CSP (SEC-002).
+- La función de prerender de `SEO-001` agrega sus propios headers de seguridad (`X-Frame-Options`,
+  `Referrer-Policy`, `Permissions-Policy` y `frame-ancestors 'none'`) porque `_headers` no aplica a
+  funciones. El JSON-LD inline se autoriza con `'sha256-<hash>'` en el `script-src` de la CSP; no se
+  usa `'unsafe-inline'` ni un nonce reutilizado desde una respuesta cacheada.
 
 ## Autorización
 
@@ -87,6 +91,7 @@ Authorities: `ROLE_STUDENT`, `ROLE_TEACHER`, `ROLE_ADMIN` (mapeo único en `AppU
 | Lecturas del catálogo académico (`GET /api/universities/**`, `academic-units`, `careers`, `subjects`, `career-subjects`) | públicas |
 | Escrituras del catálogo (POST/PUT/DELETE sobre lo anterior) | `ADMIN` |
 | `GET /api/teachers`, `GET /api/teachers/{id}` (descubrimiento público) | públicas (ACTIVE + anuncio publicado, D1; aplicado en backend) |
+| `GET /sitemap.xml`, `GET /sitemaps/**` (SEO-001) | públicas (solo profesores D1; sin sesión) |
 | `/api/teachers/me*` y rutas de perfil propio | `TEACHER` o `ADMIN` |
 | `/api/students/**` | `STUDENT` o `ADMIN` |
 | `/api/favorites/**` | `STUDENT` |
@@ -120,10 +125,17 @@ condición de existencia: solo agrega el distintivo de confianza. Cualquier otro
 404. La regla tiene una única definición (`TeacherSpecifications.visible()` y
 `TeacherVisibilityService`) y se aplica en el backend, nunca delegada al frontend.
 
+`SEO-001` reutiliza esa misma regla para el sitemap y para el HTML prerenderizado. Un profesor
+oculto no aparece en el sitemap, no se renderiza en `/profesores/:id` y la respuesta es un 404 real
+sin datos. El prerender no hace sniffing de `User-Agent`: crawler y navegador reciben el mismo HTML
+(evita cloaking). La única diferencia es que el navegador ejecuta el SPA después.
+
 ## Datos sensibles
 
 Los DTOs públicos y personales nunca incluyen emails, direcciones, coordenadas exactas, tokens,
-hashes ni campos internos. La ubicación exacta solo se usa internamente para distancia geo.
+hashes ni campos internos. La ubicación exacta solo se usa internamente para distancia geo. El HTML
+de SEO y el JSON-LD (`Person`, `Service`, `AggregateRating`) usan exclusivamente campos públicos del
+DTO; los tests escanean la salida y fallan si aparece cualquiera de esos datos.
 
 ## Errores
 

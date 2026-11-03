@@ -424,7 +424,7 @@ desarrollo**:
 | `DEMO_SEED` | `false` | Sembrar el dataset demo al arrancar (opt-in). **Debe ser `false` fuera de `local`/`test`** |
 | `PORT` | `8080` | Puerto del servidor |
 | `RATE_LIMIT_ENABLED` | `true` | Activa/desactiva el limitador (RATE-001) |
-| `APP_BASE_URL` | `http://localhost:5173` | Origen público de la SPA; base de los enlaces de activación |
+| `APP_BASE_URL` | `http://localhost:5173` | Origen público de la SPA; base de los enlaces de activación, canonical y sitemap (SEO-001) |
 | `AUTH_ACTIVATION_TTL` | `PT24H` | Vigencia del token de activación |
 | `AUTH_LOG_ACTIVATION_LINKS` | `false` | **Solo desarrollo**: escribe el enlace en el log en lugar de enviarlo |
 | `MAIL_HOST` / `MAIL_PORT` | *(vacío)* / `587` | SMTP del email de activación. Sin **ningún** transporte (SMTP o Brevo), el registro responde `503` |
@@ -523,6 +523,7 @@ que no hay CORS. Variables del frontend:
 | `VITE_GOOGLE_CLIENT_ID` | Client ID de Google (debe ser **el mismo** que `GOOGLE_CLIENT_ID` del backend) |
 | `VITE_TURNSTILE_SITE_KEY` | Site key pública de Turnstile; si falta, el widget no se renderiza |
 | `VITE_API_URL` | Origen del backend; **vacío** en local y en Vercel con el rewrite de `ADR-022` |
+| `VITE_SITE_URL` | Origen público canónico para `robots.txt` en el build. En Vercel cae a `VERCEL_PROJECT_PRODUCTION_URL`; en local, `http://localhost:5173` |
 
 ### Google OAuth (configuración externa necesaria)
 
@@ -554,6 +555,10 @@ la cookie CSRF (`SameSite=Lax`) no viaja entre sitios y el login responde `403 A
 - En el backend: `FRONTEND_URL=https://<proyecto>.vercel.app` (exacto, sin barra final ni espacios),
   `COOKIE_SAME_SITE=Lax`, `COOKIE_SECURE=true` y `RATE_LIMIT_TRUST_FORWARDED_HEADERS=true` (Vercel
   sobrescribe `X-Forwarded-For`; sin esto todos los usuarios comparten el bucket de rate limit).
+- Para SEO-001, el mismo origen canónico debe estar en `APP_BASE_URL` (backend: canonical, sitemap y
+  activación), `PUBLIC_SITE_URL` (función de prerender) y `VITE_SITE_URL` (build: `robots.txt`).
+  Los tres sin barra final. Si `PUBLIC_SITE_URL` falta, la función usa el origen del request en
+  preview y `VERCEL_PROJECT_PRODUCTION_URL` en producción.
 - Agregá `https://<proyecto>.vercel.app` a *Authorized JavaScript origins* de Google.
 - Si activás CAPTCHA: `CAPTCHA_ENABLED=true` y `TURNSTILE_SECRET` en el backend;
   `VITE_TURNSTILE_SITE_KEY` en Vercel (variable de build).
@@ -575,6 +580,45 @@ del cambio. Si lo corta (413), las salidas son: servir SPA y API en subdominios 
 (`app.example.com` + `api.example.com`, donde `SameSite=Lax` funciona sin proxy), bajar el tope de
 archivo o migrar la evidencia a object storage (`STOR-01`). Una subida directa cross-site no sirve:
 perdería la cookie de sesión.
+
+### SEO: prerender de rutas públicas y sitemap
+
+`SEO-001` agrega una capa de prerender en Vercel para `/`, `/buscar` y `/profesores/:id`:
+
+- `frontend/middleware.ts` intercepta solo esas rutas y las reescribe a la función
+  `frontend/api/seo.ts`. La función pide los datos públicos al backend, inyecta título, canonical,
+  Open Graph, JSON-LD y contenido principal en el `index.html` construido, y devuelve el HTML.
+  El SPA sigue montando sobre `#root` y toma el control en el navegador.
+- `frontend/vercel.json` proxea `/sitemap.xml` y `/sitemaps/*` al backend. El backend los genera
+  con la misma regla D1 que la búsqueda: un profesor oculto no aparece.
+- El build del frontend genera `dist/robots.txt` con la URL absoluta del sitemap.
+
+Configuración de producción:
+
+- `BACKEND_URL` en Vercel (sin barra final). La función la usa para pedir los datos públicos.
+- `APP_BASE_URL` en el backend y `VITE_SITE_URL` en Vercel deben apuntar al **mismo origen público**
+  (el dominio canónico). Si `VITE_SITE_URL` falta, el build usa
+  `VERCEL_PROJECT_PRODUCTION_URL`; si tampoco existe, `http://localhost:5173`.
+- `PUBLIC_SITE_URL` (o `APP_BASE_URL`) es el origen de los canonical en la función. Si falta, en
+  preview usa el origen del request y en producción cae a `VERCEL_PROJECT_PRODUCTION_URL` (nunca al
+  `Host` del request).
+- El `dist/index.html` se incluye en la función vía `functions.includeFiles`; si el preview muestra
+  que no está disponible, la función hace un self-fetch a `/index.html` y lo cachea en memoria.
+
+En local, `npm run dev` sirve la SPA y el proxy de Vite manda `/api`, `/sitemap.xml` y `/sitemaps`
+al backend. La función y el middleware **no** corren con Vite: para probarlos usá `npx vercel dev`
+o un preview deployment. Verificación manual sugerida:
+
+```powershell
+curl.exe -A "Twitterbot" http://localhost:3000/profesores/<uuid>
+curl.exe http://localhost:3000/sitemap.xml
+```
+
+Los perfiles se cachean 60 s (`s-maxage=60`); un profesor despublicado puede seguir en HTML cacheado
+hasta ese TTL, pero la API y el **sitemap generado** lo excluyen de inmediato. La copia CDN del
+sitemap puede durar hasta 24 h y solo contiene la URL (sin nombre ni datos); el perfil responde 404.
+Si la función no puede leer el backend o la plantilla, devuelve el shell del SPA con metadatos por
+defecto (`200`, `no-store`).
 
 ### Datos de demo (solo desarrollo)
 

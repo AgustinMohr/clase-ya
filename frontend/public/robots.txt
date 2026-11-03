@@ -1,5 +1,10 @@
 User-agent: *
 Allow: /
+Disallow: /admin
+Disallow: /favoritos
+Disallow: /mensajes
+Disallow: /mi-anuncio
+Disallow: /activar
 
-# Los perfiles de profesor y las búsquedas se indexan porque Google ejecuta JavaScript.
-# Un sitemap.xml dinámico requiere renderizado en servidor (ver ADR-019).
+# The production build replaces this file with one that includes the absolute
+# Sitemap URL for the deployment origin (SEO-001).

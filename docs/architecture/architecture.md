@@ -26,7 +26,7 @@ requiere un ADR.
 | `oauth` | Login con Google (validación de ID token y vinculación por `google_sub`) | auth, security, user |
 | `academic` | Catálogo: CRUD de University, AcademicUnit, Career, Subject, CareerSubject | model, common |
 | `student` | `StudentProfile` + repositories usados en otros módulos | model, common, academic(repos), user, security |
-| `teacher` | Perfil/educación/materias/modalidades del profesor, anuncio, búsqueda y detalle públicos, visibilidad D1, `TeacherSummaryAssembler` y puertos | model, common, academic(repos), security, user |
+| `teacher` | Perfil/educación/materias/modalidades del profesor, anuncio, búsqueda y detalle públicos, visibilidad D1, `TeacherSummaryAssembler`, puertos y sitemap público | model, common, academic(repos/service), security, user |
 | `availability` | Disponibilidad declarada semanal | model, teacher(repos/visibilidad) |
 | `favorite` | Favoritos de estudiantes | model, common, student(repo), teacher(repos/assembler/dto) |
 | `messaging` | Conversaciones, participantes, mensajes, estado de lectura y contacto inicial | model, common (incl. `common.dto.SearchResultPage`), user, student(repo), teacher(repo), notification |
@@ -43,6 +43,19 @@ se mantiene a nivel service/DTO; los repositories no se alcanzan cruzando contro
 Módulos incorporados después de la primera versión: `oauth` (Google ID token), `verification`
 (evidencia y decisiones), `review` (opiniones y rating), `notification` (outbox SMTP/Brevo) y
 `bootstrap` (seed demo). El detalle de endpoints, seguridad y flujos está en `guia-proyecto.md`.
+
+## Capa de SEO (SEO-001)
+
+- El backend expone `GET /sitemap.xml` (índice) y `GET /sitemaps/static.xml` /
+  `GET /sitemaps/teachers-{n}.xml` (chunks de 10.000). Se generan con
+  `TeacherSpecifications.visible()`, la misma regla D1 que la búsqueda.
+- En Vercel, `frontend/middleware.ts` intercepta solo `/`, `/buscar` y `/profesores/:id` y reescribe
+  a `frontend/api/seo.ts`. Esa función pide los datos públicos al backend e inyecta metadatos,
+  JSON-LD y contenido principal en el `index.html` construido.
+- **No hay SSR con hidratación**: el SPA sigue montando sobre `#root` y reemplaza el HTML del
+  servidor. Las rutas privadas siguen siendo client-only. La decisión está en `ADR-034`.
+- Si la función falla, devuelve el shell del SPA con metadatos por defecto (fail-open). La API y el
+  sitemap no dependen de Vercel.
 
 ## Flujo de request (autenticado)
 

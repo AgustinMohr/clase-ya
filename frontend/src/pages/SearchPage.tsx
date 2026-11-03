@@ -3,6 +3,7 @@ import { ArrowLeft, FilterX, SearchX } from 'lucide-react';
 import { useSearchParams } from 'react-router';
 import { api, type Subject, type TeacherSummary } from '../api';
 import { usePageMeta } from '../hooks/usePageMeta';
+import { isIndexableSearch } from '../seo/metadata';
 import SearchInput from '../components/ui/SearchInput';
 import { Button } from '../components/ui/Button';
 import { Chip, EmptyState, Skeleton } from '../components/ui/primitives';
@@ -130,6 +131,12 @@ export default function SearchPage({
     description: urlTerm
       ? `Encontrá y compará profesores de ${urlTerm} por precio, modalidad y disponibilidad. Contactalos gratis.`
       : 'Buscá profesores particulares por materia, modalidad, precio y calificación. Contactalos gratis.',
+    // SEO-001: filtered/paginated searches canonicalize to page 1 and are not indexable. An
+    // unmatched term is also kept out of the index once the server-side search confirms it.
+    robots:
+      !isIndexableSearch(searchParams) || (Boolean(urlTerm) && unmatchedTerm === urlTerm)
+        ? 'noindex,follow'
+        : undefined,
   });
 
   /**

@@ -10,12 +10,19 @@ Documenta cómo se ejecutan realmente los tests del proyecto.
   (`S3DocumentStorageTest`, `ClamAvDocumentScannerTest`, `VerificationDocumentServiceTest`).
 - **Integración** (`*IntegrationTest`, con `@SpringBootTest` + MockMvc + Testcontainers):
   prueban el stack completo sobre PostgreSQL 16 real (auth, dominio académico, perfiles, búsqueda,
-  favoritos, mensajería, disponibilidad, verificación, reviews/rating, admin, outbox, endurecimiento
-  HTTP y contratos de payload (`ApiContractIntegrationTest`). La
-  suite actual tiene **430 métodos de test** (unitarios + integración, conteo estático) y **2 reglas
+  favoritos, mensajería, disponibilidad, verificación, reviews/rating, admin, outbox, sitemap/SEO,
+  endurecimiento HTTP y contratos de payload (`ApiContractIntegrationTest`). La
+  suite actual tiene **438 métodos de test** (unitarios + integración, conteo estático) y **2 reglas
   ArchUnit** (`ArchitectureTest`: sin ciclos y `teacher` no depende de availability/verification).
-  El frontend suma **56 tests de Vitest** (lógica pura, transporte HTTP y componentes) y **44 E2E**
-  de Playwright.
+  El frontend suma **90 tests de Vitest** (lógica pura, transporte HTTP, metadatos SEO y componentes)
+  y **44 E2E** de Playwright.
+- **SEO-001**: `SitemapIntegrationTest` cubre visibilidad D1, XML, chunks, 404 y cache headers;
+  `src/seo/metadata.test.ts` cubre canonical/indexabilidad y los builders del servidor
+  (importados de `api/seo.ts`), incluido JSON-LD, escaping y ausencia de PII;
+  `src/seo/handler.test.ts` cubre el routing y el fail-open de la función de Vercel;
+  `src/hooks/usePageMeta.test.tsx` cubre canonical/robots y la limpieza de JSON-LD obsoleto;
+  `src/seo/robots.test.ts` cubre `robots.txt`. La función de Vercel se valida en un preview
+  deployment (no corre bajo Vitest).
 
 ## Infraestructura compartida
 

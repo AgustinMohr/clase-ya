@@ -28,14 +28,20 @@ export default function TeacherProfilePage({ teacherId, onContact, onToggleFavor
   const [error, setError] = useState('');
 
   usePageMeta({
-    title: teacher
-      ? `${teacher.displayName || 'Profesor'}${teacher.city ? ` — clases en ${teacher.city}` : ''} | ClaseYa`
-      : 'Perfil de profesor | ClaseYa',
-    description: teacher
-      ? metaDescription(teacher.bio) ??
-        `Mirá la disponibilidad, materias y precio por hora de ${teacher.displayName || 'este profesor'} en ClaseYa.`
-      : 'Perfil de profesor en ClaseYa.',
+    title: error
+      ? 'Perfil no disponible | ClaseYa'
+      : teacher
+        ? `${teacher.displayName || 'Profesor'}${teacher.city ? ` — clases en ${teacher.city}` : ''} | ClaseYa`
+        : 'Perfil de profesor | ClaseYa',
+    description: error
+      ? 'El perfil que buscás no existe o ya no está disponible en ClaseYa.'
+      : teacher
+        ? metaDescription(teacher.bio) ??
+          `Mirá la disponibilidad, materias y precio por hora de ${teacher.displayName || 'este profesor'} en ClaseYa.`
+        : 'Perfil de profesor en ClaseYa.',
     image: teacher?.photoUrl ?? undefined,
+    robots: error ? 'noindex,nofollow' : undefined,
+    type: 'profile',
   });
 
   useEffect(() => {

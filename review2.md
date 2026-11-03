@@ -534,6 +534,10 @@ change budget y ADR si toca decisiones existentes.
   profesores visibles, CDN con `stale-while-revalidate`. Costo: alto (cambia el modelo de
   despliegue), beneficio: alto.
 
+> **Estado (2026-11-03):** implementado como `SEO-001` / `ADR-034` con una capa de prerender en
+> Vercel (sin migrar el router a framework mode) y `sitemap.xml` en el backend. Verificación local
+> en verde; la prueba con `curl`/UA de crawler en un preview de Vercel queda pendiente de deploy.
+
 ### 5.2 Ranking y búsqueda difusa por materia
 
 - **Descripción:** búsqueda full-text sobre `bio` + materias + institución (`tsvector`), tolerancia a

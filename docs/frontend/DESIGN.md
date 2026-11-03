@@ -509,7 +509,7 @@ Reglas:
    - Fuentes: una iteración anterior usó Coiny + Cabin Condensed; hoy es **Bungee + Open Sans**.
 2. **Referencias**: `AGENTS.md` apunta (a partir de este cambio) a `docs/frontend/DESIGN.md`.
 3. **Botones `sm` de 36px** por debajo del objetivo táctil de 44px (ver §13).
-4. **Sin SSR**: el router y los metadatos funcionan en el cliente. Los previews sociales (Open Graph) y el `sitemap.xml` dinámico quedan pendientes hasta una fase de renderizado en servidor (ver ADR-019).
+4. **Renderizado público (SEO-001)**: las rutas públicas (`/`, `/buscar`, `/profesores/:id`) tienen una capa de prerender en Vercel que entrega HTML, canonical, Open Graph y JSON-LD; el backend sirve `sitemap.xml`. El resto de las rutas sigue siendo client-only y no hay SSR con hidratación (ver `ADR-034`).
 
 ---
 

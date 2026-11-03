@@ -60,8 +60,9 @@ justifica todavía: primero hay que estabilizar rutas, estado en URL y contratos
 
 ## Futuro
 
-Evaluar en una spec aparte:
-
-1. Prerender/SSR de `/profesores/:id` y `/buscar` para indexación y Open Graph reales.
-2. `sitemap.xml` generado desde el backend o en build.
-3. Data routers de React Router si se necesita carga de datos por ruta.
+1. ~~Prerender/SSR de `/profesores/:id` y `/buscar` para indexación y Open Graph reales.~~
+   Implementado por `SEO-001` / `ADR-034`: una capa de prerender en Vercel entrega HTML público sin
+   migrar el router a un metaframework.
+2. ~~`sitemap.xml` generado desde el backend o en build.~~ Implementado por `SEO-001`: el backend
+   sirve el índice y los chunks desde la regla D1.
+3. Data routers de React Router si se necesita carga de datos por ruta (sigue pendiente).

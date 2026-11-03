@@ -1,10 +1,25 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "api/seo.ts": {
+      "includeFiles": "dist/index.html"
+    }
+  },
   "routes": [
     { "handle": "filesystem" },
     {
       "src": "/api/(.*)",
       "dest": "${BACKEND_URL}/api/$1",
+      "env": ["BACKEND_URL"]
+    },
+    {
+      "src": "/sitemap.xml",
+      "dest": "${BACKEND_URL}/sitemap.xml",
+      "env": ["BACKEND_URL"]
+    },
+    {
+      "src": "/sitemaps/(.*)",
+      "dest": "${BACKEND_URL}/sitemaps/$1",
       "env": ["BACKEND_URL"]
     },
     { "src": "/(.*)", "dest": "/index.html" }
