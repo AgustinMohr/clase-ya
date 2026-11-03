@@ -6,6 +6,8 @@ export const ROUTES = {
   messages: '/mensajes',
   conversation: (conversationId: string) => `/mensajes/${encodeURIComponent(conversationId)}`,
   myListing: '/mi-anuncio',
+  admin: '/admin',
+  adminReviews: '/admin/opiniones',
   register: '/registro',
   activate: '/activar',
 };
@@ -16,7 +18,7 @@ export function searchPath(term: string): string {
   return trimmed ? `${ROUTES.search}?materia=${encodeURIComponent(trimmed)}` : ROUTES.search;
 }
 
-const PRIVATE_PREFIXES = [ROUTES.favorites, ROUTES.messages, ROUTES.myListing];
+const PRIVATE_PREFIXES = [ROUTES.favorites, ROUTES.messages, ROUTES.myListing, ROUTES.admin];
 
 export function isPrivatePath(pathname: string): boolean {
   return PRIVATE_PREFIXES.some((route) => pathname === route || pathname.startsWith(`${route}/`));

@@ -5,7 +5,7 @@ import com.claseya.favorite.dto.FavoriteStatusResponse;
 import com.claseya.favorite.dto.FavoriteTeacherResponse;
 import com.claseya.favorite.service.FavoriteService;
 import com.claseya.security.CurrentUser;
-import com.claseya.teacher.dto.SearchResultPage;
+import com.claseya.common.dto.SearchResultPage;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;

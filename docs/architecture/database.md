@@ -5,7 +5,7 @@ Documenta la persistencia real: PostgreSQL + JPA/Hibernate + Flyway. No cambia e
 ## Motor y mapeo
 
 - **PostgreSQL** como única base. **Flyway** define el schema
-  (`src/main/resources/db/migration/V1..V4`); Hibernate corre con `ddl-auto=validate`, por lo que
+  (`src/main/resources/db/migration/V1..V18`); Hibernate corre con `ddl-auto=validate`, por lo que
   el modelo JPA debe coincidir con las migraciones.
 - Mapeo JPA en el módulo `model`; todas las asociaciones se mapean del lado owning y las N:M son
   entidades join explícitas (sin `@ManyToMany`).
@@ -25,11 +25,22 @@ users 1:0..1 student_profiles N:1 universities | careers
 users 1:0..1 teacher_profiles 1:N teacher_education
                             | N:M career_subjects (vía teacher_subjects)
                             | N:M teacher_modalities (ONLINE/IN_PERSON)
+                            | 1:N availability_windows
+                            | 1:N verification_documents
+                            | 1:N verification_decisions
+teacher_education 1:N verification_documents
+users 1:N email_verification_tokens
 universities 1:N academic_units 1:N careers 1:N career_subjects N:1 subjects
 student_profiles N:M teacher_profiles (vía favorites)
 users N:M conversations (vía conversation_participants) 1:N messages
-bookings 1:0..1 reviews            (LEGACY: dirección descartada; tablas sin entidades ni lógica)
-reports/notifications/calendly_integrations (LEGACY: tablas sin entidades ni lógica)
+users 1:N notification_outbox (recipient_user_id)
+conversation_pairs (student_user_id, teacher_user_id) -> conversation  (V12: una por par)
+notification_outbox (dedupe_key único, status/attempts/locked_until)  (V13/V14)
+message_link_tokens (user_id, conversation_id, token_hash único, expires_at/used_at)  (V13)
+reviews                            (activa desde V18; una por par estudiante↔profesor)
+review_moderation_events           (auditoría append-only de ocultar/restaurar)
+reports/notifications              (reservadas para futuro; sin entidades JPA)
+bookings/calendly_integrations     (eliminadas en V17; ver ADR-032)
 ```
 
 `users.name` (V3) es el nombre público opcional que alimenta `displayName` en búsqueda/favoritos/
@@ -42,9 +53,10 @@ mensajería.
   `subjects.normalized_name`, pares `(university_id, name/code)`, `(academic_unit_id, code)`,
   `(career_id, subject_id)`, `(teacher_id, career_subject_id)`.
 - `favorites (student_id, teacher_id)`; `conversation_participants (conversation_id, user_id)`;
-  `conversation_pairs (student_user_id, teacher_user_id)` con `conversation_id` único (V12, RACE-01);
-  `reviews.booking_id`; `calendly_integrations.teacher_id`. Las tablas de bookings/reviews/reports/
-  notifications/calendly son **legacy** (ver `ADR-024`): se conservan en el schema, sin entidades JPA.
+  `conversation_pairs (student_user_id, teacher_user_id)` con `conversation_id` único (V12, RACE-01).
+  `reviews` está activa desde `V18` (una por par, estado PUBLISHED/HIDDEN, respuesta y moderación);
+  `reports`/`notifications` siguen reservadas para futuro sin entidades JPA. `reviews.booking_id` se
+  eliminó en V17 y `bookings`/`calendly_integrations` ya no existen (ver `ADR-032`).
 - CHECK de rangos (rating 1-5, lat/lng, `current_year`, `duration_minutes`, años, semestre),
   CHECK de enums y `reporter_id <> reported_user_id`.
 - `messages`: FK compuesta `(conversation_id, sender_id)` → `conversation_participants` — garantiza
@@ -54,6 +66,13 @@ mensajería.
   **exclusion constraint GiST** `(teacher_id =, day_of_week =, int4range(start,end,'[)') &&)` con
   extensión `btree_gist` (impide solapamientos por profesor y día, incluso ante concurrencia;
   contiguos permitidos). `teacher_profiles.availability_note` (text).
+- `verification_documents` (V8/V10/V15/V16): CHECK `content IS NOT NULL OR storage_key IS NOT NULL`,
+  `scan_status` en `PENDING`/`CLEAN`/`INFECTED`/`UNSCANNED`; `verification_decisions` es
+  append-only con CHECK de decisión/método. `email_verification_tokens.token_hash`,
+  `message_link_tokens.token_hash` y `notification_outbox.dedupe_key` son UNIQUE.
+- `reviews` (V18): UNIQUE `(student_id, teacher_id)`, `status` PUBLISHED/HIDDEN, respuesta del
+  profesor y campos de moderación. `review_moderation_events` es append-only y referencia la review
+  y al admin.
 
 ## Índices relevantes
 
@@ -66,6 +85,13 @@ mensajería.
   `messages(conversation_id, created_at)` (V4).
 - Caminos calientes (V11): `messages(conversation_id) WHERE read_at IS NULL` (conteo y marcado de
   no leídos) y `subjects(name) WHERE active` (catálogo de la landing).
+- Verificación/outbox: `verification_documents(teacher_id)` y `(teacher_education_id)`,
+  `verification_decisions(teacher_id, decided_at)`,
+  `notification_outbox(next_attempt_at) WHERE status IN ('PENDING','FAILED')`,
+  `message_link_tokens(user_id)` y `email_verification_tokens(user_id)`. La cola admin relee
+  credenciales con `join fetch` para evitar N+1.
+- Reviews (V18): `reviews(teacher_id, status, created_at DESC)` para el listado público y
+  `review_moderation_events(review_id, created_at DESC)` para la auditoría.
 
 ## Reglas de migraciones
 
@@ -74,15 +100,19 @@ mensajería.
 - Histórico real: `V1` create schema · `V2` teacher_modalities · `V3` users.name + índices de
   búsqueda · `V4` índice de mensajería · `V5` availability_windows · `V6` Google OAuth · `V7`
   teacher cards · `V8` verification circuit · `V9` activación por email · `V10` object storage ·
-  `V11` índices de caminos calientes · `V12` conversación única por par (RACE-01).
+  `V11` índices de caminos calientes · `V12` conversación única por par (RACE-01) · `V13` outbox y
+  links de contacto (REVIEW2-002) · `V14` evento `ACTIVATION` en el outbox · `V15` estado
+  `UNSCANNED` · `V16` revisión por documento (VERIF-001) · `V17` drop de `bookings`/
+  `calendly_integrations` y de `reviews.booking_id` (ADR-032) · `V18` habilita reviews/rating
+  (OPINION-001): estado, respuesta, moderación, UNIQUE por par e índice de listado.
 
 ## Borrado y normalización
 
 - **Soft delete** en catálogo (`active=false`) y en cuentas (`status`); borrado físico casi no
-  existe. FKs `RESTRICT` protegen datos históricos (bookings/reviews/mensajes/participantes; los
-  primeros son legacy, ver `ADR-024`); `CASCADE` solo en datos de propiedad efímera (education,
-  teacher_subjects, modalities, notifications, integración Calendly).
+  existe. FKs `RESTRICT` protegen datos históricos (mensajes, participantes, reviews y, cuando se
+  implementen, reports/notifications); `CASCADE` solo en datos de propiedad efímera (education,
+  teacher_subjects, modalities).
 - Normalización ~3NF: nombres de universidad/carrera/materia nunca duplicados; referencias por FK.
   Excepciones justificadas: `teacher_profiles.rating_average/count` (agregados cacheados para
-  ordenar/buscar; hoy no hay módulo de reviews: son legacy) y `career_subjects.name_override` (dato
-  de dominio: el nombre que la carrera usa para la materia).
+  ordenar/buscar; los recalcula `ReviewService` desde las reviews PUBLISHED) y
+  `career_subjects.name_override` (dato de dominio: el nombre que la carrera usa para la materia).

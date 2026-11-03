@@ -10,7 +10,8 @@ import { CategoryCard } from '../components/teacher/CategoryCard';
 import { TeacherCard } from '../components/teacher/TeacherCard';
 
 interface Props {
-  subjects: Subject[];
+  popular: Subject[];
+  loadSuggestions: (term: string) => Promise<Subject[]>;
   subjectsLoading: boolean;
   subjectsError: boolean;
   onRetrySubjects: () => void;
@@ -33,7 +34,8 @@ const BENEFITS = [
 ];
 
 export default function LandingPage({
-  subjects,
+  popular,
+  loadSuggestions,
   subjectsLoading,
   subjectsError,
   onRetrySubjects,
@@ -65,8 +67,8 @@ export default function LandingPage({
     };
   }, []);
 
-  const categories = subjects.slice(0, 8);
-  const popular = subjects.slice(0, 6);
+  const categories = popular.slice(0, 8);
+  const topSubjects = popular.slice(0, 6);
 
   return (
     <>
@@ -94,8 +96,9 @@ export default function LandingPage({
               value={heroQuery}
               onChange={setHeroQuery}
               onSubmit={onSearch}
-              suggestions={subjects}
-              popular={popular}
+              suggestions={[]}
+              popular={topSubjects}
+              loadSuggestions={loadSuggestions}
               placeholder="¿Qué materia querés aprender? (ej. matemática, inglés, física…)"
             />
           </div>
@@ -118,7 +121,7 @@ export default function LandingPage({
             ) : (
               <>
                 <div className="flex flex-wrap gap-2">
-                  {popular.map((subject) => (
+                  {topSubjects.map((subject) => (
                     <button
                       key={subject.id}
                       type="button"

@@ -10,7 +10,7 @@ import com.claseya.messaging.repository.MessageRepository;
 import com.claseya.model.Conversation;
 import com.claseya.model.Message;
 import com.claseya.model.User;
-import com.claseya.teacher.dto.SearchResultPage;
+import com.claseya.common.dto.SearchResultPage;
 import com.claseya.user.UserRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;

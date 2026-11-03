@@ -1,6 +1,7 @@
 # ADR-027 — Romper los ciclos de paquetes con puertos
 
-**Estado:** Propuesto (requiere aprobación del arquitecto).
+**Estado:** Aceptado (2026-10-29) e implementado (2026-11-02). Los puertos viven en el módulo
+consumidor; el refactor no cambió el contrato HTTP.
 **Origen:** `review2.md` ARCH-01. **Relacionado:** `docs/architecture/guardrails.md`, `ADR-001`.
 
 ## Contexto
@@ -25,7 +26,7 @@ Consecuencias: un cambio de visibilidad o de completitud obliga a tocar dos mód
 puede aplicar (`guardrails.md` ya registra la deuda); y la regla D1 llegó a estar duplicada, que es
 cómo aparecieron PRIV-01 y BUG-03.
 
-## Decisión propuesta
+## Decisión
 
 Invertir las dependencias con **puertos pequeños en el módulo que posee el concepto**:
 
@@ -72,3 +73,13 @@ lookups de lectura, no reglas de dominio; `messaging` ya valida ownership en su 
 - Partir el monolito en servicios.
 - Cambiar el esquema o los contratos HTTP.
 - Mover `TeacherEducation` de módulo (se evalúa en REVIEW si el puerto no alcanza).
+
+## Estado de implementación (2026-11-02)
+
+**Implementado.** Se agregaron `teacher.port.AvailabilityPresencePort` (implementado por
+`availability`) y `teacher.port.EducationEvidencePort` (implementado por `verification`). Durante la
+verificación se detectó un tercer ciclo, `academic ↔ teacher`, causado por `SearchResultPage`; se
+resolvió moviendo el DTO genérico a `common.dto.SearchResultPage`. `ArchitectureTest` (ArchUnit)
+verifica que los módulos no tengan ciclos y que `teacher` no dependa de `availability` ni
+`verification`. La regla “sin repositorios cruzados” queda como follow-up documentado en
+`guardrails.md`.

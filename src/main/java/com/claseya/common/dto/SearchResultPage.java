@@ -1,4 +1,4 @@
-package com.claseya.teacher.dto;
+package com.claseya.common.dto;
 
 import java.util.List;
 

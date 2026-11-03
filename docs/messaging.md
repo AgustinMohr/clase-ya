@@ -35,9 +35,38 @@ last-message lookups. No tables were changed.
 | `POST` | `/api/conversations` | STUDENT | Start (or reuse) the conversation with a teacher, with an optional first `message` → 201 new / 200 existing |
 | `GET` | `/api/conversations?page=&size=` | STUDENT/TEACHER | User's conversations (own only) |
 | `GET` | `/api/conversations/{id}` | participant | Conversation detail (other participant + unread) |
-| `GET` | `/api/conversations/{id}/messages?page=&size=` | participant | Paginated messages (oldest first) |
+| `GET` | `/api/conversations/{id}/thread?before=&limit=` | participant | Detail + one page of messages with a keyset cursor (REVIEW2-003) |
+| `GET` | `/api/conversations/{id}/messages?page=&size=` | participant | Legacy offset pagination (oldest first); kept for compatibility |
 | `POST` | `/api/conversations/{id}/messages` | participant | Send a message → 201 |
 | `PATCH` | `/api/conversations/{id}/read` | participant | Mark the other participant's messages read → 204 |
+
+## Contact notification (REVIEW2-002)
+
+The contact email is **not sent inside the transaction**:
+
+1. `ConversationService.start` inserts a row in `notification_outbox` in the same transaction
+   (`dedupe_key = contact:<conversationId>`). Nothing is sent yet.
+2. The worker (`NotificationWorkerScheduler`, every 15 s) claims due rows with
+   `FOR UPDATE SKIP LOCKED` and a 2-minute lease, then sends **after** the claim transaction
+   commits. A crashed instance releases the lease automatically.
+3. Delivery retries with backoff (1, 5, 15, 60, 240 min); after 5 attempts the row is `DEAD`.
+   A permanent failure (no transport configured, recipient gone) goes straight to `DEAD`.
+4. The email carries a single-use link `/mensajes/{id}?token=...`. Only the SHA-256 hash is stored
+   (`message_link_tokens`), with a 7-day TTL. `POST /api/auth/message-link` exchanges it for the
+   normal session cookie; a second attempt fails, and the SPA strips the token from the URL.
+
+Without any email transport configured (SMTP or Brevo) and without
+`app.notification.log-links`, delivery is a permanent failure: the contact exists, but no email is
+sent (the row is `DEAD` with the reason).
+
+Registration uses the same outbox (`ACTIVATION`, `ADR-029`). The difference is deliberate: the
+transport check runs **inside** the registration transaction (`ActivationLinkSender.isConfigured()`),
+so without any email transport the request answers 503 and the account is never created. With a
+transport configured, the email is delivered by the worker and a transient failure is retried.
+
+The worker emits `claseya.notification.outbox.delivered|failed|dead` (tagged by `event_type`) and
+logs every outcome with the `outboxId`. Payloads are never logged: for `ACTIVATION` they carry the
+raw token until the row is terminal.
 
 ## Security & ownership
 
@@ -54,10 +83,10 @@ last-message lookups. No tables were changed.
 ## Conversation rules
 
 - **One conversation per student ↔ teacher pair (V1)**: re-POSTing returns the existing
-  conversation (200) instead of creating a second one. Enforced in the service; a simple SQL
-  constraint is not expressible through the generic participant model, so this is service+test
-  enforced and the concurrency limitation is documented (a rare race could create two; the
-  service always resolves deterministically afterwards).
+  conversation (200) instead of creating a second one. **Enforced in the database** since V12:
+  `conversation_pairs (student_user_id, teacher_user_id)` is the natural key, and creation uses
+  `INSERT ... ON CONFLICT DO NOTHING`; the loser deletes its empty candidate and reuses the winner.
+  Concurrent contacts resolve to one conversation (RACE-01, covered by a concurrency test).
 - A conversation is always exactly two participants (student + teacher).
 - Contacting an already-contacted teacher with a new `message` returns `200` **and appends** the
   message to the existing conversation (it is never dropped).
@@ -67,6 +96,19 @@ last-message lookups. No tables were changed.
 Reuses `SearchResultPage`. Conversations: `page>=0`, `1<=size<=50`, ordered `updatedAt DESC, id ASC`
 (`updatedAt` is bumped whenever a message is sent). Messages: `page>=0`, `1<=size<=100`, ordered
 `createdAt ASC, id ASC`. Both stable.
+
+### Thread keyset (REVIEW2-003)
+
+The SPA opens a conversation with `GET /{id}/thread`:
+
+- without `before`: the **latest** page (default `limit=50`, max `100`), returned oldest first;
+- with `before=<messageId>`: up to `limit` messages **strictly older** than that message;
+- `hasMore` says whether older messages exist; `nextBefore` is the oldest returned message id and
+  the cursor for the next call.
+
+The cursor is `(created_at, id)`, so a message sent while the user scrolls does not duplicate or
+skip rows. The anchor must belong to the same conversation; otherwise the endpoint answers `404`.
+The old offset endpoint remains for compatibility and is not used by the SPA.
 
 ## unread / read
 
@@ -82,6 +124,8 @@ Reuses `SearchResultPage`. Conversations: `page>=0`, `1<=size<=50`, ordered `upd
 `GET /api/conversations` = 1 paged query for participations (+ fetch of each conversation) and a
 constant 3 batched queries for: other participants (join-fetch user), last message per
 conversation, and unread counts per conversation. Message pages use a single join-fetch query.
+`GET /{id}/thread` uses a constant number of queries too: access/conversation, other participant,
+unread count, and one keyset page (join-fetch sender).
 
 ## Privacy
 
@@ -108,6 +152,12 @@ Authorization: Bearer <teacher>
 
 GET /api/conversations?page=0&size=20
 Authorization: Bearer <student>                   # newest activity first
+
+GET /api/conversations/{id}/thread?limit=50
+Authorization: Bearer <student>                   # detail + latest page (oldest first)
+
+GET /api/conversations/{id}/thread?before=<messageId>&limit=50
+Authorization: Bearer <student>                   # older page, same shape
 
 PATCH /api/conversations/{id}/read
 Authorization: Bearer <student>                   # 204

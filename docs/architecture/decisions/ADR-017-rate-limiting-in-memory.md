@@ -45,3 +45,10 @@ desproporcionado.
 Cuando el despliegue escale horizontalmente o se incorpore Redis (con spec/ADR propia), migrar el
 store a Bucket4j distribuido manteniendo los mismos scopes, límites y contrato HTTP. Evaluar también
 métricas/Actuator, CAPTCHA y reglas en el proxy/WAF como capas adicionales.
+
+## Actualización (2026-11-02)
+
+La evicción al alcanzar `maxEntries` ya no copia ni ordena todo el mapa bajo el lock: elimina un
+batch acotado (10 % del cap) recorriendo las claves, y la limpieza de expirados queda en el
+scheduler periódico. La limitación **por instancia** no cambia: con N réplicas el límite efectivo se
+multiplica. Migrar a un store distribuido (Redis) sigue requiriendo una spec/ADR propia.

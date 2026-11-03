@@ -27,6 +27,7 @@ public class ProductionConfigValidator {
     static final List<String> NON_PRODUCTION_PROFILES = List.of("local", "test");
 
     private static final String SCAN_ENABLED = "app.storage.scan.enabled";
+    private static final String ALLOW_UNSCANNED = "app.storage.scan.allow-unscanned";
     private static final String CAPTCHA_ENABLED = "app.auth.captcha.enabled";
     private static final String DEMO_SEED_ENABLED = "app.demo-seed.enabled";
 
@@ -34,16 +35,18 @@ public class ProductionConfigValidator {
         validate(
                 Arrays.asList(environment.getActiveProfiles()),
                 environment.getProperty(SCAN_ENABLED, Boolean.class, false),
+                environment.getProperty(ALLOW_UNSCANNED, Boolean.class, false),
                 environment.getProperty(CAPTCHA_ENABLED, Boolean.class, false),
                 environment.getProperty(DEMO_SEED_ENABLED, Boolean.class, false));
     }
 
     /**
-     * @throws IllegalStateException when a production-like profile has scanning or CAPTCHA off,
-     *                               or the demo seed on.
+     * @throws IllegalStateException when a production-like profile has scanning off without the
+     *                               explicit acknowledgement, CAPTCHA off, or the demo seed on.
      */
     static void validate(Collection<String> activeProfiles,
                          boolean scanEnabled,
+                         boolean allowUnscannedEvidence,
                          boolean captchaEnabled,
                          boolean demoSeedEnabled) {
         if (activeProfiles.stream().anyMatch(NON_PRODUCTION_PROFILES::contains)) {
@@ -51,8 +54,9 @@ public class ProductionConfigValidator {
         }
 
         List<String> problems = new ArrayList<>();
-        if (!scanEnabled) {
-            problems.add("app.storage.scan.enabled (SCAN_ENABLED) must be true");
+        if (!scanEnabled && !allowUnscannedEvidence) {
+            problems.add("app.storage.scan.enabled (SCAN_ENABLED) must be true unless "
+                    + "ALLOW_UNSCANNED_EVIDENCE=true acknowledges unscanned evidence");
         }
         if (!captchaEnabled) {
             problems.add("app.auth.captcha.enabled (CAPTCHA_ENABLED) must be true");

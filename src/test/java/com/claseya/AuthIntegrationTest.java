@@ -3,9 +3,11 @@ package com.claseya;
 import com.claseya.model.User;
 import com.claseya.model.enums.UserRole;
 import com.claseya.model.enums.UserStatus;
+import com.claseya.notification.repository.NotificationOutboxRepository;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,7 +19,6 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -26,6 +27,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @Transactional
 class AuthIntegrationTest extends AbstractWebIntegrationTest {
+
+    @Autowired private NotificationOutboxRepository outboxRepository;
 
     private String expiredToken(User user) {
         return Jwts.builder()
@@ -74,7 +77,7 @@ class AuthIntegrationTest extends AbstractWebIntegrationTest {
     }
 
     @Test
-    void register_existingActiveEmail_returns202WithoutSendingMail() throws Exception {
+    void register_existingActiveEmail_returns202WithoutQueueingMail() throws Exception {
         createUser("dup@example.com", UserRole.STUDENT, UserStatus.ACTIVE);
 
         mockMvc.perform(post("/api/auth/register")
@@ -82,7 +85,8 @@ class AuthIntegrationTest extends AbstractWebIntegrationTest {
                         .content(registerBody("dup@example.com", PASSWORD, "STUDENT")))
                 .andExpect(status().isAccepted());
 
-        verifyNoInteractions(activationMailSender);
+        // Anti-enumeration: nothing is queued for delivery to an address that already exists.
+        assertThat(outboxRepository.count()).isZero();
     }
 
     @Test

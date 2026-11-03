@@ -10,9 +10,12 @@ Documenta cómo se ejecutan realmente los tests del proyecto.
   (`S3DocumentStorageTest`, `ClamAvDocumentScannerTest`, `VerificationDocumentServiceTest`).
 - **Integración** (`*IntegrationTest`, con `@SpringBootTest` + MockMvc + Testcontainers):
   prueban el stack completo sobre PostgreSQL 16 real (auth, dominio académico, perfiles, búsqueda,
-  favoritos, mensajería, disponibilidad, verificación y endurecimiento HTTP). La suite actual tiene
-  **333 métodos de test** (unitarios + integración, conteo estático). El frontend suma **32 tests de
-  Vitest** (lógica pura, transporte HTTP y componentes) y **40 E2E** de Playwright.
+  favoritos, mensajería, disponibilidad, verificación, reviews/rating, admin, outbox y endurecimiento
+  HTTP). La
+  suite actual tiene **425 métodos de test** (unitarios + integración, conteo estático) y **2 reglas
+  ArchUnit** (`ArchitectureTest`: sin ciclos y `teacher` no depende de availability/verification).
+  El frontend suma **55 tests de Vitest** (lógica pura, transporte HTTP y componentes) y **44 E2E**
+  de Playwright.
 
 ## Infraestructura compartida
 
@@ -22,6 +25,8 @@ Documenta cómo se ejecutan realmente los tests del proyecto.
 - `AbstractWebIntegrationTest`: `@SpringBootTest` + `@AutoConfigureMockMvc`, helpers HTTP
   (`postJson`, `putJson`, `getJson`, `deleteJson` con charset UTF-8 explícito), creación de
   usuarios/tokens (`createUser`, `bearer`, `adminBearer`) y parseo JSON.
+- `ArchitectureTest` (ArchUnit) no requiere Docker: verifica que los módulos no tengan ciclos y que
+  `teacher` no dependa de `availability`/`verification`.
 
 ## Convenciones
 

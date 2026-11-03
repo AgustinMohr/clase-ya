@@ -1,12 +1,13 @@
 package com.claseya;
 
 import com.claseya.auth.repository.EmailVerificationTokenRepository;
-import com.claseya.common.exception.ServiceUnavailableException;
+import com.claseya.common.util.Hashes;
 import com.claseya.model.EmailVerificationToken;
 import com.claseya.model.User;
+import com.claseya.model.enums.NotificationEventType;
 import com.claseya.model.enums.UserStatus;
+import com.claseya.notification.repository.NotificationOutboxRepository;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,10 +18,9 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.atLeastOnce;
-import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -33,6 +33,9 @@ class AccountActivationIntegrationTest extends AbstractWebIntegrationTest {
 
     @Autowired
     private EmailVerificationTokenRepository tokenRepository;
+
+    @Autowired
+    private NotificationOutboxRepository outboxRepository;
 
     private void register(String email) throws Exception {
         register(email, PASSWORD);
@@ -47,14 +50,24 @@ class AccountActivationIntegrationTest extends AbstractWebIntegrationTest {
                 .andExpect(status().isAccepted());
     }
 
-    /** Last activation token captured from the mocked sender. */
+    /**
+     * Last activation token, read from the outbox payload. REVIEW2-002 moved the send out of the
+     * transaction, so the raw token now travels with the queued event instead of a captured email.
+     */
     private String lastToken(String email) {
-        ArgumentCaptor<String> links = ArgumentCaptor.forClass(String.class);
-        verify(activationMailSender, atLeastOnce()).sendActivation(org.mockito.ArgumentMatchers.eq(email), links.capture());
-        String link = links.getAllValues().get(links.getAllValues().size() - 1);
-        int index = link.indexOf("token=");
-        assertThat(index).isGreaterThanOrEqualTo(0);
-        return link.substring(index + "token=".length());
+        User account = user(email);
+        List<String> outstandingHashes = tokenRepository.findByUser_IdAndUsedAtIsNull(account.getId())
+                .stream()
+                .map(EmailVerificationToken::getTokenHash)
+                .toList();
+        assertThat(outstandingHashes).isNotEmpty();
+
+        return outboxRepository.findAll().stream()
+                .filter(row -> row.getEventType() == NotificationEventType.ACTIVATION)
+                .map(row -> String.valueOf(row.getPayload().get("token")))
+                .filter(token -> outstandingHashes.contains(Hashes.sha256Hex(token)))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("No queued activation token for " + email));
     }
 
     private void activate(String token) throws Exception {
@@ -186,7 +199,7 @@ class AccountActivationIntegrationTest extends AbstractWebIntegrationTest {
                                 """.formatted(UUID.randomUUID())))
                 .andExpect(status().isAccepted());
 
-        verifyNoInteractions(activationMailSender);
+        verify(activationLinkSender, never()).send(anyString(), anyString());
     }
 
     @Test
@@ -235,8 +248,7 @@ class AccountActivationIntegrationTest extends AbstractWebIntegrationTest {
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     void register_withoutMailTransport_returns503AndRollsBack() throws Exception {
         String email = "nomail-" + UUID.randomUUID() + "@example.com";
-        doThrow(new ServiceUnavailableException("Email delivery is not configured"))
-                .when(activationMailSender).sendActivation(anyString(), anyString());
+        when(activationLinkSender.isConfigured()).thenReturn(false);
 
         mockMvc.perform(post("/api/auth/register")
                         .contentType("application/json")

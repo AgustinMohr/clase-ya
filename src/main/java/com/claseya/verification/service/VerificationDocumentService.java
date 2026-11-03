@@ -7,7 +7,6 @@ import com.claseya.model.TeacherEducation;
 import com.claseya.model.TeacherProfile;
 import com.claseya.model.User;
 import com.claseya.model.VerificationDocument;
-import com.claseya.model.enums.DocumentScanStatus;
 import com.claseya.model.enums.DocumentType;
 import com.claseya.model.enums.VerificationStatus;
 import com.claseya.teacher.repository.TeacherEducationRepository;
@@ -18,7 +17,9 @@ import com.claseya.verification.repository.VerificationDecisionRepository;
 import com.claseya.verification.repository.VerificationDocumentRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -40,6 +41,7 @@ public class VerificationDocumentService {
     private final DocumentStorage storage;
     private final DocumentScanner scanner;
     private final UserRepository userRepository;
+    private final TransactionTemplate transactionTemplate;
 
     public VerificationDocumentService(TeacherProfileService teacherProfileService,
                                        TeacherEducationRepository teacherEducationRepository,
@@ -48,7 +50,8 @@ public class VerificationDocumentService {
                                        DocumentContentValidator validator,
                                        DocumentStorage storage,
                                        DocumentScanner scanner,
-                                       UserRepository userRepository) {
+                                       UserRepository userRepository,
+                                       TransactionTemplate transactionTemplate) {
         this.teacherProfileService = teacherProfileService;
         this.teacherEducationRepository = teacherEducationRepository;
         this.documentRepository = documentRepository;
@@ -57,31 +60,50 @@ public class VerificationDocumentService {
         this.storage = storage;
         this.scanner = scanner;
         this.userRepository = userRepository;
+        this.transactionTemplate = transactionTemplate;
     }
 
-    @Transactional
+    /**
+     * REVIEW2-002 (RF-7): ClamAV and S3 run <em>outside</em> any database transaction, so a slow
+     * scan or upload cannot hold a pooled connection. The quota is checked twice: once here for a
+     * friendly early error, and again inside the short persistence transaction while holding the
+     * credential row lock, which is what makes it race-proof.
+     */
     public VerificationDocumentResponse upload(UUID userId, UUID educationId, DocumentType type,
                                                byte[] content, String originalFilename) {
         TeacherProfile profile = teacherProfileService.requireByUser(userId);
-        TeacherEducation education = requireOwnedCredential(profile, educationId);
+        requireOwnedCredential(profile, educationId);
         DocumentContentValidator.ValidatedDocument validated = validator.validate(content, originalFilename);
 
-        if (documentRepository.countByTeacherEducation_Id(educationId) >= MAX_DOCUMENTS_PER_CREDENTIAL) {
-            throw new BadRequestException("A credential cannot hold more than 5 documents");
-        }
-        long existingBytes = documentRepository.sumSizeBytesByEducation(educationId);
-        if (existingBytes + validated.sizeBytes() > MAX_TOTAL_BYTES_PER_CREDENTIAL) {
-            throw new BadRequestException("The documents of a credential cannot exceed 25 MB in total");
-        }
-
-        User uploader = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        assertQuotaAvailable(educationId, validated.sizeBytes());
 
         // STOR-01: a file that is infected or cannot be scanned never reaches the bucket or the DB.
         scanner.scan(content);
 
+        String storageKey = storage.store(content, validated.contentType());
+        try {
+            return transactionTemplate.execute(status -> persist(
+                    userId, profile.getId(), educationId, type, validated, content, storageKey));
+        } catch (RuntimeException ex) {
+            deleteOrphan(storageKey);
+            throw ex;
+        }
+    }
+
+    private VerificationDocumentResponse persist(UUID userId, UUID teacherProfileId, UUID educationId,
+                                                 DocumentType type,
+                                                 DocumentContentValidator.ValidatedDocument validated,
+                                                 byte[] content, String storageKey) {
+        TeacherEducation education = teacherEducationRepository
+                .findOwnedForUpdate(educationId, teacherProfileId)
+                .orElseThrow(() -> new ResourceNotFoundException("Teacher education not found"));
+        assertQuotaAvailable(educationId, validated.sizeBytes());
+
+        User uploader = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
         VerificationDocument document = new VerificationDocument();
-        document.setTeacher(profile);
+        document.setTeacher(education.getTeacher());
         document.setTeacherEducation(education);
         document.setType(type);
         document.setOriginalFilename(validated.filename());
@@ -89,22 +111,53 @@ public class VerificationDocumentService {
         document.setSizeBytes(validated.sizeBytes());
         document.setSha256(validated.sha256());
         document.setUploadedBy(uploader);
-        document.setScanStatus(DocumentScanStatus.CLEAN);
-
-        String storageKey = storage.store(content, validated.contentType());
+        document.setScanStatus(scanner.recordedStatus());
         document.setStorageKey(storageKey);
         document.setContent(storageKey == null ? content : null);
-        try {
-            return VerificationDocumentResponse.from(documentRepository.saveAndFlush(document));
-        } catch (RuntimeException ex) {
-            if (storageKey != null) {
-                try {
-                    storage.delete(document);
-                } catch (RuntimeException cleanupFailure) {
-                    // The row was not created; an orphan object is safer than losing the error.
-                }
+        return VerificationDocumentResponse.from(documentRepository.saveAndFlush(document));
+    }
+
+    /** VERIF-001: mark or unmark a document as reviewed. Idempotent; the actor is the ADMIN. */
+    @Transactional
+    public void review(UUID adminUserId, UUID documentId, boolean reviewed) {
+        VerificationDocument document = documentRepository.findById(documentId)
+                .orElseThrow(ResourceNotFoundException::new);
+        if (reviewed) {
+            if (document.getReviewedAt() == null) {
+                document.setReviewedAt(Instant.now());
+                document.setReviewedBy(userRepository.findById(adminUserId)
+                        .orElseThrow(ResourceNotFoundException::new));
+                documentRepository.save(document);
             }
-            throw ex;
+            return;
+        }
+        if (document.getReviewedAt() != null) {
+            document.setReviewedAt(null);
+            document.setReviewedBy(null);
+            documentRepository.save(document);
+        }
+    }
+
+    private void assertQuotaAvailable(UUID educationId, long incomingBytes) {
+        if (documentRepository.countByTeacherEducation_Id(educationId) >= MAX_DOCUMENTS_PER_CREDENTIAL) {
+            throw new BadRequestException("A credential cannot hold more than 5 documents");
+        }
+        long existingBytes = documentRepository.sumSizeBytesByEducation(educationId);
+        if (existingBytes + incomingBytes > MAX_TOTAL_BYTES_PER_CREDENTIAL) {
+            throw new BadRequestException("The documents of a credential cannot exceed 25 MB in total");
+        }
+    }
+
+    private void deleteOrphan(String storageKey) {
+        if (storageKey == null) {
+            return;
+        }
+        VerificationDocument orphan = new VerificationDocument();
+        orphan.setStorageKey(storageKey);
+        try {
+            storage.delete(orphan);
+        } catch (RuntimeException cleanupFailure) {
+            // The row was not created; an orphan object is safer than losing the error.
         }
     }
 

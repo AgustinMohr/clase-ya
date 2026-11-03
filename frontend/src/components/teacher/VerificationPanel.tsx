@@ -95,7 +95,7 @@ function CredentialRow({
       onChanged();
       if (docsOpen) setDocuments(await api.myDocuments(credential.educationId));
     } catch {
-      notify('No pudimos subir el documento. Solo PDF, JPG o PNG de hasta 10 MB.', 'error');
+      notify('No pudimos subir el documento. Solo PDF de hasta 10 MB.', 'error');
     } finally {
       setUploading(false);
     }
@@ -166,12 +166,12 @@ function CredentialRow({
             </Select>
           )}
         </Field>
-        <Field label="Archivo (PDF, JPG o PNG)">
+        <Field label="Archivo (PDF)">
           {({ id }) => (
             <input
               id={id}
               type="file"
-              accept=".pdf,.jpg,.jpeg,.png"
+              accept=".pdf,application/pdf"
               onChange={(e) => setFile(e.target.files?.[0] ?? null)}
               className="text-sm text-content-muted file:mr-3 file:rounded-lg file:border-0 file:bg-primary-600 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-primary-700"
             />

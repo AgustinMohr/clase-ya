@@ -1,7 +1,14 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ArrowLeft, MessageCircle, Send } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router';
-import { api, ApiError, MAX_MESSAGE_LENGTH, type ConversationSummary, type Message } from '../api';
+import {
+  api,
+  ApiError,
+  MAX_MESSAGE_LENGTH,
+  type ConversationParticipant,
+  type ConversationSummary,
+  type Message,
+} from '../api';
 import { useAuth } from '../auth/AuthContext';
 import { usePageMeta } from '../hooks/usePageMeta';
 import { Button } from '../components/ui/Button';
@@ -9,8 +16,10 @@ import { EmptyState, Skeleton } from '../components/ui/primitives';
 import { ROUTES } from '../routes';
 
 interface Thread {
-  other: { displayName: string; role: string };
+  other: ConversationParticipant;
   messages: Message[];
+  hasMore: boolean;
+  nextBefore?: string;
 }
 
 function formatWhen(value: string | undefined): string {
@@ -37,10 +46,16 @@ export default function MessagesPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loadingThread, setLoadingThread] = useState(false);
   const [threadError, setThreadError] = useState('');
+  const [hasMore, setHasMore] = useState(false);
+  const [nextBefore, setNextBefore] = useState<string | undefined>(undefined);
+  const [loadingOlder, setLoadingOlder] = useState(false);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const draftRef = useRef<HTMLTextAreaElement | null>(null);
+  // The scroll container keeps its reading position when older messages are prepended.
+  const scrollAnchorRef = useRef<{ height: number; top: number } | null>(null);
+  const scrollToBottomRef = useRef(true);
   // Threads already fetched: revisiting one renders instantly instead of flashing skeletons.
   const threadsRef = useRef(new Map<string, Thread>());
   // Guards against out-of-order responses when switching conversations quickly.
@@ -81,26 +96,33 @@ export default function MessagesPage() {
         // Show what we already have, then refresh in the background.
         setOther(cached.other);
         setMessages(cached.messages);
+        setHasMore(cached.hasMore);
+        setNextBefore(cached.nextBefore);
         setLoadingThread(false);
       } else {
         setOther(null);
         setMessages([]);
+        setHasMore(false);
+        setNextBefore(undefined);
         setLoadingThread(true);
       }
+      scrollToBottomRef.current = true;
 
       try {
-        const [detail, firstPage] = await Promise.all([
-          api.conversation(conversationId),
-          api.messages(conversationId, 0, 100),
-        ]);
-        // A long conversation must show its most recent messages, not the oldest page.
-        const lastPageIndex = Math.max(0, firstPage.totalPages - 1);
-        const page = lastPageIndex === 0 ? firstPage : await api.messages(conversationId, lastPageIndex, 100);
-        const thread: Thread = { other: detail.otherParticipant, messages: page.content };
-        threadsRef.current.set(conversationId, thread);
+        const thread = await api.conversationThread(conversationId);
+        const next: Thread = {
+          other: thread.otherParticipant,
+          messages: thread.messages,
+          hasMore: thread.hasMore,
+          nextBefore: thread.nextBefore,
+        };
+        threadsRef.current.set(conversationId, next);
         if (seq === threadSeq.current) {
-          setOther(thread.other);
-          setMessages(thread.messages);
+          setOther(next.other);
+          setMessages(next.messages);
+          setHasMore(next.hasMore);
+          setNextBefore(next.nextBefore);
+          scrollToBottomRef.current = true;
         }
         // Opening the thread marks the other participant's messages as read.
         await api.markConversationRead(conversationId);
@@ -132,11 +154,60 @@ export default function MessagesPage() {
     void openConversation(routeConversationId);
   }, [routeConversationId, openConversation]);
 
-  // Scroll only the thread, never the page.
-  useEffect(() => {
+  // Older messages are inserted above: keep the reading position instead of jumping to the end.
+  const loadOlder = useCallback(async () => {
+    if (!openId || !nextBefore || loadingOlder) return;
+    const seq = threadSeq.current;
     const body = bodyRef.current;
-    if (body) {
+    scrollAnchorRef.current = body
+      ? { height: body.scrollHeight, top: body.scrollTop }
+      : null;
+    setLoadingOlder(true);
+    setThreadError('');
+    try {
+      const page = await api.conversationThread(openId, nextBefore, 50);
+      if (seq !== threadSeq.current) {
+        scrollAnchorRef.current = null;
+        return;
+      }
+      const cached = threadsRef.current.get(openId);
+      const current = cached?.messages ?? messages;
+      const seen = new Set(current.map((message) => message.id));
+      const merged = [...page.messages.filter((message) => !seen.has(message.id)), ...current];
+      const next: Thread = {
+        other: page.otherParticipant,
+        messages: merged,
+        hasMore: page.hasMore,
+        nextBefore: page.nextBefore,
+      };
+      threadsRef.current.set(openId, next);
+      setOther(next.other);
+      setMessages(merged);
+      setHasMore(next.hasMore);
+      setNextBefore(next.nextBefore);
+    } catch {
+      if (seq === threadSeq.current) {
+        scrollAnchorRef.current = null;
+        setThreadError('No pudimos cargar los mensajes anteriores.');
+      }
+    } finally {
+      setLoadingOlder(false);
+    }
+  }, [openId, nextBefore, loadingOlder, messages]);
+
+  // Scroll only the thread, never the page.
+  useLayoutEffect(() => {
+    const body = bodyRef.current;
+    if (!body) return;
+    const anchor = scrollAnchorRef.current;
+    if (anchor) {
+      body.scrollTop = anchor.top + (body.scrollHeight - anchor.height);
+      scrollAnchorRef.current = null;
+      return;
+    }
+    if (scrollToBottomRef.current) {
       body.scrollTop = body.scrollHeight;
+      scrollToBottomRef.current = false;
     }
   }, [messages, loadingThread]);
 
@@ -158,6 +229,7 @@ export default function MessagesPage() {
     setThreadError('');
     try {
       const created = await api.sendMessage(openId, content);
+      scrollToBottomRef.current = true;
       setMessages((previous) => {
         const next = [...previous, created];
         const cached = threadsRef.current.get(openId);
@@ -272,6 +344,23 @@ export default function MessagesPage() {
               </header>
 
               <div ref={bodyRef} className="flex-1 overflow-y-auto overflow-x-hidden p-4" aria-busy={loadingThread} data-testid="thread-body">
+                {!loadingThread && hasMore && nextBefore && (
+                  <div className="mb-3 flex justify-center">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      loading={loadingOlder}
+                      onClick={() => void loadOlder()}
+                    >
+                      Cargar mensajes anteriores
+                    </Button>
+                  </div>
+                )}
+                {!loadingThread && threadError && messages.length > 0 && (
+                  <p role="alert" className="mb-3 text-center text-sm text-error-600">
+                    {threadError}
+                  </p>
+                )}
                 {loadingThread ? (
                   <div className="space-y-3">
                     {Array.from({ length: 5 }).map((_, index) => (

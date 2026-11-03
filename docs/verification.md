@@ -53,10 +53,23 @@ Una credencial `PENDING` (nunca presentada) no cuenta. En código: `Verification
 
 ### Validación de archivos (backend, nunca se confía en el cliente)
 
-PDF / JPG / PNG por **magic bytes** (no por extensión ni `Content-Type`); máximo **10 MB** (413);
-hasta 5 documentos y 25 MB por credencial; **SHA-256** calculado; nombre original **saneado**.
-`spring.servlet.multipart.max-file-size` se subió a 10 MB (el default de 1 MB rechazaría evidencia
-válida).
+**Solo PDF** por *magic bytes* (`%PDF-`; no por extensión ni `Content-Type`), STOR-002. JPG, PNG y
+cualquier otro formato → `400`. Máximo **10 MB** (413); hasta 5 documentos y 25 MB por credencial;
+**SHA-256** calculado; nombre original **saneado** a `[letras, números, espacio, . _ -]` para que no
+pueda romper el header de descarga. `spring.servlet.multipart.max-file-size` se subió a 10 MB (el
+default de 1 MB rechazaría evidencia válida).
+
+### Evidencia sin escáner (STOR-002)
+
+- `scan_status` registra lo que realmente pasó: `CLEAN` si ClamAV escaneó, `UNSCANNED` si el
+  escaneo está deshabilitado. No se miente con `CLEAN`.
+- Sin escáner, el backend solo arranca fuera de `local`/`test` con
+  `ALLOW_UNSCANNED_EVIDENCE=true`; sin ese ack, `ProductionConfigValidator` falla al iniciar.
+- La descarga (dueño y ADMIN) es siempre `Content-Disposition: attachment`, con
+  `X-Content-Type-Options: nosniff` y `Cache-Control: no-store`. Nunca se renderiza inline: el archivo
+  baja al disco y el antivirus del operador lo revisa ahí.
+- No hay visor PDF en la app. Un visor requeriría rasterizar en el servidor o PDF.js en un iframe
+  sandboxeado; es una spec aparte.
 
 ## Endpoints — administración (`/api/admin/**`, rol ADMIN únicamente)
 
@@ -64,11 +77,24 @@ válida).
 |---|---|---|
 | `GET` | `/verifications?status=&page=&size=` | Cola (default `UNDER_REVIEW`), **más antiguos primero** por `submitted_at`, paginada |
 | `GET` | `/verifications/{teacherId}` | Detalle: credenciales, documentos e historial completo |
+| `POST` | `/documents/{documentId}/reviewed` | Marca el documento como revisado (VERIF-001, idempotente) |
+| `DELETE` | `/documents/{documentId}/reviewed` | Desmarca (idempotente) |
 | `GET` | `/documents/{documentId}/content` | Descarga (auditada en el log de la aplicación) |
 | `POST` | `/verifications/{teacherId}/credentials/{educationId}/decision` | `{"decision":"VERIFIED"\|"REJECTED"\|"MORE_INFO_REQUIRED","method":"...","reason":"..."}` |
 | `POST` | `/verifications/{teacherId}/revoke` | Revoca la última credencial verificada: `{"method":"...","reason":"..."}` |
 
 `MORE_INFO_REQUIRED` **exige motivo**; la revocación **exige motivo y método**.
+
+### Marca de revisión (VERIF-001)
+
+- Cada documento tiene una casilla de "revisado" (`reviewed_at`, `reviewed_by`). Es una ayuda de
+  trabajo del ADMIN, **no** auditoría: la auditoría real es `verification_decisions` (append-only).
+- El detalle admin (`GET /verifications/{teacherId}`) es el único DTO que expone `scanStatus`,
+  `reviewedAt` y `reviewedByName`. El DTO del profesor no cambia.
+- **Verificar exige ≥1 documento y todos revisados**; si falta alguno → `400` y el estado no cambia.
+  `REJECTED` y `MORE_INFO_REQUIRED` no exigen revisión previa.
+- La compuerta se evalúa **después** del estado: una credencial fuera de `UNDER_REVIEW` sigue dando
+  `409` (es el conflicto más específico).
 
 ## Inmutabilidad de la evidencia (RF-19..RF-23)
 

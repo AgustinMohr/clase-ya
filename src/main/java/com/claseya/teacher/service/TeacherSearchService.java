@@ -3,7 +3,7 @@ package com.claseya.teacher.service;
 import com.claseya.common.exception.BadRequestException;
 import com.claseya.common.exception.ResourceNotFoundException;
 import com.claseya.model.TeacherProfile;
-import com.claseya.teacher.dto.SearchResultPage;
+import com.claseya.common.dto.SearchResultPage;
 import com.claseya.teacher.dto.TeacherEducationResponse;
 import com.claseya.teacher.dto.TeacherPublicDetailResponse;
 import com.claseya.teacher.dto.TeacherSearchCriteria;

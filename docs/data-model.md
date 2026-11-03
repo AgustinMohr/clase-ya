@@ -1,10 +1,22 @@
 # ClaseYa — Data Model (Phase 1)
 
+> **Estado (2026-11-02): documento histórico de la fase 1.** El esquema actual llega a `V17` y el
+> modelo JPA incluye autenticación, verificación documental, outbox y tokens de un solo uso. La
+> referencia vigente es `docs/architecture/database.md`; esta página se conserva para explicar las
+> decisiones originales del modelo.
+>
+> **Cambios posteriores a Phase 1:** `V8` reemplazó `teacher_education.is_verified` por
+> `verification_status`/`submitted_at`; `ADR-024` eliminó las entidades `Booking`, `Review`,
+> `Report`, `Notification` y `CalendlyIntegration`; `V9`/`V13` agregaron tokens y outbox; `V16`
+> agregó `reviewed_at`/`reviewed_by`; `V17` eliminó `bookings` y `calendly_integrations` y quitó
+> `reviews.booking_id`; `V18` habilitó reviews/rating (OPINION-001) y reintrodujo la entidad
+> `Review` + `ReviewModerationEvent`. Se conservan `reports`/`notifications` para futuro. El modelo
+> actual tiene 24 entidades JPA.
+
 The relational model for the ClaseYa platform: students, teachers, the normalized academic
 catalog (university → academic unit → career → subject), messaging, bookings, reviews, reports,
-notifications, and a prepared-but-unused Calendly integration. Phase 1 delivers only the schema
-(Flyway) and the JPA entity layer. No controllers, services, DTOs, auth, or external integrations
-exist yet.
+notifications, and a prepared-but-unused Calendly integration. Phase 1 delivered only the schema
+(Flyway) and the JPA entity layer; controllers, services, DTOs and auth came later.
 
 ## Quick path
 
@@ -38,6 +50,11 @@ bookings ── N:1 student_profiles
          ── 1:0..1 reviews
 ```
 
+> **Estado actual (V18):** `bookings` y `calendly_integrations` ya no existen; `reviews.booking_id`
+> se eliminó y `reviews` está activa con `Review`/`ReviewModerationEvent`. `reports` y
+> `notifications` se conservan sin entidad JPA para una implementación futura. El diagrama anterior
+> describe Phase 1.
+
 ## Design decisions
 
 | Topic | Decision |
@@ -47,10 +64,10 @@ bookings ── N:1 student_profiles
 | Enums | Stored as `varchar` + `CHECK` (not PG enum types), mapped with `@Enumerated(EnumType.STRING)`. New values = migration, portable, and visible in schema dumps. |
 | Entity relationships | Owning side only (`@ManyToOne`/`@OneToOne` + `@JoinColumn`). No bidirectional collections — the schema is fully defined by the FK columns and Hibernate doesn't need inverse sides. All N:M are explicit join entities with their own attributes; no `@ManyToMany`. |
 | DDL ownership | Flyway is the single source of truth. `spring.jpa.hibernate.ddl-auto=validate` guards drift. |
-| Profile identity | `student_profiles`/`teacher_profiles` each get their own UUID `id` **plus** a `UNIQUE` FK to `users.user_id`. Simpler than shared-PK 1:1 and lets `bookings`/`favorites`/`reviews` reference profiles cleanly. |
+| Profile identity | `student_profiles`/`teacher_profiles` each get their own UUID `id` **plus** a `UNIQUE` FK to `users.user_id`. Simpler than shared-PK 1:1 and lets `favorites`/`reviews` reference profiles cleanly. |
 | Academic names | Student/teacher never store university/career/subject strings. They reference `universities`, `careers`, `career_subjects` (→ `subjects`) by FK. `career_subjects.name_override` covers career-specific subject names ("Matemática I" vs "Matemática Discreta"). |
 | Denormalized data | `teacher_profiles.rating_average` / `rating_count` are derived from `reviews` but stored for sorted search/filtering performance. Recalculation is the job of the future review service (documented there). |
-| Deletion model | Physical deletes are the exception. Catalogs use `active`, accounts use `status` (`INACTIVE`/`SUSPENDED`). FKs `RESTRICT` historical/transactional data (bookings, reviews, messages, reports); `CASCADE` only ephemeral owned data (education, teacher_subjects, favorites, notifications, calendly_integration). |
+| Deletion model | Physical deletes are the exception. Catalogs use `active`, accounts use `status` (`INACTIVE`/`SUSPENDED`). FKs `RESTRICT` historical/transactional data (reviews, messages, reports once implemented); `CASCADE` only ephemeral owned data (education, teacher_subjects, favorites). `bookings`/`calendly_integrations` se eliminaron en `V17`. |
 | Soft delete | Implemented as `active` on catalog entities + `status` on users. No dedicated `deleted_at` column — see "Future" below. |
 
 ## Tables
@@ -62,9 +79,9 @@ bookings ── N:1 student_profiles
 | `users` | `email` UNIQUE (normalized to lowercase by the app), `password_hash` (never plaintext), `role`, `status` (`PENDING`/`ACTIVE`/`INACTIVE`/`SUSPENDED`), `last_login_at`. |
 | `student_profiles` | 1:1 with user; `university_id`, `career_id` (FKs, no name duplication), `current_year` (1–12), `bio`. |
 | `teacher_profiles` | 1:1 with user; `verification_status`, `latitude`/`longitude` `numeric(9,6)` with range CHECKs, `address`, denormalized rating fields. |
-| `teacher_education` | 1:N with teacher. `institution` + `degree` (never a comma-joined string), `start_year`/`end_year`, `is_verified`. |
+| `teacher_education` | 1:N with teacher. `institution` + `degree` (never a comma-joined string), `start_year`/`end_year`. **Phase 1:** `is_verified`; desde `V8` se reemplazó por `verification_status` + `submitted_at`. |
 | `favorites` | student → teacher, `UNIQUE (student_id, teacher_id)`. |
-| `calendly_integrations` | 1:0..1 with teacher; `UNIQUE teacher_id`. Model exists only — no OAuth code. |
+| `calendly_integrations` | **Eliminada en `V17`:** 1:0..1 with teacher; `UNIQUE teacher_id`. La entidad JPA se eliminó en `ADR-024` y la tabla se eliminó en `ADR-032`. |
 
 ### Academic catalog
 
@@ -89,20 +106,20 @@ bookings ── N:1 student_profiles
 
 | Table | Notes |
 |-------|-------|
-| `bookings` | `student_id`, `teacher_id`, `career_subject_id` (RESTRICT), `scheduled_at`, `duration_minutes` (1–480), `mode` (`ONLINE`/`IN_PERSON`), `status` (`PENDING`/`CONFIRMED`/`CANCELLED`/`COMPLETED`), `calendly_event_id` (link later). |
-| `reviews` | `UNIQUE booking_id` (one review per booking), `rating` CHECK 1–5, `student_id`/`teacher_id` FKs, `comment`. |
+| `bookings` | **Eliminada en `V17`:** `student_id`, `teacher_id`, `career_subject_id` (RESTRICT), `scheduled_at`, `duration_minutes` (1–480), `mode` (`ONLINE`/`IN_PERSON`), `status` (`PENDING`/`CONFIRMED`/`CANCELLED`/`COMPLETED`), `calendly_event_id` (link later). Entidad eliminada en `ADR-024` y tabla eliminada en `ADR-032`. |
+| `reviews` | **Activa desde `V18`:** `rating` CHECK 1–5, `student_id`/`teacher_id` FKs, `comment`, `status` PUBLISHED/HIDDEN, respuesta del profesor y moderación. `booking_id` se eliminó en `V17`; la entidad `Review` se reintrodujo en `V18`. |
 
 ### Moderation and engagement
 
 | Table | Notes |
 |-------|-------|
-| `reports` | `CHECK (reporter_id <> reported_user_id)` prevents self-reports. `status` (`OPEN`/`REVIEWING`/`RESOLVED`/`REJECTED`), `resolved_at`. |
-| `notifications` | `type` (`NEW_MESSAGE`, `NEW_BOOKING`, `BOOKING_UPDATE`, `BOOKING_REMINDER`, `NEW_REVIEW`, `REPORT_RESOLUTION`, `SYSTEM`), `read_at`. Model only — no email/WS delivery. |
+| `reports` | **Conservada para futuro:** `CHECK (reporter_id <> reported_user_id)` prevents self-reports. `status` (`OPEN`/`REVIEWING`/`RESOLVED`/`REJECTED`), `resolved_at`. Entidad eliminada en `ADR-024`; sin flujo actual. |
+| `notifications` | **Conservada para futuro:** `type` (`NEW_MESSAGE`, `NEW_BOOKING`, `BOOKING_UPDATE`, `BOOKING_REMINDER`, `NEW_REVIEW`, `REPORT_RESOLUTION`, `SYSTEM`), `read_at`. Entidad eliminada en `ADR-024`; no hay notificaciones in-app todavía. |
 
 ## Constraints
 
 - **CHECKs** on every enum (`role`, `status`, `verification_status`, `mode`, booking/report status, `notification.type`), numeric ranges (lat/lng, rating 1–5, `current_year`, `duration_minutes`, `years_experience`, `start_year`/`end_year` ordering), non-empty `messages.content`, and the no-self-report rule.
-- **UNIQUEs** exactly where required: `users.email`, `universities.slug`, `careers.slug`, `subjects.slug`/`normalized_name`, composite uniques for `academic_units`, `careers`, `career_subjects`, `teacher_subjects`, `favorites`, `conversation_participants`, `reviews.booking_id`, `calendly_integrations.teacher_id`, and 1:1 profile FKs.
+- **UNIQUEs** exactly where required: `users.email`, `universities.slug`, `careers.slug`, `subjects.slug`/`normalized_name`, composite uniques for `academic_units`, `careers`, `career_subjects`, `teacher_subjects`, `favorites`, `conversation_participants`, and 1:1 profile FKs. `reviews.booking_id`/`calendly_integrations.teacher_id` ya no existen (V17).
 - **Rules that SQL cannot fully guarantee** (deferred to the business layer, not implemented): a review may only be created for a `COMPLETED` booking (a DB trigger is a future option); deleting a `users` row would conflict with the RESTRICT FKs by design.
 
 ## Indexes
@@ -117,8 +134,7 @@ bookings ── N:1 student_profiles
 | `teacher_subjects(career_subject_id)` | **The core search index**: which teachers teach a subject. `teacher_id` is the leading column of its UNIQUE. |
 | `conversation_participants(user_id)` | "Conversations of this user". |
 | `messages(conversation_id, sender_id)` | Conversation threading + composite-FK enforcement; leading column covers `conversation_id`. |
-| `bookings(student_id)`, `bookings(teacher_id)`, `bookings(scheduled_at)`, `bookings(status)` | Student/teacher bookings, time-based queries, status filters. A composite `(teacher_id, scheduled_at)` can be added later if conflict checks need it. |
-| `reviews(teacher_id)`, `reviews(student_id)` | Rating aggregation and "my reviews". |
+| `reviews(teacher_id)`, `reviews(student_id)` | Rating aggregation and "my reviews" for the future review flow. |
 | `reports(reported_user_id)`, `reports(reporter_id)` | Moderation queues and user's own reports. |
 | `notifications(user_id)` | User notification lists. |
 
@@ -127,7 +143,7 @@ FK columns are indexed either explicitly or as the leading column of a composite
 ## Security
 
 - **Passwords**: only `password_hash` exists (`varchar(255)` for bcrypt). No plaintext column, ever.
-- **OAuth tokens** (`calendly_integrations.access_token`/`refresh_token`): stored as `text` for now. Future strategy (not implemented): encrypt at rest (e.g. AES-256-GCM with keys in a KMS/secret manager), never log them, never return them from APIs, and store only `token_expires_at`/`connected_at` in reachable fields.
+- **OAuth tokens** (`calendly_integrations.access_token`/`refresh_token`): la tabla se eliminó en `V17`; no hay integración Calendly. Si se retomara, habría que diseñar el almacenamiento cifrado en una spec aparte.
 - **Credentials**: `application.yml` reads `DB_URL`/`DB_USERNAME`/`DB_PASSWORD` from the environment with local defaults for development.
 - **No sensitive data**: the model stores no extra PII beyond what the domain requires.
 
@@ -138,19 +154,26 @@ Target is 3NF: names of universities/careers/subjects/profiles are never duplica
 1. `teacher_profiles.rating_average`/`rating_count` — cached aggregates for list/rank performance; maintained by the future review service.
 2. `career_subjects.name_override` — deliberately *not* a duplicate; it is domain data (the career's own name for the subject).
 
-## Future (documented, not implemented)
+## Future (Phase 1 snapshot)
+
+> Los ítems siguientes eran el roadmap al cierre de Phase 1. El estado actual es: auth/JWT,
+> Google OAuth, email de activación y aviso de contacto, verificación documental y admin **ya
+> implementados**; `reviews`/rating están implementados desde `V18`; `reports` y `notifications`
+> se conservan para futuro (sin entidades todavía); Calendly y bookings **se eliminaron** en `V17`.
+> Ver `OPINION-001`, `ADR-032` y `guia-proyecto.md` §8.
 
 - Spring Security / JWT auth and authorization, `UserRole`/`UserStatus` ready for it.
-- Calendly OAuth + webhooks (integration table ready), email, notifications delivery, WebSockets.
+- Reviews/reports/notifications implementation (tables retained), email delivery and WebSockets.
+  Calendly/bookings were dropped in `V17` and are no longer a future target.
 - PostGIS and true geodesic proximity search — revisit when location filtering becomes a real requirement.
 - Hard-delete of users is deliberately impossible (RESTRICT FKs preserve history); if account purging is ever needed, a `deleted_at` migration must be designed deliberately.
 - Seed data (universities, careers, subjects) is intentionally **absent** and belongs to a later phase.
 
-## Checklist
+## Checklist (Phase 1)
 
 - [ ] `mvn compile` succeeds.
 - [ ] Flyway applies `V1__create_schema.sql` on a clean PostgreSQL.
-- [ ] Hibernate validates all 19 entities against the schema without errors (`ddl-auto=validate`).
-- [ ] No controllers, services, DTOs, repositories, auth, or Calendly code exists.
+- [ ] Hibernate validates the JPA entities against the schema without errors (`ddl-auto=validate`).
+- [ ] En Phase 1 no existían controllers, services, DTOs, repositories ni auth; el repo actual sí los tiene.
 - [ ] `users.email` and every composite UNIQUE reject duplicates.
 - [ ] Composite FK `fk_messages_sender_is_participant` rejects messages from non-participants.

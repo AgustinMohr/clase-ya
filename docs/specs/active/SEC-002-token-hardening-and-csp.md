@@ -60,6 +60,9 @@ Sacar el JWT del alcance de JavaScript, eliminar PII del token y endurecer el na
     header; lo usa la suite de integración/tooling).
   - La SPA **pide un token nuevo antes de cada request unsafe** (no lo cachea): el servidor rota o
     limpia la cookie al escribir y un token viejo produciría `403`.
+    **Actualización 2026-11-02:** la implementación actual (`api.ts`, FE-02) cachea el token en
+    memoria y, ante un `403`, lo invalida, pide uno nuevo y reintenta una vez. El requisito de doble
+    submit y el resto de RF-5 no cambian.
 - **RF-6 — Claims del JWT:** `sub`, `jti`, `iat`, `exp`. Sin `email`, `name` ni `role`: el backend
   recarga el usuario y sus authorities en cada request. `jti` habilita una futura revocación.
 - **RF-7 — Frontend:** los requests usan `credentials: 'include'`; no hay token en JS; al montar se

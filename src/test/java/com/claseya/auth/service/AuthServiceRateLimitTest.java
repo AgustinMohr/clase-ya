@@ -2,6 +2,7 @@ package com.claseya.auth.service;
 
 import com.claseya.auth.dto.IssuedSession;
 import com.claseya.auth.dto.LoginRequest;
+import com.claseya.auth.dto.SessionUserResponse;
 import com.claseya.common.exception.InvalidCredentialsException;
 import com.claseya.common.exception.RateLimitExceededException;
 import com.claseya.model.User;
@@ -91,6 +92,22 @@ class AuthServiceRateLimitTest {
         assertThat(response.user().id()).isEqualTo(user.getId());
         verify(loginAttemptService).reset(EMAIL);
         verify(loginAttemptService, never()).recordFailure(anyString());
+    }
+
+    @Test
+    void me_usesTheAuthenticatedPrincipalWithoutQueryingTheUserTable() {
+        User user = activeUser();
+        user.setName("Ana");
+        AppUserDetails principal = new AppUserDetails(user);
+        when(currentUser.principal()).thenReturn(principal);
+
+        for (int request = 0; request < 100; request++) {
+            SessionUserResponse response = authService.me();
+            assertThat(response.id()).isEqualTo(user.getId());
+            assertThat(response.name()).isEqualTo("Ana");
+            assertThat(response.role()).isEqualTo(UserRole.STUDENT);
+        }
+        verifyNoInteractions(userRepository);
     }
 
     private User activeUser() {

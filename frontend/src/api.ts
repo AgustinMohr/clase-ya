@@ -37,6 +37,47 @@ export interface TeacherDetail extends TeacherSummary {
   }>;
 }
 
+// --- Reviews and rating (OPINION-001) ---------------------------------------
+
+export type ReviewStatus = 'PUBLISHED' | 'HIDDEN';
+
+export interface Review {
+  id: string;
+  rating: number;
+  comment?: string;
+  authorDisplayName: string;
+  createdAt: string;
+  teacherResponse?: string;
+  teacherRespondedAt?: string;
+}
+
+export interface MyReview extends Review {
+  status: ReviewStatus;
+  updatedAt?: string;
+}
+
+export interface AdminReview {
+  id: string;
+  teacherId: string;
+  teacherName?: string;
+  authorName?: string;
+  rating: number;
+  comment?: string;
+  status: ReviewStatus;
+  teacherResponse?: string;
+  teacherRespondedAt?: string;
+  createdAt: string;
+  updatedAt?: string;
+  moderationReason?: string;
+  moderatedAt?: string;
+  moderatedByName?: string;
+}
+
+export interface ReviewInput {
+  rating: number;
+  comment?: string;
+}
+
 export interface AvailabilityWindow {
   id: string;
   dayOfWeek?: number;
@@ -247,6 +288,17 @@ export interface Conversation {
   updatedAt: string;
 }
 
+/** REVIEW2-003: one page of a thread, oldest message first. */
+export interface ConversationThread {
+  id: string;
+  otherParticipant: ConversationParticipant;
+  unreadCount: number;
+  updatedAt: string;
+  messages: Message[];
+  hasMore: boolean;
+  nextBefore?: string;
+}
+
 export interface Message {
   id: string;
   conversationId: string;
@@ -437,8 +489,116 @@ async function requestForm<T>(url: string, formData: FormData): Promise<T> {
   return (await res.json()) as T;
 }
 
+// --- Admin directory (ADMIN-002) ---------------------------------------------
+
+export type AccountRole = 'STUDENT' | 'TEACHER' | 'ADMIN';
+export type AccountStatus = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED' | 'PENDING';
+
+export interface AdminUserSummary {
+  id: string;
+  email: string;
+  name?: string;
+  role: AccountRole;
+  status: AccountStatus;
+  createdAt: string;
+  lastLoginAt?: string;
+  teacherVerificationStatus?: VerificationStatus;
+  studentProfileComplete?: boolean;
+}
+
+export interface AdminUserFilters {
+  role?: AccountRole | null;
+  status?: AccountStatus | null;
+  query?: string;
+  page?: number;
+  size?: number;
+}
+
+// --- Admin verification review (VERIF-001) -----------------------------------
+
+export type VerificationAction = 'VERIFIED' | 'REJECTED' | 'MORE_INFO_REQUIRED';
+
+export type VerificationMethod =
+  | 'INSTITUTION_CHECK'
+  | 'OFFICIAL_REGISTRY'
+  | 'DIGITAL_DOCUMENT_CHECK'
+  | 'DOCUMENT_ANALYSIS'
+  | 'OTHER';
+
+export type DocumentScanStatus = 'PENDING' | 'CLEAN' | 'INFECTED' | 'UNSCANNED';
+
+export interface AdminVerificationQueueItem {
+  educationId: string;
+  teacherId: string;
+  teacherName?: string;
+  institution?: string;
+  degree?: string;
+  status: VerificationStatus;
+  submittedAt?: string;
+  documentCount: number;
+}
+
+export interface AdminCredentialView {
+  educationId: string;
+  institution?: string;
+  degree?: string;
+  status: VerificationStatus;
+  submittedAt?: string;
+  documentCount: number;
+  requirement?: string;
+}
+
+export interface AdminVerificationDocument {
+  id: string;
+  educationId: string;
+  type: DocumentType;
+  originalFilename: string;
+  contentType: string;
+  sizeBytes: number;
+  uploadedAt: string;
+  scanStatus?: DocumentScanStatus;
+  reviewedAt?: string;
+  reviewedByName?: string;
+}
+
+export interface AdminVerificationAudit {
+  id: string;
+  educationId?: string;
+  documentId?: string;
+  decision: VerificationAction | 'REVOKED';
+  previousStatus?: VerificationStatus;
+  newStatus?: VerificationStatus;
+  method?: VerificationMethod;
+  reason?: string;
+  reviewerName?: string;
+  decidedAt: string;
+}
+
+export interface AdminVerificationDetail {
+  teacherId: string;
+  teacherName?: string;
+  profileStatus: VerificationStatus;
+  credentials: AdminCredentialView[];
+  documents: AdminVerificationDocument[];
+  history: AdminVerificationAudit[];
+}
+
+export interface DecisionInput {
+  decision: VerificationAction;
+  method: VerificationMethod;
+  reason?: string;
+}
+
 export const api = {
-  subjects: () => request<Subject[]>('GET', '/api/subjects?size=50'),
+  /** REVIEW2-001: the landing never downloads the catalog; it asks for the most used subjects. */
+  popularSubjects: (limit = 12) =>
+    request<Page<Subject>>('GET', `/api/subjects/popular?limit=${limit}`),
+  /** REVIEW2-001: server-side autocomplete/selector; `size` is capped at 100 by the API. */
+  subjectSearch: (query: string, size = 10, page = 0) =>
+    request<Page<Subject>>(
+      'GET',
+      `/api/subjects?query=${encodeURIComponent(query)}&page=${page}&size=${size}`,
+    ),
   teachers: (params: {
     subjectId?: string;
     modality?: string;
@@ -461,9 +621,26 @@ export const api = {
   availabilityByTeacher: (teacherId: string) =>
     request<Page<AvailabilityWindow>>('GET', `/api/availability?teacherId=${teacherId}&page=0&size=50`),
 
+  teacherReviews: (teacherId: string, page = 0, size = 10) =>
+    request<Page<Review>>(
+      'GET',
+      `/api/teachers/${teacherId}/reviews?page=${page}&size=${size}`,
+    ),
+  myReview: (teacherId: string) =>
+    request<MyReview>('GET', `/api/teachers/${teacherId}/reviews/me`, undefined, true),
+  createReview: (teacherId: string, body: ReviewInput) =>
+    request<Review>('POST', `/api/teachers/${teacherId}/reviews`, body, true),
+  updateReview: (reviewId: string, body: ReviewInput) =>
+    request<Review>('PUT', `/api/reviews/${reviewId}`, body, true),
+  respondToReview: (reviewId: string, response: string) =>
+    request<Review>('POST', `/api/reviews/${reviewId}/response`, { response }, true),
+
   login: (email: string, password: string) => request<LoginResponse>('POST', '/api/auth/login', { email, password }),
   loginWithGoogle: (idToken: string, role?: 'STUDENT' | 'TEACHER') =>
     request<LoginResponse>('POST', '/api/auth/google', role ? { idToken, role } : { idToken }),
+  /** REVIEW2-002: exchanges the single-use link from the contact email for a session cookie. */
+  exchangeMessageLink: (token: string) =>
+    request<LoginResponse>('POST', '/api/auth/message-link', { token }),
   /** AUTH-001/SEC-04: always 202; the account stays PENDING until the emailed link is opened. */
   register: (email: string, password: string, role: 'STUDENT' | 'TEACHER', captchaToken?: string) =>
     request<void>('POST', '/api/auth/register',
@@ -498,6 +675,15 @@ export const api = {
     request<Page<ConversationSummary>>('GET', `/api/conversations?page=${page}&size=${size}`, undefined, true),
   conversation: (conversationId: string) =>
     request<Conversation>('GET', `/api/conversations/${conversationId}`, undefined, true),
+  /** REVIEW2-003: detail + one page of messages; `before` is the keyset cursor for older pages. */
+  conversationThread: (conversationId: string, before?: string, limit = 50) =>
+    request<ConversationThread>(
+      'GET',
+      `/api/conversations/${conversationId}/thread?limit=${limit}` +
+        (before ? `&before=${encodeURIComponent(before)}` : ''),
+      undefined,
+      true,
+    ),
   messages: (conversationId: string, page = 0, size = 100) =>
     request<Page<Message>>(
       'GET',
@@ -560,4 +746,62 @@ export const api = {
     request<VerificationCredential>('POST', `/api/teachers/me/education/${educationId}/submit`, undefined, true),
   submitAllCredentials: () =>
     request<VerificationCredential[]>('POST', '/api/teachers/me/verification/submit', undefined, true),
+
+  // --- Admin directory (ADMIN-002) -------------------------------------------
+  adminUsers: (filters: AdminUserFilters = {}) => {
+    const query = new URLSearchParams({
+      page: String(filters.page ?? 0),
+      size: String(filters.size ?? 20),
+    });
+    if (filters.role) query.set('role', filters.role);
+    if (filters.status) query.set('status', filters.status);
+    if (filters.query?.trim()) query.set('query', filters.query.trim());
+    return request<Page<AdminUserSummary>>('GET', `/api/admin/users?${query.toString()}`, undefined, true);
+  },
+  suspendUser: (userId: string) =>
+    request<void>('POST', `/api/admin/users/${userId}/suspend`, undefined, true),
+  restoreUser: (userId: string) =>
+    request<void>('POST', `/api/admin/users/${userId}/restore`, undefined, true),
+  activateUser: (userId: string) =>
+    request<void>('POST', `/api/admin/users/${userId}/activate`, undefined, true),
+
+  // --- Admin reviews (OPINION-001) -------------------------------------------
+  adminReviews: (params: { status?: ReviewStatus; page?: number; size?: number } = {}) => {
+    const query = new URLSearchParams({
+      page: String(params.page ?? 0),
+      size: String(params.size ?? 20),
+    });
+    if (params.status) query.set('status', params.status);
+    return request<Page<AdminReview>>('GET', `/api/admin/reviews?${query.toString()}`, undefined, true);
+  },
+  hideReview: (reviewId: string, reason: string) =>
+    request<void>('POST', `/api/admin/reviews/${reviewId}/hide`, { reason }, true),
+  restoreReview: (reviewId: string) =>
+    request<void>('POST', `/api/admin/reviews/${reviewId}/restore`, undefined, true),
+
+  // --- Admin verification review (VERIF-001) ---------------------------------
+  adminVerificationQueue: (params: { status?: VerificationStatus; page?: number; size?: number } = {}) => {
+    const query = new URLSearchParams({
+      page: String(params.page ?? 0),
+      size: String(params.size ?? 20),
+    });
+    if (params.status) query.set('status', params.status);
+    return request<Page<AdminVerificationQueueItem>>('GET', `/api/admin/verifications?${query.toString()}`, undefined, true);
+  },
+  adminVerificationDetail: (teacherId: string) =>
+    request<AdminVerificationDetail>('GET', `/api/admin/verifications/${teacherId}`, undefined, true),
+  reviewDocument: (documentId: string, reviewed: boolean) =>
+    request<void>(
+      reviewed ? 'POST' : 'DELETE',
+      `/api/admin/documents/${documentId}/reviewed`,
+      undefined,
+      true,
+    ),
+  decideCredential: (teacherId: string, educationId: string, input: DecisionInput) =>
+    request<AdminVerificationAudit>(
+      'POST',
+      `/api/admin/verifications/${teacherId}/credentials/${educationId}/decision`,
+      input,
+      true,
+    ),
 };

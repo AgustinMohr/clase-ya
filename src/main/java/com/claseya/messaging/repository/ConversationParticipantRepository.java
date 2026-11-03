@@ -3,6 +3,7 @@ package com.claseya.messaging.repository;
 import com.claseya.model.ConversationParticipant;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -39,4 +40,9 @@ public interface ConversationParticipantRepository
     boolean existsByConversation_IdAndUser_Id(UUID conversationId, UUID userId);
 
     Optional<ConversationParticipant> findByConversation_IdAndUser_Id(UUID conversationId, UUID userId);
+
+    /** REVIEW2-003: access check and conversation in one query, used by the thread endpoint. */
+    @EntityGraph(attributePaths = "conversation")
+    Optional<ConversationParticipant> findWithConversationByConversation_IdAndUser_Id(
+            UUID conversationId, UUID userId);
 }

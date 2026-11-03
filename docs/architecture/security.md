@@ -22,8 +22,11 @@ real; ver el paquete `security` y `SecurityConfig`.
   (anti-enumeración).
 - **AUTH-001 (implementado)**: el registro por contraseña queda `PENDING` hasta que el dueño abre
   un enlace de activación de un solo uso (token SHA-256, TTL 24 h). `POST /api/auth/activate`,
-  reenvío genérico `202`, y activación manual por ADMIN. Sin SMTP el registro responde `503` y no
-  crea la cuenta.
+  reenvío genérico `202`, y activación manual por ADMIN. Sin un transporte de email configurado
+  (SMTP o Brevo), el registro responde `503` y no crea la cuenta. Desde REVIEW2-002 (`ADR-029`) el
+  email **no se envía dentro de la transacción**: el
+  token se guarda (solo el hash) y se encola `ACTIVATION` en `notification_outbox`; el worker entrega
+  después del commit y borra el token crudo del payload al llegar a `SENT`/`DEAD`.
 - **FUTURO**: refresh tokens, revocación server-side de JWT (usar `jti`), password reset, MFA,
   otros proveedores sociales.
 - **Google OAuth (OAUTH-001, implementado)**: `POST /api/auth/google` valida el `id_token` de
@@ -31,6 +34,10 @@ real; ver el paquete `security` y `SecurityConfig`.
   (único). Nuevos por Google = `ACTIVE`; una cuenta password solo se vincula si está `ACTIVE` y su
   email coincide con el email verificado de Google; cuentas `PENDING`/`INACTIVE`/`SUSPENDED` nunca
   se activan vía Google. Sin tokens de Google persistidos; sin `client_secret` en el SPA.
+- **Links de contacto (REVIEW2-002)**: `POST /api/auth/message-link` canjea un token de un solo uso
+  (SHA-256, TTL 7 días, `message_link_tokens`) por la cookie de sesión. Todos los fallos devuelven
+  el mismo 400; el endpoint comparte el bucket de login por IP; el SPA borra el token de la URL al
+  leerlo. El token no contiene datos del estudiante ni de la conversación.
 
 ## Contraseñas y secretos
 
@@ -85,6 +92,10 @@ Authorities: `ROLE_STUDENT`, `ROLE_TEACHER`, `ROLE_ADMIN` (mapeo único en `AppU
 | `/api/favorites/**` | `STUDENT` |
 | `POST /api/conversations` | `STUDENT` |
 | `/api/conversations/**` | `STUDENT` o `TEACHER` (validación de participante adentro) |
+| `GET /api/teachers/{id}/reviews` | pública (profesor visible) |
+| `GET /api/teachers/{id}/reviews/me`, `POST /api/teachers/{id}/reviews`, `PUT /api/reviews/{id}` | `STUDENT` |
+| `POST /api/reviews/{id}/response` | `TEACHER` (dueño del perfil reseñado) |
+| `/api/admin/reviews/**` | `ADMIN` |
 | cualquier otro `/api/**` | autenticado |
 
 Los matchers de seguridad se evalúan en orden (las rutas literales `/me` preceden al wildcard
@@ -97,6 +108,8 @@ público).
 - El alcance del recurso es por usuario autenticado (`/me`, "mis favoritos", "mis conversaciones");
   los borrados son por dueño+objetivo, nunca por un id crudo de fila expuesto a otros.
 - Quien no participa de una conversación recibe **404** (no se revela su existencia).
+- Una opinión ajena se comporta como **404** para editar/responder; el autor sale de `CurrentUser`,
+  nunca del body. El profesor solo responde opiniones de su propio perfil.
 
 ## Visibilidad pública (aplicada en backend)
 
@@ -142,13 +155,16 @@ en un filtro de Spring Security después del JWT y antes de la autorización:
   tráfico directo; activarlo solo detrás de un proxy que saneé el header.
 - Si la evaluación del limitador falla, la request se permite y se registra `ERROR` (fail-open); el
   limitador es defensa en profundidad.
+- El store está acotado por `maxEntries`; al llegar al tope elimina un batch aproximado (10 %) sin
+  copiar ni ordenar todo el mapa. La limpieza de expirados corre en un scheduler periódico.
 - **Limitación:** al ser en memoria, con N instancias el límite efectivo puede ser N veces el
   configurado. La versión distribuida (Redis) queda fuera de alcance hasta una spec futura.
 
 ## CORS
 
-Restringido a `cors.allowed-origins` (`FRONTEND_URL`, default `http://localhost:3000`); métodos,
-headers `Authorization`/`Content-Type`; credenciales permitidas; sin wildcard.
+Restringido a `cors.allowed-origins` (`FRONTEND_URL`, default
+`http://localhost:3000,http://localhost:5173`); métodos, headers
+`Authorization`/`Content-Type`/`X-XSRF-TOKEN`; credenciales permitidas; sin wildcard.
 
 ## FUTURO (documentado, no implementado)
 

@@ -124,7 +124,8 @@ location. 404 for a non-public teacher detail. No stack traces or SQL leak.
 
 ## Future (documented, not implemented)
 
-- Reviews and email notification of new contacts. Both need a product decision plus a spec; the
-  legacy `Review`/`Notification` models were removed in `ADR-024`.
+- Reviews/rating: need a product decision plus a spec; the legacy `Review` model was removed in
+  `ADR-024`. The email notification of new contacts **is implemented** through the transactional
+  outbox (`REVIEW2-002`); the legacy `Notification` model is not used.
 - Full-text ranking and Redis-backed (multi-instance) rate limiting when the catalog or the number
   of instances grows. Current V1 uses PostgreSQL only; rate limiting is in-memory per instance.

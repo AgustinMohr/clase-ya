@@ -8,7 +8,7 @@ import { EmptyState, Skeleton } from '../ui/primitives';
 import { ROUTES } from '../../routes';
 
 interface Props {
-  role?: 'STUDENT' | 'TEACHER';
+  role?: 'STUDENT' | 'TEACHER' | 'ADMIN';
   onRequireLogin: () => void;
   children: React.ReactNode;
 }

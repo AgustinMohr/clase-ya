@@ -69,9 +69,8 @@ public class TeacherProfileService {
     public TeacherProfileResponse update(UUID userId, UpdateTeacherProfileRequest request) {
         TeacherProfile profile = requireByUser(userId);
         if (request.name() != null) {
-            User user = userRepository.findById(userId)
-                    .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-            user.setName(blankToNull(request.name()));
+            // PERF-03: findByUser_Id loads the user with the profile (entity graph); no re-query.
+            profile.getUser().setName(blankToNull(request.name()));
         }
         applyEditableFields(profile, request.bio(), request.address(), request.availabilityNote(),
                 request.pricePerHour(), request.city(), request.photoUrl(),

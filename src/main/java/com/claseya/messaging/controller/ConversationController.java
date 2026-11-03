@@ -2,13 +2,14 @@ package com.claseya.messaging.controller;
 
 import com.claseya.messaging.dto.ConversationResponse;
 import com.claseya.messaging.dto.ConversationSummaryResponse;
+import com.claseya.messaging.dto.ConversationThreadResponse;
 import com.claseya.messaging.dto.CreateConversationRequest;
 import com.claseya.messaging.dto.MessageResponse;
 import com.claseya.messaging.dto.SendMessageRequest;
 import com.claseya.messaging.service.ConversationService;
 import com.claseya.messaging.service.MessageService;
 import com.claseya.security.CurrentUser;
-import com.claseya.teacher.dto.SearchResultPage;
+import com.claseya.common.dto.SearchResultPage;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -58,6 +59,15 @@ public class ConversationController {
     @GetMapping("/{conversationId}")
     public ConversationResponse get(@PathVariable UUID conversationId) {
         return conversationService.get(currentUser.id(), conversationId);
+    }
+
+    /** REVIEW2-003: conversation detail + one page of messages, with a keyset cursor. */
+    @GetMapping("/{conversationId}/thread")
+    public ConversationThreadResponse thread(
+            @PathVariable UUID conversationId,
+            @RequestParam(required = false) UUID before,
+            @RequestParam(defaultValue = "50") int limit) {
+        return conversationService.thread(currentUser.id(), conversationId, before, limit);
     }
 
     @GetMapping("/{conversationId}/messages")

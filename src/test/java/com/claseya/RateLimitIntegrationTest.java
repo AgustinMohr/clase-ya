@@ -1,11 +1,12 @@
 package com.claseya;
 
 import com.claseya.auth.captcha.CaptchaVerifier;
-import com.claseya.auth.service.ActivationMailSender;
 import com.claseya.model.User;
 import com.claseya.model.enums.UserRole;
 import com.claseya.model.enums.UserStatus;
+import com.claseya.notification.service.ActivationLinkSender;
 import com.claseya.user.UserRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -46,11 +47,16 @@ class RateLimitIntegrationTest extends AbstractPostgresTest {
     @Autowired private UserRepository userRepository;
     @Autowired private PasswordEncoder passwordEncoder;
 
-    /** AUTH-001: registration sends an activation email; never contact SMTP in tests. */
-    @MockitoBean private ActivationMailSender activationMailSender;
+    /** AUTH-001/REVIEW2-002: registration enqueues an activation email; never contact SMTP. */
+    @MockitoBean private ActivationLinkSender activationLinkSender;
 
     /** SEC-04: never contact Turnstile in tests. */
     @MockitoBean private CaptchaVerifier captchaVerifier;
+
+    @BeforeEach
+    void assumeActivationTransportIsConfigured() {
+        org.mockito.Mockito.when(activationLinkSender.isConfigured()).thenReturn(true);
+    }
 
     @Test
     void login_fromTheSameIp_isLimitedToTheConfiguredRate() throws Exception {

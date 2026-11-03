@@ -257,7 +257,7 @@ ON CONFLICT (email) DO NOTHING;
 --   * profe49: sin precio y con bio muy corta.  profe50: sin precio y bio muy larga.
 --   * profe48: sin foto (la card debe caer a las iniciales).
 --   * profe49/50 en otras ciudades y 51..55 sin coordenadas.
---   * rating_average/rating_count arrancan en 0 y se recalculan desde las reviews.
+--   * rating_average/rating_count quedan en 0 hasta que exista el flujo de reviews.
 --   * price_per_hour: mínimo 3000 (profe06), máximo 25000 (profe05).
 INSERT INTO teacher_profiles (user_id, bio, verification_status, latitude, longitude, address,
                               rating_average, rating_count, availability_note,
@@ -477,100 +477,11 @@ WHERE u.email LIKE 'profe%@claseya.dev'
   );
 
 -- =============================================================================
--- 5) CLASES DICTADAS Y RESEÑAS
---    El modelo exige que cada reseña cuelgue de UNA clase (reviews.booking_id
---    es NOT NULL y UNIQUE), así que las reseñas se generan sobre clases
---    COMPLETED. Las clases son datos históricos del entorno local y no se
---    exponen por ninguna API (el rumbo de producto descartó la agenda).
+-- 5) RESEÑAS
+--    La tabla `reviews` se conserva para una implementación futura (ADR-032),
+--    pero hoy no tiene flujo ni datos demo. `rating_average`/`rating_count`
+--    quedan en 0 hasta que exista ese flujo.
 -- =============================================================================
-
-WITH eligible AS (
-    SELECT ts.teacher_id, ts.career_subject_id,
-           row_number() OVER (ORDER BY ts.teacher_id, ts.career_subject_id) AS rn
-    FROM teacher_subjects ts
-    JOIN teacher_profiles tp ON tp.id = ts.teacher_id
-    JOIN users tu ON tu.id = tp.user_id
-    WHERE tu.email LIKE 'profe%@claseya.dev' AND tu.status = 'ACTIVE'
-),
-students AS (
-    -- Solo alumnos generados (alumnoNN): mantiene la población estable entre
-    -- corridas, porque la sección 8 agrega otras cuentas más abajo.
-    SELECT sp.id AS student_id,
-           row_number() OVER (ORDER BY sp.user_id) AS rn,
-           count(*) OVER () AS total
-    FROM student_profiles sp
-    JOIN users su ON su.id = sp.user_id
-    WHERE su.email LIKE 'alumno%@claseya.dev' AND su.status = 'ACTIVE'
-),
--- Dos clases por relación profesor-materia, con alumnos distintos.
-pairs AS (
-    SELECT e.teacher_id, e.career_subject_id, s.student_id, (e.rn * 3 + s.rn) AS k
-    FROM eligible e
-    JOIN students s ON s.rn = 1 + (e.rn % s.total) OR s.rn = 1 + ((e.rn + 7) % s.total)
-)
-INSERT INTO bookings (student_id, teacher_id, career_subject_id, scheduled_at, duration_minutes,
-                      mode, status, calendly_event_id, created_at, updated_at)
-SELECT p.student_id, p.teacher_id, p.career_subject_id,
-       now() - ((p.k % 150) || ' days')::interval - ((p.k % 8) || ' hours')::interval,
-       CASE WHEN p.k % 3 = 0 THEN 90 ELSE 60 END,
-       CASE WHEN p.k % 2 = 0 THEN 'ONLINE' ELSE 'IN_PERSON' END,
-       'COMPLETED',
-       NULL,
-       now() - ((p.k % 150) || ' days')::interval,
-       now() - ((p.k % 150) || ' days')::interval
-FROM pairs p
-WHERE NOT EXISTS (
-    SELECT 1 FROM bookings b
-    WHERE b.student_id = p.student_id
-      AND b.teacher_id = p.teacher_id
-      AND b.career_subject_id = p.career_subject_id
-);
-
--- Una reseña por clase, con calidad sesgada por profesor (así se obtienen
--- perfiles con promedio bajo, medio y alto). ~15% de las clases quedan sin
--- reseña a propósito, para poder probar el flujo de "calificar clase".
-INSERT INTO reviews (booking_id, student_id, teacher_id, rating, comment, created_at, updated_at)
-SELECT b.id, b.student_id, b.teacher_id,
-       CASE
-         WHEN pg_temp.demo_rand(b.teacher_id::text || 'band', 10) = 0 THEN 2 + pg_temp.demo_rand(b.id::text, 2)
-         WHEN pg_temp.demo_rand(b.teacher_id::text || 'band', 10) <= 2 THEN 3 + pg_temp.demo_rand(b.id::text, 2)
-         ELSE 4 + pg_temp.demo_rand(b.id::text, 2)
-       END,
-       CASE WHEN pg_temp.demo_rand(b.id::text || 'c', 9) = 0 THEN NULL
-            ELSE (ARRAY[
-                'Muy clara explicando, se nota que prepara las clases.',
-                'Excelente predisposición, respondió todas mis dudas.',
-                'Me ayudó a ordenar el estudio y aprobé el parcial.',
-                'Buenas clases, aunque a veces íbamos un poco rápido.',
-                'Muy paciente y con mucho material de práctica.',
-                'Cambió un horario a último momento, pero después todo bien.',
-                'Esperaba otra cosa, no terminó de conectar con mi ritmo de estudio.',
-                'Genial, volvería a tomar clases el próximo cuatrimestre.',
-                'Explica con ejemplos claros y hace seguimiento entre clases.',
-                'Muy recomendable para preparar finales.'
-            ])[1 + pg_temp.demo_rand(b.id::text || 't', 10)] END,
-       b.scheduled_at + interval '2 days',
-       b.scheduled_at + interval '2 days'
-FROM bookings b
-WHERE NOT EXISTS (SELECT 1 FROM reviews r WHERE r.booking_id = b.id)
-  AND pg_temp.demo_rand(b.id::text || 'skip', 7) <> 0;
-
--- Los agregados públicos (los que muestra la card) se derivan de las reseñas,
--- pero SOLO para los profesores generados: los 4 profesores previos conservan
--- los valores que ya tenían cargados.
-UPDATE teacher_profiles tp
-SET rating_average = sub.avg_rating,
-    rating_count   = sub.cnt,
-    updated_at     = now()
-FROM (
-    SELECT r.teacher_id,
-           round(avg(r.rating), 2)::numeric(3, 2) AS avg_rating,
-           count(*)::int AS cnt
-    FROM reviews r
-    GROUP BY r.teacher_id
-) sub
-WHERE tp.id = sub.teacher_id
-  AND tp.user_id IN (SELECT u.id FROM users u WHERE u.email LIKE 'profe%@claseya.dev');
 
 -- =============================================================================
 -- 6) FAVORITOS
@@ -885,8 +796,6 @@ UNION ALL SELECT 'teacher_subjects', count(*) FROM teacher_subjects
 UNION ALL SELECT 'teacher_modalities', count(*) FROM teacher_modalities
 UNION ALL SELECT 'teacher_education', count(*) FROM teacher_education
 UNION ALL SELECT 'availability_windows', count(*) FROM availability_windows
-UNION ALL SELECT 'bookings', count(*) FROM bookings
-UNION ALL SELECT 'reviews', count(*) FROM reviews
 UNION ALL SELECT 'favorites', count(*) FROM favorites
 UNION ALL SELECT 'conversations', count(*) FROM conversations
 UNION ALL SELECT 'conversation_participants', count(*) FROM conversation_participants

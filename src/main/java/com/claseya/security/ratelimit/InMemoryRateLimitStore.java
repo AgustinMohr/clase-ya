@@ -5,16 +5,13 @@ import io.github.bucket4j.TimeMeter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Bounded in-memory bucket store. Memory is capped by {@code maxEntries}; entries idle longer than
- * {@code idleTtl} are evicted. The map can be read concurrently, while creation and eviction are
- * serialized to keep the hard cap.
+ * {@code idleTtl} are evicted periodically. The map can be read concurrently, while creation and
+ * eviction are serialized to keep the hard cap. Eviction is an approximate batch (no full-map sort),
+ * which is sufficient for abuse protection and keeps the hot path bounded.
  */
 @Component
 public class InMemoryRateLimitStore {
@@ -76,18 +73,18 @@ public class InMemoryRateLimitStore {
         if (entries.size() < properties.getMaxEntries()) {
             return;
         }
-        cleanupExpired();
-        if (entries.size() < properties.getMaxEntries()) {
-            return;
-        }
-        // Evict an oldest batch instead of scanning the whole map on every insert. At capacity
-        // this keeps the amortized cost low and prevents an attacker from forcing an O(n) scan
-        // per request with unique keys.
+        // Approximate batch eviction: removes at most 10% of the cap without copying or sorting
+        // the map. Expired entries are handled by the periodic cleanup; strict LRU is unnecessary
+        // for a defensive rate limiter. This keeps eviction O(batch) under the write lock.
         int batch = Math.max(1, properties.getMaxEntries() / 10);
-        List<Map.Entry<String, Entry>> snapshot = new ArrayList<>(entries.entrySet());
-        snapshot.sort(Comparator.comparingLong(entry -> entry.getValue().lastAccessNanos));
-        for (int i = 0; i < Math.min(batch, snapshot.size()); i++) {
-            entries.remove(snapshot.get(i).getKey());
+        int removed = 0;
+        for (String key : entries.keySet()) {
+            if (removed >= batch) {
+                break;
+            }
+            if (entries.remove(key) != null) {
+                removed++;
+            }
         }
     }
 

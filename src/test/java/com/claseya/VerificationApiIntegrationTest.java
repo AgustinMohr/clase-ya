@@ -3,11 +3,14 @@ package com.claseya;
 import com.claseya.model.TeacherEducation;
 import com.claseya.model.TeacherProfile;
 import com.claseya.model.User;
+import com.claseya.model.VerificationDocument;
+import com.claseya.model.enums.DocumentScanStatus;
 import com.claseya.model.enums.UserRole;
 import com.claseya.model.enums.UserStatus;
 import com.claseya.model.enums.VerificationStatus;
 import com.claseya.teacher.repository.TeacherEducationRepository;
 import com.claseya.teacher.repository.TeacherProfileRepository;
+import com.claseya.verification.repository.VerificationDocumentRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mock.web.MockMultipartFile;
@@ -17,7 +20,12 @@ import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /** HTTP contract for the teacher verification area and the admin review endpoints. */
@@ -28,6 +36,7 @@ class VerificationApiIntegrationTest extends AbstractWebIntegrationTest {
 
     @Autowired private TeacherProfileRepository teacherProfileRepository;
     @Autowired private TeacherEducationRepository teacherEducationRepository;
+    @Autowired private VerificationDocumentRepository verificationDocumentRepository;
 
     @Test
     void teacher_canUploadSubmitAndSeeOwnStatus() throws Exception {
@@ -70,10 +79,11 @@ class VerificationApiIntegrationTest extends AbstractWebIntegrationTest {
         String teacherToken = bearer(teacher);
         TeacherProfile profile = profileFor(teacher);
         TeacherEducation education = credentialFor(profile);
-        upload(teacherToken, education.getId());
+        String documentId = upload(teacherToken, education.getId());
         postJson("/api/teachers/me/education/" + education.getId() + "/submit", teacherToken, "{}", 200);
 
         String adminToken = adminBearer();
+        markReviewed(adminToken, documentId);
         String queue = getJson("/api/admin/verifications", adminToken, 200);
         assertThat(queue).contains(education.getId().toString());
 
@@ -115,10 +125,11 @@ class VerificationApiIntegrationTest extends AbstractWebIntegrationTest {
         String teacherToken = bearer(teacher);
         TeacherProfile profile = profileFor(teacher);
         TeacherEducation education = credentialFor(profile);
-        upload(teacherToken, education.getId());
+        String documentId = upload(teacherToken, education.getId());
         postJson("/api/teachers/me/education/" + education.getId() + "/submit", teacherToken, "{}", 200);
 
         String adminToken = adminBearer();
+        markReviewed(adminToken, documentId);
         postJson("/api/admin/verifications/" + profile.getId() + "/credentials/" + education.getId() + "/decision",
                 adminToken, """
                 {"decision":"VERIFIED","method":"INSTITUTION_CHECK"}
@@ -188,6 +199,48 @@ class VerificationApiIntegrationTest extends AbstractWebIntegrationTest {
         deleteJson("/api/teachers/me/documents/" + documentId, token, 204);
     }
 
+    @Test
+    void uploadRejectsANonPdfFile() throws Exception {
+        User teacher = createUser("api-teacher+" + UUID.randomUUID() + "@test.com", UserRole.TEACHER, UserStatus.ACTIVE);
+        TeacherEducation education = credentialFor(profileFor(teacher));
+        byte[] png = {(byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 0};
+
+        mockMvc.perform(multipart("/api/teachers/me/education/" + education.getId() + "/documents")
+                        .file(new MockMultipartFile("file", "foto.png", "image/png", png))
+                        .param("type", "DIPLOMA")
+                        .header("Authorization", bearer(teacher)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void uploadRecordsUnscannedWhenScanningIsDisabled() throws Exception {
+        User teacher = createUser("api-teacher+" + UUID.randomUUID() + "@test.com", UserRole.TEACHER, UserStatus.ACTIVE);
+        String token = bearer(teacher);
+        TeacherEducation education = credentialFor(profileFor(teacher));
+
+        String documentId = upload(token, education.getId());
+
+        VerificationDocument saved = verificationDocumentRepository
+                .findById(UUID.fromString(documentId)).orElseThrow();
+        assertThat(saved.getScanStatus()).isEqualTo(DocumentScanStatus.UNSCANNED);
+    }
+
+    @Test
+    void downloadIsAnAttachmentAndIsNotCached() throws Exception {
+        User teacher = createUser("api-teacher+" + UUID.randomUUID() + "@test.com", UserRole.TEACHER, UserStatus.ACTIVE);
+        String token = bearer(teacher);
+        TeacherEducation education = credentialFor(profileFor(teacher));
+        String documentId = upload(token, education.getId());
+
+        mockMvc.perform(get("/api/teachers/me/documents/" + documentId + "/content")
+                        .header("Authorization", token))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Disposition", containsString("attachment")))
+                .andExpect(header().string("X-Content-Type-Options", "nosniff"))
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(content().contentType("application/pdf"));
+    }
+
     private TeacherProfile profileFor(User owner) {
         TeacherProfile profile = new TeacherProfile();
         profile.setUser(owner);
@@ -203,6 +256,12 @@ class VerificationApiIntegrationTest extends AbstractWebIntegrationTest {
         education.setStartYear(2005);
         education.setEndYear(2010);
         return teacherEducationRepository.saveAndFlush(education);
+    }
+
+    private void markReviewed(String admin, String documentId) throws Exception {
+        mockMvc.perform(post("/api/admin/documents/" + documentId + "/reviewed")
+                        .header("Authorization", admin))
+                .andExpect(status().isNoContent());
     }
 
     private String upload(String token, UUID educationId) throws Exception {

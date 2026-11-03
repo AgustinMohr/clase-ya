@@ -17,6 +17,9 @@ app:
     captcha:
       # Turnstile stays off locally; production enables it with TURNSTILE_SECRET.
       enabled: false
+  notification:
+    # Development only: writes the single-use contact link to the log instead of emailing it.
+    log-links: true
   storage:
     provider: postgres
     scan:

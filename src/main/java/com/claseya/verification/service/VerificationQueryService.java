@@ -4,13 +4,13 @@ import com.claseya.common.exception.ResourceNotFoundException;
 import com.claseya.model.TeacherEducation;
 import com.claseya.model.TeacherProfile;
 import com.claseya.model.enums.VerificationStatus;
-import com.claseya.teacher.dto.SearchResultPage;
+import com.claseya.common.dto.SearchResultPage;
 import com.claseya.teacher.repository.TeacherEducationRepository;
 import com.claseya.teacher.repository.TeacherProfileRepository;
 import com.claseya.verification.dto.AdminVerificationDetail;
 import com.claseya.verification.dto.CredentialVerificationView;
 import com.claseya.verification.dto.VerificationAuditEntry;
-import com.claseya.verification.dto.VerificationDocumentResponse;
+import com.claseya.verification.dto.AdminVerificationDocumentView;
 import com.claseya.verification.dto.VerificationQueueItem;
 import com.claseya.verification.repository.VerificationDecisionRepository;
 import com.claseya.verification.repository.VerificationDocumentRepository;
@@ -77,9 +77,9 @@ public class VerificationQueryService {
                 .map(education -> CredentialVerificationView.of(education,
                         documentCounts.getOrDefault(education.getId(), 0L)))
                 .toList();
-        List<VerificationDocumentResponse> documents = documentRepository
+        List<AdminVerificationDocumentView> documents = documentRepository
                 .findByTeacher_IdOrderByUploadedAtDesc(teacherProfileId).stream()
-                .map(VerificationDocumentResponse::from)
+                .map(AdminVerificationDocumentView::from)
                 .toList();
         List<VerificationAuditEntry> history = decisionRepository
                 .findByTeacher_IdOrderByDecidedAtDesc(teacherProfileId).stream()

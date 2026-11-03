@@ -4,7 +4,6 @@ import com.claseya.model.TeacherProfile;
 import com.claseya.teacher.dto.TeacherSubjectView;
 import com.claseya.teacher.dto.TeacherSummaryResponse;
 import com.claseya.teacher.repository.TeacherModalityRepository;
-import com.claseya.teacher.repository.TeacherProfileRepository;
 import com.claseya.teacher.repository.TeacherSubjectRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,7 +12,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -26,14 +24,11 @@ public class TeacherSummaryAssembler {
 
     private static final double EARTH_RADIUS_KM = 6371.0;
 
-    private final TeacherProfileRepository teacherProfileRepository;
     private final TeacherSubjectRepository teacherSubjectRepository;
     private final TeacherModalityRepository teacherModalityRepository;
 
-    public TeacherSummaryAssembler(TeacherProfileRepository teacherProfileRepository,
-                                   TeacherSubjectRepository teacherSubjectRepository,
+    public TeacherSummaryAssembler(TeacherSubjectRepository teacherSubjectRepository,
                                    TeacherModalityRepository teacherModalityRepository) {
-        this.teacherProfileRepository = teacherProfileRepository;
         this.teacherSubjectRepository = teacherSubjectRepository;
         this.teacherModalityRepository = teacherModalityRepository;
     }
@@ -42,6 +37,10 @@ public class TeacherSummaryAssembler {
      * Summarizes the given teachers preserving input order. {@code latitude} /
      * {@code longitude} are non-null only for geographic queries, which also
      * populates {@code distanceKm}.
+     *
+     * <p>PERF-03: callers must load the profile with its user (entity graph); this method does not
+     * re-fetch the profiles it was given. It still batches subjects and modalities, so the query
+     * count stays constant.
      */
     @Transactional(readOnly = true)
     public List<TeacherSummaryResponse> summarize(Collection<TeacherProfile> teachers,
@@ -51,9 +50,6 @@ public class TeacherSummaryAssembler {
             return List.of();
         }
 
-        // One batch query per association group: user, subject graph, modalities.
-        Map<UUID, TeacherProfile> byId = teacherProfileRepository.findWithUserByIds(ids).stream()
-                .collect(Collectors.toMap(TeacherProfile::getId, Function.identity()));
         Map<UUID, List<TeacherSubjectView>> subjectsByTeacher = teacherSubjectRepository
                 .findActiveWithDetailsByTeacherIds(ids).stream()
                 .collect(Collectors.groupingBy(
@@ -68,9 +64,6 @@ public class TeacherSummaryAssembler {
 
         boolean geo = latitude != null && longitude != null;
         return teachers.stream()
-                .map(TeacherProfile::getId)
-                .map(byId::get)
-                .filter(java.util.Objects::nonNull)
                 .map(profile -> toSummary(profile, subjectsByTeacher, modalitiesByTeacher,
                         geo, latitude, longitude))
                 .toList();

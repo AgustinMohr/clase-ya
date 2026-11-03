@@ -2,6 +2,7 @@ package com.claseya.verification.service;
 
 import com.claseya.common.exception.BadRequestException;
 import com.claseya.common.exception.ServiceUnavailableException;
+import com.claseya.model.enums.DocumentScanStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -69,6 +70,11 @@ public class ClamAvDocumentScanner implements DocumentScanner {
             log.warn("ClamAV is unavailable", ex);
             throw new ServiceUnavailableException("Antivirus scan is unavailable");
         }
+    }
+
+    @Override
+    public DocumentScanStatus recordedStatus() {
+        return DocumentScanStatus.CLEAN;
     }
 
     private String readNullTerminated(InputStream in) throws IOException {

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ChevronLeft, ChevronRight, FilterX, SearchX } from 'lucide-react';
+import { ArrowLeft, FilterX, SearchX } from 'lucide-react';
 import { useSearchParams } from 'react-router';
 import { api, type Subject, type TeacherSummary } from '../api';
 import { usePageMeta } from '../hooks/usePageMeta';
@@ -7,10 +7,12 @@ import SearchInput from '../components/ui/SearchInput';
 import { Button } from '../components/ui/Button';
 import { Chip, EmptyState, Skeleton } from '../components/ui/primitives';
 import PriceRange, { type PriceValue } from '../components/ui/PriceRange';
+import { Pagination } from '../components/ui/Pagination';
 import { TeacherCard } from '../components/teacher/TeacherCard';
 
 interface Props {
-  subjects: Subject[];
+  popular: Subject[];
+  loadSuggestions: (term: string) => Promise<Subject[]>;
   subjectsError: boolean;
   onRetrySubjects: () => void;
   onBack: () => void;
@@ -92,7 +94,8 @@ function buildSearch(term: string, filters: Filters, page: number): URLSearchPar
 }
 
 export default function SearchPage({
-  subjects,
+  popular,
+  loadSuggestions,
   subjectsError,
   onRetrySubjects,
   onBack,
@@ -121,8 +124,6 @@ export default function SearchPage({
   // skeletons collapses the document (the footer jumps into view) on every filter apply.
   const [hasSearched, setHasSearched] = useState(false);
   const requestSeq = useRef(0);
-  // A term cannot be resolved before the subject catalog arrives; remember it and retry once.
-  const pendingTerm = useRef<string | null>(null);
 
   usePageMeta({
     title: urlTerm ? `Profesores de ${urlTerm} | ClaseYa` : 'Buscar profesores particulares | ClaseYa',
@@ -131,10 +132,20 @@ export default function SearchPage({
       : 'Buscá profesores particulares por materia, modalidad, precio y calificación. Contactalos gratis.',
   });
 
-  const resolveSubject = useCallback(
-    (value: string) => subjects.find((s) => s.name.toLowerCase() === value.trim().toLowerCase())?.id ?? null,
-    [subjects],
-  );
+  /**
+   * REVIEW2-001: the catalog is not cached in the client anymore, so a term is resolved against
+   * the server (`?query=&size=10`). A subject outside the 12 popular ones is still found.
+   */
+  const resolveSubject = useCallback(async (value: string) => {
+    const name = value.trim();
+    if (!name) return null;
+    try {
+      const page = await api.subjectSearch(name, 10);
+      return page.content.find((s) => s.name.toLowerCase() === name.toLowerCase())?.id ?? null;
+    } catch {
+      return null;
+    }
+  }, []);
 
   const runSearch = useCallback(
     async (value: string, filters: Filters, nextPage = 0) => {
@@ -145,14 +156,9 @@ export default function SearchPage({
       const trimmed = value.trim();
       let subjectToUse = filters.subjectId;
       if (trimmed && !subjectToUse) {
-        subjectToUse = resolveSubject(trimmed);
+        subjectToUse = await resolveSubject(trimmed);
+        if (seq !== requestSeq.current) return; // a newer search superseded this one
         if (!subjectToUse) {
-          // The catalog has not loaded yet: wait instead of reporting a false "not found".
-          if (subjects.length === 0) {
-            pendingTerm.current = trimmed;
-            return;
-          }
-          pendingTerm.current = null;
           setUnmatchedTerm(trimmed);
           setResults([]);
           setTotal(0);
@@ -161,7 +167,6 @@ export default function SearchPage({
           return;
         }
       }
-      pendingTerm.current = null;
       setUnmatchedTerm('');
       const effective: Filters = { ...filters, subjectId: subjectToUse };
       setApplied(effective);
@@ -192,7 +197,7 @@ export default function SearchPage({
         if (seq === requestSeq.current) setLoading(false);
       }
     },
-    [resolveSubject, subjects.length],
+    [resolveSubject],
   );
 
   /**
@@ -218,15 +223,6 @@ export default function SearchPage({
     void runSearchRef.current(next.term, next.filters, next.page);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queryKey]);
-
-  // A deep link may arrive before the catalog: run the pending term as soon as it is available.
-  useEffect(() => {
-    if (subjects.length === 0 || !pendingTerm.current) return;
-    pendingTerm.current = null;
-    const next = parseSearch(searchParams);
-    void runSearchRef.current(next.term, next.filters, next.page);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [subjects.length]);
 
   function updateDraft(next: Partial<Filters>) {
     setDraft((current) => ({ ...current, ...next }));
@@ -270,8 +266,9 @@ export default function SearchPage({
           value={term}
           onChange={setTerm}
           onSubmit={submitTerm}
-          suggestions={subjects}
-          popular={subjects}
+          suggestions={[]}
+          popular={popular}
+          loadSuggestions={loadSuggestions}
           loading={loading}
         />
       </div>
@@ -392,27 +389,13 @@ export default function SearchPage({
                 ))}
               </div>
 
-              {totalPages > 1 && (
-                <nav className="mt-6 flex items-center justify-between gap-3" aria-label="Paginación de resultados">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={page === 0 || loading}
-                    onClick={() => goToPage(page - 1)}
-                  >
-                    <ChevronLeft className="h-4 w-4" aria-hidden="true" /> Anterior
-                  </Button>
-                  <p className="text-sm text-content-muted">Página {page + 1} de {totalPages}</p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={page + 1 >= totalPages || loading}
-                    onClick={() => goToPage(page + 1)}
-                  >
-                    Siguiente <ChevronRight className="h-4 w-4" aria-hidden="true" />
-                  </Button>
-                </nav>
-              )}
+              <Pagination
+                page={page}
+                totalPages={totalPages}
+                loading={loading}
+                onChange={goToPage}
+                label="Paginación de resultados"
+              />
             </div>
           )}
         </section>

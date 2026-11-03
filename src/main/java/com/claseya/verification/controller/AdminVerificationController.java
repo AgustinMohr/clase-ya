@@ -2,7 +2,7 @@ package com.claseya.verification.controller;
 
 import com.claseya.model.enums.VerificationStatus;
 import com.claseya.security.CurrentUser;
-import com.claseya.teacher.dto.SearchResultPage;
+import com.claseya.common.dto.SearchResultPage;
 import com.claseya.verification.dto.AdminVerificationDetail;
 import com.claseya.verification.dto.VerificationDecisionRequest;
 import com.claseya.verification.dto.VerificationDecisionView;
@@ -18,6 +18,7 @@ import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -67,6 +68,20 @@ public class AdminVerificationController {
         return queryService.adminDetail(teacherId);
     }
 
+    /** VERIF-001: the reviewer marks a document as seen. Idempotent. */
+    @PostMapping("/documents/{documentId}/reviewed")
+    public ResponseEntity<Void> markReviewed(@PathVariable UUID documentId) {
+        documentService.review(currentUser.id(), documentId, true);
+        return ResponseEntity.noContent().build();
+    }
+
+    /** VERIF-001: the reviewer unmarks a document. Idempotent. */
+    @DeleteMapping("/documents/{documentId}/reviewed")
+    public ResponseEntity<Void> unmarkReviewed(@PathVariable UUID documentId) {
+        documentService.review(currentUser.id(), documentId, false);
+        return ResponseEntity.noContent().build();
+    }
+
     /** Admin download. Audited at the application log (never the document content itself). */
     @GetMapping("/documents/{documentId}/content")
     public ResponseEntity<byte[]> documentContent(@PathVariable UUID documentId) {
@@ -75,6 +90,7 @@ public class AdminVerificationController {
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION,
                         ContentDisposition.attachment().filename(document.filename()).build().toString())
+                .header(HttpHeaders.CACHE_CONTROL, "no-store")
                 .contentType(MediaType.parseMediaType(document.contentType()))
                 .body(document.content());
     }

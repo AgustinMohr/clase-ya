@@ -1,4 +1,4 @@
-import { GraduationCap, Heart, LogOut, MessageCircle, Megaphone, Moon, Sun, User, UserRound } from 'lucide-react';
+import { GraduationCap, Heart, LogOut, MessageCircle, Megaphone, Moon, ShieldCheck, Sun, User, UserRound } from 'lucide-react';
 import { Link } from 'react-router';
 import { useTheme } from '../../theme/ThemeProvider';
 import { useAuth } from '../../auth/AuthContext';
@@ -22,6 +22,7 @@ export function Navbar({
   const { user, loading, logout } = useAuth();
   const isStudent = user?.role === 'STUDENT';
   const isTeacher = user?.role === 'TEACHER';
+  const isAdmin = user?.role === 'ADMIN';
 
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-surface/85 backdrop-blur supports-[backdrop-filter]:bg-surface/70">
@@ -60,6 +61,12 @@ export function Navbar({
             <Link to={ROUTES.myListing} className={buttonStyles({ variant: 'ghost', size: 'sm' })}>
               <Megaphone className="h-4 w-4" aria-hidden="true" />
               <span className="hidden sm:inline">Mi anuncio</span>
+            </Link>
+          )}
+          {isAdmin && (
+            <Link to={ROUTES.admin} className={buttonStyles({ variant: 'ghost', size: 'sm' })}>
+              <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+              <span className="hidden sm:inline">Admin</span>
             </Link>
           )}
           <Button

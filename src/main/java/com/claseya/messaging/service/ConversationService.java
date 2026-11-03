@@ -6,7 +6,9 @@ import com.claseya.common.exception.ResourceNotFoundException;
 import com.claseya.messaging.dto.ConversationParticipantResponse;
 import com.claseya.messaging.dto.ConversationResponse;
 import com.claseya.messaging.dto.ConversationSummaryResponse;
+import com.claseya.messaging.dto.ConversationThreadResponse;
 import com.claseya.messaging.dto.LastMessageResponse;
+import com.claseya.messaging.dto.MessageResponse;
 import com.claseya.messaging.dto.SendMessageRequest;
 import com.claseya.messaging.repository.ConversationPairRepository;
 import com.claseya.messaging.repository.ConversationParticipantRepository;
@@ -19,8 +21,9 @@ import com.claseya.model.StudentProfile;
 import com.claseya.model.TeacherProfile;
 import com.claseya.model.User;
 import com.claseya.model.enums.UserStatus;
+import com.claseya.notification.service.NotificationOutboxService;
 import com.claseya.student.repository.StudentProfileRepository;
-import com.claseya.teacher.dto.SearchResultPage;
+import com.claseya.common.dto.SearchResultPage;
 import com.claseya.teacher.repository.TeacherProfileRepository;
 import com.claseya.teacher.service.TeacherVisibilityService;
 import org.springframework.data.domain.Page;
@@ -30,6 +33,8 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -40,6 +45,7 @@ import java.util.stream.Collectors;
 public class ConversationService {
 
     private static final int MAX_SIZE = 50;
+    private static final int MAX_THREAD_LIMIT = 100;
 
     private final ConversationRepository conversationRepository;
     private final ConversationParticipantRepository participantRepository;
@@ -49,6 +55,7 @@ public class ConversationService {
     private final TeacherProfileRepository teacherProfileRepository;
     private final MessageService messageService;
     private final TeacherVisibilityService teacherVisibilityService;
+    private final NotificationOutboxService notificationOutboxService;
 
     public ConversationService(ConversationRepository conversationRepository,
                                ConversationParticipantRepository participantRepository,
@@ -57,7 +64,8 @@ public class ConversationService {
                                StudentProfileRepository studentProfileRepository,
                                TeacherProfileRepository teacherProfileRepository,
                                MessageService messageService,
-                               TeacherVisibilityService teacherVisibilityService) {
+                               TeacherVisibilityService teacherVisibilityService,
+                               NotificationOutboxService notificationOutboxService) {
         this.conversationRepository = conversationRepository;
         this.participantRepository = participantRepository;
         this.conversationPairRepository = conversationPairRepository;
@@ -66,6 +74,7 @@ public class ConversationService {
         this.teacherProfileRepository = teacherProfileRepository;
         this.messageService = messageService;
         this.teacherVisibilityService = teacherVisibilityService;
+        this.notificationOutboxService = notificationOutboxService;
     }
 
     public record ConversationCreated(ConversationResponse conversation, boolean created) {
@@ -114,6 +123,9 @@ public class ConversationService {
         addParticipant(candidate, student.getUser());
         addParticipant(candidate, teacher.getUser());
         sendInitialMessage(studentUserId, candidate.getId(), message);
+        // REVIEW2-002: queued in this transaction; the worker sends it after commit.
+        notificationOutboxService.enqueueContactRequest(
+                teacherUserId, candidate.getId(), student.getUser().getName());
         return new ConversationCreated(toResponse(candidate, studentUserId), true);
     }
 
@@ -133,6 +145,47 @@ public class ConversationService {
     public ConversationResponse get(UUID userId, UUID conversationId) {
         Conversation conversation = requireAccessible(userId, conversationId);
         return toResponse(conversation, userId);
+    }
+
+    /**
+     * REVIEW2-003: the thread and its last (or previous) page in a single response. Messages are
+     * returned oldest first; {@code nextBefore} is the keyset cursor for loading older ones.
+     */
+    @Transactional(readOnly = true)
+    public ConversationThreadResponse thread(UUID userId, UUID conversationId, UUID before,
+                                             int limit) {
+        if (limit < 1 || limit > MAX_THREAD_LIMIT) {
+            throw new BadRequestException("limit must be between 1 and " + MAX_THREAD_LIMIT);
+        }
+        Conversation conversation = requireAccessible(userId, conversationId);
+
+        Pageable pageable = PageRequest.of(0, limit + 1);
+        List<Message> fetched;
+        if (before == null) {
+            fetched = messageRepository.findLatestThreadPage(conversationId, pageable);
+        } else {
+            Message anchor = messageRepository.findByIdAndConversation_Id(before, conversationId)
+                    .orElseThrow(ResourceNotFoundException::new);
+            fetched = messageRepository.findThreadPageBefore(conversationId,
+                    anchor.getCreatedAt(), anchor.getId(), pageable);
+        }
+
+        boolean hasMore = fetched.size() > limit;
+        List<Message> page = hasMore ? fetched.subList(0, limit) : fetched;
+        List<MessageResponse> messages = new ArrayList<>(page.stream()
+                .map(MessageResponse::from)
+                .toList());
+        Collections.reverse(messages);
+
+        User other = otherParticipant(conversation, userId);
+        return new ConversationThreadResponse(
+                conversation.getId(),
+                ConversationParticipantResponse.from(other),
+                messageRepository.countUnread(conversationId, userId),
+                conversation.getUpdatedAt(),
+                messages,
+                hasMore,
+                messages.isEmpty() ? null : messages.get(0).id());
     }
 
     @Transactional(readOnly = true)
@@ -193,13 +246,17 @@ public class ConversationService {
     }
 
     private ConversationResponse toResponse(Conversation conversation, UUID userId) {
-        User other = participantRepository.findOthers(List.of(conversation.getId()), userId).stream()
+        long unread = messageRepository.countUnread(conversation.getId(), userId);
+        return new ConversationResponse(conversation.getId(),
+                ConversationParticipantResponse.from(otherParticipant(conversation, userId)),
+                unread, conversation.getUpdatedAt());
+    }
+
+    private User otherParticipant(Conversation conversation, UUID userId) {
+        return participantRepository.findOthers(List.of(conversation.getId()), userId).stream()
                 .findFirst()
                 .map(ConversationParticipant::getUser)
                 .orElseThrow(ResourceNotFoundException::new);
-        long unread = messageRepository.countUnread(conversation.getId(), userId);
-        return new ConversationResponse(conversation.getId(),
-                ConversationParticipantResponse.from(other), unread, conversation.getUpdatedAt());
     }
 
     private void addParticipant(Conversation conversation, User user) {
@@ -210,11 +267,11 @@ public class ConversationService {
     }
 
     private Conversation requireAccessible(UUID userId, UUID conversationId) {
-        if (!participantRepository.existsByConversation_IdAndUser_Id(conversationId, userId)) {
-            // 404 hides the existence of conversations the user is not part of.
-            throw new ResourceNotFoundException();
-        }
-        return conversationRepository.findById(conversationId)
+        // One query: the participant row proves access and carries its conversation. A missing
+        // row is a 404, which hides the existence of conversations the user is not part of.
+        return participantRepository
+                .findWithConversationByConversation_IdAndUser_Id(conversationId, userId)
+                .map(ConversationParticipant::getConversation)
                 .orElseThrow(ResourceNotFoundException::new);
     }
 }

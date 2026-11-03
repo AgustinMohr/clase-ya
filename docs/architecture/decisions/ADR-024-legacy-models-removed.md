@@ -42,3 +42,10 @@ funcionalidad existe y empuja a alguien a “completarla”.
 - **Eliminar las tablas en `V10`:** rechazado por ahora; es destructivo y no aporta al producto.
 - **Dejar las entidades y solo documentar:** rechazado; es exactamente la confusión que el hallazgo
   señaló.
+
+## Actualización (2026-11-02) — ADR-032
+
+La decisión de conservar **todas** las tablas de `V1` cambió parcialmente:
+`V17__drop_bookings_and_calendly.sql` elimina `bookings` y `calendly_integrations`, y quita
+`reviews.booking_id`. Se conservan `reviews`, `reports`, `notifications` y
+`teacher_profiles.rating_average`/`rating_count` para implementarlos en el futuro. Ver `ADR-032`.

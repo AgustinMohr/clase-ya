@@ -12,6 +12,10 @@ import java.util.HexFormat;
  * Validates an uploaded document by its <strong>real content</strong> (magic bytes), never by the
  * extension or the client-declared Content-Type (§6). Also enforces the size cap and derives the
  * sanitized filename and the SHA-256 of the bytes.
+ *
+ * <p>STOR-002: only PDF is accepted. Dropping image formats removes two parsers from the server
+ * (and from the admin's browser when the file is opened), which is the cheapest way to shrink the
+ * attack surface while there is no antivirus in the deployment.
  */
 @Component
 public class DocumentContentValidator {
@@ -19,9 +23,7 @@ public class DocumentContentValidator {
     public static final long MAX_SIZE_BYTES = 10L * 1024 * 1024; // 10 MB
     private static final int MAX_FILENAME_LENGTH = 255;
 
-    private static final byte[] PDF_MAGIC = {0x25, 0x50, 0x44, 0x46, 0x2D};                      // %PDF-
-    private static final byte[] JPG_MAGIC = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF};             // FF D8 FF
-    private static final byte[] PNG_MAGIC = {(byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A}; // \x89PNG....
+    private static final byte[] PDF_MAGIC = {0x25, 0x50, 0x44, 0x46, 0x2D}; // %PDF-
 
     public ValidatedDocument validate(byte[] content, String originalFilename) {
         if (content == null || content.length == 0) {
@@ -30,24 +32,11 @@ public class DocumentContentValidator {
         if (content.length > MAX_SIZE_BYTES) {
             throw new PayloadTooLargeException("Document exceeds the 10 MB limit");
         }
-        String contentType = detectContentType(content);
-        if (contentType == null) {
-            throw new BadRequestException("Unsupported document format: only PDF, JPG and PNG are accepted");
+        if (!startsWith(content, PDF_MAGIC)) {
+            throw new BadRequestException("Unsupported document format: only PDF is accepted");
         }
-        return new ValidatedDocument(contentType, sanitizeFilename(originalFilename), sha256Hex(content), content.length);
-    }
-
-    private String detectContentType(byte[] content) {
-        if (startsWith(content, PDF_MAGIC)) {
-            return "application/pdf";
-        }
-        if (startsWith(content, JPG_MAGIC)) {
-            return "image/jpeg";
-        }
-        if (startsWith(content, PNG_MAGIC)) {
-            return "image/png";
-        }
-        return null;
+        return new ValidatedDocument("application/pdf", sanitizeFilename(originalFilename),
+                sha256Hex(content), content.length);
     }
 
     private boolean startsWith(byte[] content, byte[] magic) {
@@ -71,19 +60,23 @@ public class DocumentContentValidator {
         }
     }
 
-    /** Strips path components and control characters, bounds the length, and never returns blank. */
+    /**
+     * Strips path components and control characters, keeps letters/digits/space/dot/dash/underscore
+     * (so an accented filename survives), bounds the length, and never returns blank. The result is
+     * safe to place in a {@code Content-Disposition} header (no quotes, CR or LF).
+     */
     private String sanitizeFilename(String originalFilename) {
         String name = originalFilename == null ? "" : originalFilename;
         int lastSlash = Math.max(name.lastIndexOf('/'), name.lastIndexOf('\\'));
         if (lastSlash >= 0) {
             name = name.substring(lastSlash + 1);
         }
-        name = name.replaceAll("\\p{Cntrl}", "").trim();
+        name = name.replaceAll("[^\\p{L}\\p{N}._ -]", "-").trim();
         while (name.startsWith(".")) {
             name = name.substring(1);
         }
         if (name.isBlank()) {
-            return "document";
+            return "document.pdf";
         }
         return name.length() > MAX_FILENAME_LENGTH ? name.substring(0, MAX_FILENAME_LENGTH) : name;
     }

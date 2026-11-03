@@ -8,7 +8,6 @@ import com.claseya.auth.dto.SessionUserResponse;
 import com.claseya.common.exception.InvalidCredentialsException;
 import com.claseya.common.exception.InvalidRoleException;
 import com.claseya.common.exception.RegistrationConflictException;
-import com.claseya.common.exception.ResourceNotFoundException;
 import com.claseya.model.User;
 import com.claseya.model.enums.UserRole;
 import com.claseya.model.enums.UserStatus;
@@ -78,7 +77,7 @@ public class AuthService {
         Optional<User> existing = userRepository.findByEmail(email);
         if (existing.isPresent()) {
             existing.filter(user -> user.getStatus() == UserStatus.PENDING)
-                    .ifPresent(accountActivationService::issueAndSend);
+                    .ifPresent(accountActivationService::issueAndEnqueue);
             return;
         }
 
@@ -98,10 +97,11 @@ public class AuthService {
             throw new RegistrationConflictException();
         }
 
-        // AUTH-001: the account stays PENDING until the owner clicks the emailed link. The send
-        // happens inside this transaction on purpose: if there is no mail transport the account is
-        // rolled back instead of leaving an account that the owner cannot activate.
-        accountActivationService.issueAndSend(user);
+        // AUTH-001 + REVIEW2-002: the account stays PENDING until the owner clicks the emailed link.
+        // The email is *enqueued* in this transaction and delivered after commit; the transport
+        // check still runs here, so with no mail transport the account is rolled back instead of
+        // leaving an account that the owner cannot activate (RF-6).
+        accountActivationService.issueAndEnqueue(user);
     }
 
     /** Consumes a single-use activation token (AUTH-001). */
@@ -148,12 +148,13 @@ public class AuthService {
         return new IssuedSession(token, SessionUserResponse.from(managed), jwtService.getExpirationSeconds());
     }
 
-    /** Current session user for the SPA. Identity always comes from the SecurityContext. */
-    @Transactional(readOnly = true)
+    /**
+     * Current session user for the SPA. The JWT filter already loaded the account for this request,
+     * so the response is built from the principal instead of querying {@code users} again
+     * (ADR-028 option A).
+     */
     public SessionUserResponse me() {
-        User user = userRepository.findById(currentUser.id())
-                .orElseThrow(ResourceNotFoundException::new);
-        return SessionUserResponse.from(user);
+        return SessionUserResponse.from(currentUser.principal());
     }
 
     private String normalizeEmail(String email) {

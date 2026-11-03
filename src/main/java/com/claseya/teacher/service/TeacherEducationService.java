@@ -9,9 +9,8 @@ import com.claseya.model.enums.VerificationStatus;
 import com.claseya.teacher.dto.CreateTeacherEducationRequest;
 import com.claseya.teacher.dto.TeacherEducationResponse;
 import com.claseya.teacher.dto.UpdateTeacherEducationRequest;
+import com.claseya.teacher.port.EducationEvidencePort;
 import com.claseya.teacher.repository.TeacherEducationRepository;
-import com.claseya.verification.repository.VerificationDecisionRepository;
-import com.claseya.verification.repository.VerificationDocumentRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,17 +23,14 @@ public class TeacherEducationService {
 
     private final TeacherEducationRepository teacherEducationRepository;
     private final TeacherProfileService teacherProfileService;
-    private final VerificationDocumentRepository verificationDocumentRepository;
-    private final VerificationDecisionRepository verificationDecisionRepository;
+    private final EducationEvidencePort evidencePort;
 
     public TeacherEducationService(TeacherEducationRepository teacherEducationRepository,
                                    TeacherProfileService teacherProfileService,
-                                   VerificationDocumentRepository verificationDocumentRepository,
-                                   VerificationDecisionRepository verificationDecisionRepository) {
+                                   EducationEvidencePort evidencePort) {
         this.teacherEducationRepository = teacherEducationRepository;
         this.teacherProfileService = teacherProfileService;
-        this.verificationDocumentRepository = verificationDocumentRepository;
-        this.verificationDecisionRepository = verificationDecisionRepository;
+        this.evidencePort = evidencePort;
     }
 
     @Transactional(readOnly = true)
@@ -103,8 +99,7 @@ public class TeacherEducationService {
             throw new ConflictException("A verified credential cannot be deleted");
         }
         // RF-21: evidence history (documents or decisions) is never deleted.
-        if (verificationDocumentRepository.countByTeacherEducation_Id(educationId) > 0
-                || verificationDecisionRepository.existsByTeacherEducation_Id(educationId)) {
+        if (evidencePort.hasEvidence(educationId) || evidencePort.hasDecisions(educationId)) {
             throw new ConflictException("A credential with documents or decisions cannot be deleted");
         }
         teacherEducationRepository.delete(education);

@@ -11,46 +11,60 @@ class ProductionConfigValidatorTest {
 
     @Test
     void localProfileSkipsEveryCheck() {
-        assertThatCode(() -> ProductionConfigValidator.validate(List.of("local"), false, false, true))
+        assertThatCode(() -> ProductionConfigValidator.validate(List.of("local"), false, false, false, true))
                 .doesNotThrowAnyException();
     }
 
     @Test
     void testProfileSkipsEveryCheck() {
-        assertThatCode(() -> ProductionConfigValidator.validate(List.of("test"), false, false, true))
+        assertThatCode(() -> ProductionConfigValidator.validate(List.of("test"), false, false, false, true))
                 .doesNotThrowAnyException();
     }
 
     @Test
-    void productionRejectsDisabledScanning() {
-        assertThatThrownBy(() -> ProductionConfigValidator.validate(List.of(), false, true, false))
+    void productionRejectsDisabledScanningWithoutAcknowledgement() {
+        assertThatThrownBy(() -> ProductionConfigValidator.validate(List.of(), false, false, true, false))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("SCAN_ENABLED");
+                .hasMessageContaining("SCAN_ENABLED")
+                .hasMessageContaining("ALLOW_UNSCANNED_EVIDENCE");
+    }
+
+    @Test
+    void productionAcceptsUnscannedEvidenceWithExplicitAcknowledgement() {
+        assertThatCode(() -> ProductionConfigValidator.validate(List.of(), false, true, true, false))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void theAcknowledgementDoesNotBypassTheCaptcha() {
+        assertThatThrownBy(() -> ProductionConfigValidator.validate(List.of(), false, true, false, false))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("CAPTCHA_ENABLED");
     }
 
     @Test
     void productionRejectsDisabledCaptcha() {
-        assertThatThrownBy(() -> ProductionConfigValidator.validate(List.of(), true, false, false))
+        assertThatThrownBy(() -> ProductionConfigValidator.validate(List.of(), true, false, false, false))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("CAPTCHA_ENABLED");
     }
 
     @Test
     void productionRejectsDemoSeed() {
-        assertThatThrownBy(() -> ProductionConfigValidator.validate(List.of(), true, true, true))
+        assertThatThrownBy(() -> ProductionConfigValidator.validate(List.of(), true, false, true, true))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("DEMO_SEED");
     }
 
     @Test
     void productionAcceptsSafeConfiguration() {
-        assertThatCode(() -> ProductionConfigValidator.validate(List.of(), true, true, false))
+        assertThatCode(() -> ProductionConfigValidator.validate(List.of(), true, false, true, false))
                 .doesNotThrowAnyException();
     }
 
     @Test
     void everyMissingControlIsReportedTogether() {
-        assertThatThrownBy(() -> ProductionConfigValidator.validate(List.of(), false, false, true))
+        assertThatThrownBy(() -> ProductionConfigValidator.validate(List.of(), false, false, false, true))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("SCAN_ENABLED")
                 .hasMessageContaining("CAPTCHA_ENABLED")

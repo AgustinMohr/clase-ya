@@ -8,7 +8,7 @@ import com.claseya.model.enums.AvailabilityDayPart;
 import com.claseya.model.enums.AvailabilityStatus;
 import com.claseya.model.enums.TeachingModality;
 import com.claseya.security.CurrentUser;
-import com.claseya.teacher.dto.SearchResultPage;
+import com.claseya.common.dto.SearchResultPage;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

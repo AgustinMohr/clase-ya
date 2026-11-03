@@ -11,7 +11,7 @@ public record AdminVerificationDetail(
         String teacherName,
         VerificationStatus profileStatus,
         List<CredentialVerificationView> credentials,
-        List<VerificationDocumentResponse> documents,
+        List<AdminVerificationDocumentView> documents,
         List<VerificationAuditEntry> history
 ) {
 }

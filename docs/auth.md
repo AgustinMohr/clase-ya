@@ -15,8 +15,9 @@ suite/tooling may still send `Authorization: Bearer <jwt>`. The SPA never sees t
 ## Quick path (email + password)
 
 1. Start PostgreSQL and run the app (`mvn spring-boot:run`).
-2. Configure SMTP (`MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM`,
-   `APP_BASE_URL`). Without SMTP, registration answers `503`.
+2. Configure an email transport: SMTP (`MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`,
+   `MAIL_PASSWORD`, `MAIL_FROM`, `APP_BASE_URL`) or Brevo (`EMAIL_TRANSPORT=brevo`,
+   `EMAIL_API_KEY`). Without any transport, registration answers `503`.
    - Local only: `AUTH_LOG_ACTIVATION_LINKS=true` writes the activation link to the application log
      instead of sending it.
 3. `POST /api/auth/register` → user created with `status=PENDING` + activation email.
@@ -49,8 +50,10 @@ POST /api/auth/register
   (Cloudflare Turnstile). A missing/invalid token → **400**; Turnstile unavailable → **503**. The
   SPA renders the widget only when `VITE_TURNSTILE_SITE_KEY` is configured. Disabled by default in
   local/tests.
-- The activation email is sent inside the registration transaction: if there is no mail transport
-  (or SMTP fails), the account is **rolled back** and the API answers **503**.
+- The activation email is **enqueued** in the registration transaction (`notification_outbox`) and
+  delivered by the worker after commit (ADR-029). The transport check (`isConfigured`) still runs
+  inside the registration flow: without a mail transport, the account is **rolled back** and the API
+  answers **503**, so no unactivatable account is left behind.
 
 ## Activation
 
@@ -61,6 +64,8 @@ POST /api/auth/register
 
 - Only a SHA-256 digest of the token is stored (`email_verification_tokens`), with 24 h TTL and
   `used_at`. A successful activation sets `users.status = ACTIVE` and `users.email_verified_at`.
+- Consumption is atomic (`UPDATE ... WHERE used_at IS NULL`): two concurrent clicks on the same link
+  produce exactly one `204`; the loser receives the generic `400`.
 - Resending invalidates every outstanding token of that account.
 - The resend endpoint never reveals whether the email exists (202 for unknown emails too).
 - Both endpoints share the registration rate-limit bucket by IP (`429` + `Retry-After`).
@@ -98,7 +103,9 @@ Set-Cookie: CLASEYA_SESSION=<jwt>; Path=/; HttpOnly; Secure; SameSite=Lax
 - `GET /api/auth/csrf` → `{ "token": "..." }` and an **HttpOnly** `XSRF-TOKEN` cookie.
 - Unsafe methods authenticated by cookie require `X-XSRF-TOKEN` (double submit). A missing or stale
   token → **403**.
-- The SPA fetches a new token **before every unsafe request** (no cache).
+- The SPA caches the token in memory and reuses it; if a write receives **403**, it invalidates the
+  cached token, fetches a new one and retries **once**. The server does not rotate the token on every
+  write (SEC-002/FE-02).
 - Requests with `Authorization: Bearer` are exempt (a cross-site page cannot set that header).
 
 ## JWT
@@ -148,6 +155,9 @@ backend (`frontend/vercel.json`, `ADR-022`):
   `COOKIE_SECURE=true`, and `RATE_LIMIT_TRUST_FORWARDED_HEADERS=true` (Vercel overwrites
   `X-Forwarded-For`; otherwise every user shares one rate-limit bucket).
 - Google: register the Vercel origin under Authorized JavaScript origins.
+- Email: `EMAIL_TRANSPORT=smtp` (default) or `brevo` (HTTPS API, `ADR-030`). A host that blocks
+  outbound SMTP — Render Free blocks ports 25/465/587 — must use `brevo` + `EMAIL_API_KEY`;
+  otherwise registration answers `202` and the activation email is never delivered.
 - Evidence uploads (up to 10 MB) traverse Vercel; verify the body limit. If it cuts them (413),
   serve the SPA and the API from subdomains of the same site (`app.example.com` + `api.example.com`,
   where `SameSite=Lax` works without a proxy), lower the file cap, or move evidence to object

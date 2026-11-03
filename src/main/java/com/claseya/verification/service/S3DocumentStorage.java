@@ -53,8 +53,9 @@ public class S3DocumentStorage implements DocumentStorage {
                 .region(Region.of(region == null || region.isBlank() ? "auto" : region))
                 .credentialsProvider(StaticCredentialsProvider.create(
                         AwsBasicCredentials.create(accessKey, secretKey)))
-                // Bounded on purpose: the upload/download happens inside a DB transaction
-                // (TX-01), so an unresponsive bucket must not hold a connection forever.
+                // Bounded on purpose: scanning and uploading happen outside the persistence
+                // transaction (REVIEW2-002), but a slow bucket must still fail fast instead of
+                // blocking the request/worker for long.
                 .overrideConfiguration(ClientOverrideConfiguration.builder()
                         .apiCallTimeout(apiCallTimeout)
                         .apiCallAttemptTimeout(apiAttemptTimeout)

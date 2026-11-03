@@ -1,6 +1,7 @@
 # REVIEW2-002 — Outbox transaccional y notificación de contactos
 
-**Estado:** Propuesta (pendiente de REVIEW humano).
+**Estado:** Aprobada (REVIEW 2026-10-29). Implementación: outbox + worker + links de contacto +
+email de activación (`ADR-029`) + upload de evidencia fuera de transacción.
 **Origen:** `review2.md` TX-01 y el hueco funcional del PRD §7. **Nivel:** 2.
 
 ## 1. Objetivo
@@ -116,8 +117,9 @@ propósito, TTL y audiencia. Reutilizarla acopla dos flujos de seguridad y compl
 
 ## 11. Definition of Done
 
-- [ ] Spec aprobada (y ADR si se reemplaza el envío inline de AUTH-001).
-- [ ] Migración `V13` justificada.
-- [ ] Worker con métricas (`sent`, `failed`, `dead`) y logs con `requestId`/`outboxId`.
-- [ ] Tests de worker (idempotencia, backoff, tope), de registro sin SMTP y de contacto.
-- [ ] `docs/architecture/security.md` y `docs/messaging.md` actualizados.
+- [x] Spec aprobada; `ADR-029` reemplaza el envío inline de AUTH-001.
+- [x] Migraciones `V13` (outbox + links) y `V14` (evento `ACTIVATION`) justificadas.
+- [x] Worker con métricas (`claseya.notification.outbox.delivered|failed|dead`) y logs con `outboxId`.
+- [x] Tests de worker (idempotencia, backoff, tope, activación, sin transporte), de registro sin SMTP
+      (503 + rollback) y de contacto.
+- [x] `docs/architecture/security.md` y `docs/messaging.md` actualizados.

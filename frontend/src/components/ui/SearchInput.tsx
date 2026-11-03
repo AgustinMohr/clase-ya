@@ -14,12 +14,20 @@ interface Props {
   onSubmit: (value: string) => void;
   suggestions: SearchSuggestion[];
   popular?: SearchSuggestion[];
+  /**
+   * Server-side suggestions (REVIEW2-001). When provided, the dropdown stops filtering the
+   * `suggestions` prop in memory and asks the catalog instead — the client no longer holds it.
+   */
+  loadSuggestions?: (term: string) => Promise<SearchSuggestion[]>;
   loading?: boolean;
   placeholder?: string;
   size?: 'md' | 'lg';
 }
 
 const HISTORY_KEY = 'claseya.searchHistory';
+const SUGGESTION_DEBOUNCE_MS = 250;
+const MIN_SUGGESTION_CHARS = 2;
+const MAX_SUGGESTIONS = 6;
 
 function readHistory(): string[] {
   try {
@@ -44,6 +52,7 @@ export default function SearchInput({
   onSubmit,
   suggestions,
   popular = [],
+  loadSuggestions,
   loading,
   placeholder = '¿Qué materia querés aprender?',
   size = 'lg',
@@ -52,15 +61,39 @@ export default function SearchInput({
   const [open, setOpen] = useState(false);
   const [highlighted, setHighlighted] = useState(-1);
   const [history, setHistory] = useState<string[]>(readHistory);
+  const [remote, setRemote] = useState<SearchSuggestion[]>([]);
   const rootRef = useRef<HTMLDivElement>(null);
+
+  // Debounced server lookup; a stale response never overwrites a newer one.
+  useEffect(() => {
+    if (!loadSuggestions) return;
+    const term = value.trim();
+    if (term.length < MIN_SUGGESTION_CHARS) {
+      setRemote([]);
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      loadSuggestions(term)
+        .then((list) => !cancelled && setRemote(list))
+        .catch(() => !cancelled && setRemote([]));
+    }, SUGGESTION_DEBOUNCE_MS);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [value, loadSuggestions]);
 
   const filtered = useMemo(() => {
     const term = normalize(value);
     if (!term) return [];
-    const matches = suggestions.filter((s) => normalize(s.name).includes(term));
+    const source = loadSuggestions ? remote : suggestions;
+    const matches = source.filter((s) => normalize(s.name).includes(term));
     // Prefix matches first, then the rest.
-    return matches.sort((a, b) => Number(!normalize(a.name).startsWith(term)) - Number(!normalize(b.name).startsWith(term))).slice(0, 6);
-  }, [suggestions, value]);
+    return matches
+      .sort((a, b) => Number(!normalize(a.name).startsWith(term)) - Number(!normalize(b.name).startsWith(term)))
+      .slice(0, MAX_SUGGESTIONS);
+  }, [suggestions, remote, loadSuggestions, value]);
 
   useEffect(() => {
     function onClickOutside(event: MouseEvent) {

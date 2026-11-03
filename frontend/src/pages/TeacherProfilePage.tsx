@@ -5,6 +5,7 @@ import { useAuth } from '../auth/AuthContext';
 import { metaDescription, usePageMeta } from '../hooks/usePageMeta';
 import { useBack } from '../hooks/useBack';
 import { Avatar, Badge, Card, EmptyState, Skeleton } from '../components/ui/primitives';
+import ReviewsSection from '../components/teacher/ReviewsSection';
 import { Button } from '../components/ui/Button';
 import { cn } from '../lib/cn';
 import { dayName, dayPartLabel, formatPriceHour, modalityLabel } from '../lib/format';
@@ -195,12 +196,7 @@ export default function TeacherProfilePage({ teacherId, onContact, onToggleFavor
           )}
 
           {/* OPINIONES */}
-          <Card className="p-6">
-            <h2 className="mb-3 font-display text-xl">Opiniones</h2>
-            <p className="text-sm text-content-muted">
-              Las opiniones estarán disponibles cuando la primera clase se concrete (próxima fase).
-            </p>
-          </Card>
+          <ReviewsSection teacherId={teacherId} teacherName={teacher.displayName} />
         </div>
 
         {/* CTA sticky */}

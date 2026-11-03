@@ -16,7 +16,7 @@ UNIQUE(student_id, teacher_id)   // DB is the last line of defense against dupli
 No migration was needed in this phase: the table, the unique constraint and its supporting index
 (leading `student_id` column serves `GET /api/favorites`) already existed.
 
-## Endpoints (all require a STUDENT bearer token)
+## Endpoints (all require an authenticated STUDENT session)
 
 | Method | Path | Description |
 |--------|------|-------------|
@@ -105,5 +105,6 @@ visible / favorite missing), 409 (no student profile / duplicate), 400 (page/siz
 
 ## Future (documented, not implemented)
 
-Notifications when a favorited teacher changes availability, favorites-based recommendations,
-and the React UI. Phase 6+ keeps favorites untouched.
+Notifications when a favorited teacher changes availability and favorites-based recommendations.
+The React UI (`/favoritos`) **is implemented**; the browser uses the HttpOnly session cookie and
+Bearer remains for the integration suite/tooling.

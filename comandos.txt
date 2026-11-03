@@ -1,20 +1,3 @@
-# ============================================================================
-# ClaseYa - comandos de desarrollo (Windows / PowerShell)
-# ============================================================================
-# Requisitos: Docker Desktop activo, Java 17, Maven, Node 18+.
-#
-# Config local (Google client id, etc.): src/main/resources/application-local.yml
-#   -> archivo GITIGNORED; se activa con el perfil `local` (ver seccion 2).
-#   -> las env vars siguen pisandolo, asi que produccion no se ve afectada.
-#   -> si falta (clon nuevo), crealo con esto:
-#        app:
-#          demo-seed:
-#            enabled: true
-#        oauth:
-#          google:
-#            client-id: 20531126808-mgi8bftap6blpfpbcs9ughp51d4k2suc.apps.googleusercontent.com
-
-# ----------------------------------------------------------------------------
 # 1) BASE DE DATOS LOCAL (Postgres en Docker)
 # ----------------------------------------------------------------------------
 # Primera vez (crea el contenedor):
@@ -33,30 +16,19 @@ $env:DB_URL; $env:DB_USERNAME; $env:DB_PASSWORD
 Remove-Item Env:DB_URL, Env:DB_USERNAME, Env:DB_PASSWORD -ErrorAction SilentlyContinue
 
 # Levantar con el perfil local (el timezone es obligatorio en Windows, ver seccion 7):
-mvn spring-boot:run "-Dspring-boot.run.profiles=local" "-Dspring-boot.run.jvmArguments=-Duser.timezone=UTC"
 
-# CON DEVTOOLS: al recompilar, la app se reinicia sola -> NO hace falta cortar el proceso
-# ni volver a levantarlo cuando cambias codigo Java. Alcanza con guardar en VS Code
-# (la extension de Java recompila) o correr `mvn compile` en otra terminal.
-# Devtools es dev-only: no entra en el jar y no afecta el deploy.
+        mvn spring-boot:run "-Dspring-boot.run.profiles=local" "-Dspring-boot.run.jvmArguments=-Duser.timezone=UTC"
 
-# Variante sin tests (arranque mas rapido en el loop diario):
-mvn -DskipTests spring-boot:run "-Dspring-boot.run.profiles=local" "-Dspring-boot.run.jvmArguments=-Duser.timezone=UTC"
-
-# En el arranque tiene que decir:  The following 1 profile is active: "local"
-# Health check y datos (el 401 de "/" es ESPERADO: "/" no es un endpoint):
-#   http://localhost:8080/api/test/public
-#   http://localhost:8080/api/subjects?size=5
-#   http://localhost:8080/api/teachers?page=0&size=24
+        mvn -DskipTests spring-boot:run "-Dspring-boot.run.profiles=local" "-Dspring-boot.run.jvmArguments=-Duser.timezone=UTC"
 
 # ----------------------------------------------------------------------------
 # 3) FRONTEND (:5173, proxy /api -> :8080)
 # ----------------------------------------------------------------------------
 cd frontend
 npm install                    # primera vez
-npm run dev                    # http://localhost:5173
-# En local NO se define VITE_API_URL: api.ts usa URL relativa y el proxy de Vite
-# manda /api a :8080, asi que en local NO hay CORS.
+
+            npm run dev                    # http://localhost:5173
+
 
 # ----------------------------------------------------------------------------
 # 4) TESTS Y VERIFICACION

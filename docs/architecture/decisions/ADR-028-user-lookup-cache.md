@@ -1,6 +1,7 @@
 # ADR-028 — Caché corta del usuario autenticado
 
-**Estado:** Propuesto (requiere aprobación; cambia una garantía de seguridad).
+**Estado:** Aceptado — **opción A** (2026-10-29), implementada parcialmente (2026-11-02): no se
+introduce caché; se eliminaron re-consultas de services y se mide. B/C quedan diferidas.
 **Origen:** `review2.md` PERF-01.
 
 ## Contexto
@@ -21,7 +22,7 @@ siguiente (no hay revocación de JWT). Cualquier caché amplía esa ventana.
 | **B. Caffeine 30 s por `sub`** | Quita casi todas las queries del filtro | Un usuario suspendido sigue autenticado hasta 30 s |
 | **C. Caffeine + invalidación explícita al cambiar estado** | Ventana casi nula en el camino normal | Requiere publicar eventos desde el admin y un caché compartido si hay N instancias |
 
-## Decisión propuesta
+## Decisión
 
 **A ahora** (eliminar las re-consultas redundantes de los services, sin caché) y **medir** antes de
 dar el siguiente paso. **B solo después de esa medición y solo con una instancia**: con N instancias
@@ -61,3 +62,18 @@ Si la medición justifica B, con estas condiciones:
 - Revocación de JWT por `jti` (lista de revocación).
 - Refresh tokens.
 - Redis o caché distribuida antes de tener más de una instancia.
+
+## Estado de implementación (2026-11-02)
+
+**Opción A implementada parcialmente.** `JwtAuthenticationFilter` sigue recargando el usuario en
+cada request (es lo que da revocación inmediata), pero:
+- `AuthService.me` construye la respuesta desde el `AppUserDetails` del `SecurityContext`, sin
+  consultar `users` otra vez. `AuthServiceRateLimitTest` verifica que el repositorio no se toca.
+- `TeacherProfileRepository` y `StudentProfileRepository` usan `@EntityGraph(attributePaths = "user")`
+  para traer el usuario junto con el perfil y evitar una carga lazy extra.
+- **PERF-03 (2026-11-03):** `TeacherProfileService.update` reutiliza el usuario ya cargado con el
+  perfil; `StudentProfileService` valida la carrera contra la universidad ya cargada; y
+  `TeacherSummaryAssembler` dejó de re-consultar los perfiles (búsqueda y favoritos los cargan con
+  `@EntityGraph`).
+- No se introdujo caché. AC-1 queda verificado a nivel de servicio; la medición HTTP de 100 requests
+  sigue pendiente (requiere Docker/Testcontainers).

@@ -16,6 +16,7 @@ import com.claseya.teacher.repository.TeacherEducationRepository;
 import com.claseya.user.UserRepository;
 import com.claseya.verification.dto.VerificationDecisionView;
 import com.claseya.verification.repository.VerificationDecisionRepository;
+import com.claseya.verification.repository.VerificationDocumentRepository;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,15 +36,18 @@ public class VerificationDecisionService {
 
     private final TeacherEducationRepository teacherEducationRepository;
     private final VerificationDecisionRepository decisionRepository;
+    private final VerificationDocumentRepository documentRepository;
     private final TeacherVerificationService teacherVerificationService;
     private final UserRepository userRepository;
 
     public VerificationDecisionService(TeacherEducationRepository teacherEducationRepository,
                                        VerificationDecisionRepository decisionRepository,
+                                       VerificationDocumentRepository documentRepository,
                                        TeacherVerificationService teacherVerificationService,
                                        UserRepository userRepository) {
         this.teacherEducationRepository = teacherEducationRepository;
         this.decisionRepository = decisionRepository;
+        this.documentRepository = documentRepository;
         this.teacherVerificationService = teacherVerificationService;
         this.userRepository = userRepository;
     }
@@ -73,6 +77,12 @@ public class VerificationDecisionService {
         // RF-25: the transition is applied over the read state; a stale state is a 409.
         if (education.getVerificationStatus() != VerificationStatus.UNDER_REVIEW) {
             throw new ConflictException("The credential is no longer under review");
+        }
+
+        // VERIF-001 (D3): the checklist gate runs after the state precondition, so a credential
+        // that is not under review still answers 409 (the more specific condition).
+        if (action == VerificationAction.VERIFIED) {
+            requireReviewedEvidence(educationId);
         }
         VerificationStatus previous = education.getVerificationStatus();
         VerificationStatus next = statusFor(action);
@@ -113,6 +123,21 @@ public class VerificationDecisionService {
         return decisionRepository.findByTeacher_IdOrderByDecidedAtDesc(teacherProfileId).stream()
                 .map(VerificationDecisionView::from)
                 .toList();
+    }
+
+    /**
+     * VERIF-001 (D3): verifying requires at least one document and every document reviewed. The
+     * checkbox is the reviewer's checklist; without it, "verified" would not mean anything.
+     */
+    private void requireReviewedEvidence(UUID educationId) {
+        List<VerificationDocument> documents =
+                documentRepository.findByTeacherEducation_IdOrderByUploadedAtDesc(educationId);
+        if (documents.isEmpty()) {
+            throw new BadRequestException("A credential needs at least one document before it can be verified");
+        }
+        if (documents.stream().anyMatch(document -> document.getReviewedAt() == null)) {
+            throw new BadRequestException("Every document must be reviewed before the credential can be verified");
+        }
     }
 
     private TeacherEducation findRevocationTarget(UUID teacherProfileId) {

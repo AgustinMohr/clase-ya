@@ -1,15 +1,16 @@
 package com.claseya;
 
 import com.claseya.auth.captcha.CaptchaVerifier;
-import com.claseya.auth.service.ActivationMailSender;
 import com.claseya.model.User;
 import com.claseya.model.enums.UserRole;
 import com.claseya.model.enums.UserStatus;
+import com.claseya.notification.service.ActivationLinkSender;
 import com.claseya.security.AppUserDetails;
 import com.claseya.security.JwtService;
 import com.claseya.user.UserRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -54,13 +55,22 @@ public abstract class AbstractWebIntegrationTest extends AbstractPostgresTest {
     @Autowired
     protected ObjectMapper objectMapper;
 
-    /** AUTH-001: integration tests never contact a real SMTP server. */
+    /** AUTH-001/REVIEW2-002: integration tests never contact a real SMTP server. */
     @MockitoBean
-    protected ActivationMailSender activationMailSender;
+    protected ActivationLinkSender activationLinkSender;
 
     /** SEC-04: integration tests never contact Turnstile. */
     @MockitoBean
     protected CaptchaVerifier captchaVerifier;
+
+    /**
+     * The outbox worker keeps the sender mocked, but registration still asks the transport whether it
+     * could deliver (RF-6). Tests run as if SMTP were configured; the 503 case stubs this to false.
+     */
+    @BeforeEach
+    void assumeActivationTransportIsConfigured() {
+        org.mockito.Mockito.when(activationLinkSender.isConfigured()).thenReturn(true);
+    }
 
     private static final String APPLICATION_JSON_UTF8 = MediaType.APPLICATION_JSON_VALUE + ";charset=UTF-8";
 

@@ -2,6 +2,7 @@ package com.claseya.verification.service;
 
 import com.claseya.common.exception.BadRequestException;
 import com.claseya.common.exception.ServiceUnavailableException;
+import com.claseya.model.enums.DocumentScanStatus;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -13,6 +14,7 @@ import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -56,6 +58,11 @@ class ClamAvDocumentScannerTest {
 
     private ClamAvDocumentScanner scanner(int port) {
         return new ClamAvDocumentScanner("127.0.0.1", port, 3000);
+    }
+
+    @Test
+    void recordsCleanWhenAScanRuns() {
+        assertThat(scanner(1).recordedStatus()).isEqualTo(DocumentScanStatus.CLEAN);
     }
 
     @Test

@@ -1,9 +1,9 @@
 package com.claseya.teacher.service;
 
-import com.claseya.availability.repository.AvailabilityWindowRepository;
 import com.claseya.model.TeacherProfile;
 import com.claseya.teacher.dto.AnnouncementCompleteness;
 import com.claseya.teacher.dto.AnnouncementStatusResponse;
+import com.claseya.teacher.port.AvailabilityPresencePort;
 import com.claseya.teacher.repository.TeacherModalityRepository;
 import com.claseya.teacher.repository.TeacherSubjectRepository;
 import org.springframework.stereotype.Service;
@@ -23,16 +23,16 @@ public class AnnouncementCompletenessService {
     private final TeacherProfileService teacherProfileService;
     private final TeacherSubjectRepository teacherSubjectRepository;
     private final TeacherModalityRepository teacherModalityRepository;
-    private final AvailabilityWindowRepository availabilityWindowRepository;
+    private final AvailabilityPresencePort availabilityPresence;
 
     public AnnouncementCompletenessService(TeacherProfileService teacherProfileService,
                                            TeacherSubjectRepository teacherSubjectRepository,
                                            TeacherModalityRepository teacherModalityRepository,
-                                           AvailabilityWindowRepository availabilityWindowRepository) {
+                                           AvailabilityPresencePort availabilityPresence) {
         this.teacherProfileService = teacherProfileService;
         this.teacherSubjectRepository = teacherSubjectRepository;
         this.teacherModalityRepository = teacherModalityRepository;
-        this.availabilityWindowRepository = availabilityWindowRepository;
+        this.availabilityPresence = availabilityPresence;
     }
 
     @Transactional(readOnly = true)
@@ -42,7 +42,7 @@ public class AnnouncementCompletenessService {
         boolean hasBio = notBlank(profile.getBio());
         boolean hasSubject = teacherSubjectRepository.existsByTeacher_IdAndActiveTrue(profile.getId());
         boolean hasModality = teacherModalityRepository.existsByTeacher_Id(profile.getId());
-        boolean hasAvailability = availabilityWindowRepository.existsByTeacher_Id(profile.getId());
+        boolean hasAvailability = availabilityPresence.existsByTeacher(profile.getId());
 
         boolean published = hasName && hasBio && hasSubject && hasModality && hasAvailability;
         return new AnnouncementStatusResponse(

@@ -2,6 +2,7 @@ package com.claseya.auth.dto;
 
 import com.claseya.model.User;
 import com.claseya.model.enums.UserRole;
+import com.claseya.security.AppUserDetails;
 
 import java.util.UUID;
 
@@ -13,5 +14,10 @@ public record SessionUserResponse(UUID id, String name, UserRole role) {
 
     public static SessionUserResponse from(User user) {
         return new SessionUserResponse(user.getId(), user.getName(), user.getRole());
+    }
+
+    /** Builds the session response from the already-loaded principal, without a repository hit. */
+    public static SessionUserResponse from(AppUserDetails principal) {
+        return new SessionUserResponse(principal.getId(), principal.getName(), principal.getRole());
     }
 }

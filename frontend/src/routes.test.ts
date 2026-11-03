@@ -21,11 +21,14 @@ describe('isPrivatePath', () => {
     expect(isPrivatePath('/favoritos/abc')).toBe(true);
     expect(isPrivatePath('/mensajes/abc')).toBe(true);
     expect(isPrivatePath('/mi-anuncio')).toBe(true);
+    expect(isPrivatePath('/admin')).toBe(true);
+    expect(isPrivatePath('/admin/usuarios')).toBe(true);
   });
 
   it('does not match public routes or lookalike prefixes', () => {
     expect(isPrivatePath('/')).toBe(false);
     expect(isPrivatePath('/registro')).toBe(false);
     expect(isPrivatePath('/favoritosx')).toBe(false);
+    expect(isPrivatePath('/administracion')).toBe(false);
   });
 });

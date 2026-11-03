@@ -50,13 +50,50 @@ describe('api transport', () => {
   });
 
   it('does not request a CSRF token for reads', async () => {
-    const fetchMock = vi.fn().mockResolvedValueOnce(json([]));
+    const fetchMock = vi.fn().mockResolvedValueOnce(json({ content: [], page: 0, size: 12, totalElements: 0, totalPages: 0 }));
     vi.stubGlobal('fetch', fetchMock);
 
-    await api.subjects();
+    await api.popularSubjects();
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: 'GET' });
+    expect(fetchMock.mock.calls[0][0]).toContain('/api/subjects/popular?limit=12');
+  });
+
+  it('requests a thread page with the keyset cursor and no CSRF token', async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      json({
+        id: 'c1',
+        otherParticipant: { id: 'u1', displayName: 'Ana', role: 'TEACHER' },
+        unreadCount: 0,
+        updatedAt: '2026-11-03T12:00:00Z',
+        messages: [],
+        hasMore: true,
+        nextBefore: 'm1',
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const thread = await api.conversationThread('c1', 'm1', 25);
+
+    expect(thread.nextBefore).toBe('m1');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][0]).toContain(
+      '/api/conversations/c1/thread?limit=25&before=m1',
+    );
+    expect((fetchMock.mock.calls[0][1] as RequestInit).method).toBe('GET');
+    expect(callHeaders(fetchMock, 0)['X-XSRF-TOKEN']).toBeUndefined();
+  });
+
+  it('asks the server for catalog suggestions instead of filtering a local copy', async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(json({ content: [], page: 0, size: 10, totalElements: 0, totalPages: 0 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await api.subjectSearch('álgebra lineal', 10);
+
+    const url = fetchMock.mock.calls[0][0] as string;
+    expect(url).toContain('/api/subjects?query=%C3%A1lgebra%20lineal');
+    expect(url).toContain('size=10');
   });
 
   it('refreshes a stale token and retries the write once on 403', async () => {
@@ -90,9 +127,23 @@ describe('api transport', () => {
   it('turns a network failure into an ApiError with status 0', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')));
 
-    const error = await captureError(() => api.subjects());
+    const error = await captureError(() => api.popularSubjects());
 
     expect(error.status).toBe(0);
+  });
+
+  it('exchanges a message link for a session', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(json({ token: 't1' }))
+      .mockResolvedValueOnce(json({ user: { id: 'u1', role: 'TEACHER' }, expiresIn: 3600 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const session = await api.exchangeMessageLink('link-token');
+
+    expect(session.user.id).toBe('u1');
+    expect(fetchMock.mock.calls[1][0]).toContain('/api/auth/message-link');
+    expect(String((fetchMock.mock.calls[1][1] as RequestInit).body)).toContain('link-token');
   });
 
   it('resolves undefined for 204 responses', async () => {

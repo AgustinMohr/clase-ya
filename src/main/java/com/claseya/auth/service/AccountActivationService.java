@@ -4,9 +4,12 @@ import com.claseya.auth.repository.EmailVerificationTokenRepository;
 import com.claseya.common.exception.BadRequestException;
 import com.claseya.common.exception.ConflictException;
 import com.claseya.common.exception.ResourceNotFoundException;
+import com.claseya.common.exception.ServiceUnavailableException;
 import com.claseya.model.EmailVerificationToken;
 import com.claseya.model.User;
 import com.claseya.model.enums.UserStatus;
+import com.claseya.notification.service.ActivationLinkSender;
+import com.claseya.notification.service.NotificationOutboxService;
 import com.claseya.user.UserRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -38,25 +41,36 @@ public class AccountActivationService {
 
     private final EmailVerificationTokenRepository tokenRepository;
     private final UserRepository userRepository;
-    private final ActivationMailSender mailSender;
-    private final String baseUrl;
+    private final ActivationLinkSender activationSender;
+    private final NotificationOutboxService outbox;
     private final Duration tokenTtl;
 
     public AccountActivationService(EmailVerificationTokenRepository tokenRepository,
                                     UserRepository userRepository,
-                                    ActivationMailSender mailSender,
-                                    @Value("${app.auth.activation.base-url:http://localhost:5173}") String baseUrl,
+                                    ActivationLinkSender activationSender,
+                                    NotificationOutboxService outbox,
                                     @Value("${app.auth.activation.token-ttl:PT24H}") Duration tokenTtl) {
         this.tokenRepository = tokenRepository;
         this.userRepository = userRepository;
-        this.mailSender = mailSender;
-        this.baseUrl = baseUrl;
+        this.activationSender = activationSender;
+        this.outbox = outbox;
         this.tokenTtl = tokenTtl;
     }
 
-    /** Creates a fresh token for a pending account and sends the link. Joins the caller transaction. */
+    /**
+     * Creates a fresh token for a pending account and queues the email in the caller transaction
+     * (REVIEW2-002, RF-1). Nothing is sent here: the outbox worker delivers after commit.
+     *
+     * <p>RF-6: the transport check stays synchronous on purpose. Without SMTP, creating an account
+     * nobody can activate is worse than failing, so this throws 503 and the caller's transaction
+     * rolls the account back.
+     */
     @Transactional
-    public void issueAndSend(User user) {
+    public void issueAndEnqueue(User user) {
+        if (!activationSender.isConfigured()) {
+            throw new ServiceUnavailableException("Email delivery is not configured");
+        }
+
         Instant now = Instant.now();
         // Invalidate outstanding tokens through the persistence context (not a bulk update) so a
         // caller that later reads them in the same transaction cannot see a stale used_at.
@@ -70,7 +84,7 @@ public class AccountActivationService {
         token.setExpiresAt(now.plus(tokenTtl));
         tokenRepository.save(token);
 
-        mailSender.sendActivation(user.getEmail(), activationLink(rawToken));
+        outbox.enqueueActivation(user.getId(), user.getEmail(), token.getId(), rawToken);
     }
 
     /** Consumes a token and activates the account. All failure modes share one generic message. */
@@ -88,6 +102,13 @@ public class AccountActivationService {
         }
 
         User user = token.getUser();
+
+        // SEC-02: consume atomically after the read above. If two clicks race, only one UPDATE
+        // matches used_at IS NULL; the loser gets the same generic invalid-link response.
+        if (tokenRepository.consume(token.getId(), now) == 0) {
+            throw invalidLink();
+        }
+
         if (user.getStatus() == UserStatus.PENDING) {
             user.setStatus(UserStatus.ACTIVE);
             user.setEmailVerifiedAt(now);
@@ -101,23 +122,26 @@ public class AccountActivationService {
         } else {
             throw new BadRequestException("This account cannot be activated");
         }
-
-        token.setUsedAt(now);
-        tokenRepository.save(token);
     }
 
     /**
      * Anti-enumeration: the caller always answers 202. Only a PENDING account receives a new link.
+     *
+     * <p>The transport check runs before the lookup. Checking it inside the branch would answer 503
+     * only for accounts that exist, which is exactly the enumeration signal AUTH-002 removed.
      */
     @Transactional
     public void resend(String rawEmail) {
+        if (!activationSender.isConfigured()) {
+            throw new ServiceUnavailableException("Email delivery is not configured");
+        }
         String email = normalize(rawEmail);
         if (email == null || email.isBlank()) {
             return;
         }
         userRepository.findByEmail(email)
                 .filter(user -> user.getStatus() == UserStatus.PENDING)
-                .ifPresent(this::issueAndSend);
+                .ifPresent(this::issueAndEnqueue);
     }
 
     /** Operational escape hatch for ADMIN when email delivery is broken. Does not verify the email. */
@@ -132,11 +156,6 @@ public class AccountActivationService {
         }
         user.setStatus(UserStatus.ACTIVE);
         userRepository.save(user);
-    }
-
-    private String activationLink(String rawToken) {
-        String base = baseUrl == null ? "" : baseUrl.replaceAll("/+$", "");
-        return base + "/activar?token=" + rawToken;
     }
 
     private static String newToken() {

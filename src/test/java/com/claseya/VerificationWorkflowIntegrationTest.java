@@ -367,6 +367,7 @@ class VerificationWorkflowIntegrationTest extends AbstractWebIntegrationTest {
     @Test
     void evidenceOfVerifiedCredential_cannotBeDeleted() {
         VerificationDocumentResponse doc = uploadPdf(teacher.getId(), education.getId());
+        documentService.review(admin.getId(), doc.id(), true);
         submissionService.submit(teacher.getId(), education.getId());
         decisionService.decide(admin.getId(), profile.getId(), education.getId(),
                 VerificationAction.VERIFIED, VerificationMethod.INSTITUTION_CHECK, null);
@@ -443,8 +444,13 @@ class VerificationWorkflowIntegrationTest extends AbstractWebIntegrationTest {
         return documentService.upload(userId, educationId, DocumentType.DIPLOMA, PDF, "C:\\ruta\\diploma.pdf");
     }
 
+    /**
+     * A credential ready for a decision: uploaded, every document reviewed (VERIF-001 requires it
+     * before VERIFIED) and presented.
+     */
     private void uploadPdfAndSubmit(UUID educationId) {
-        uploadPdf(teacher.getId(), educationId);
+        VerificationDocumentResponse document = uploadPdf(teacher.getId(), educationId);
+        documentService.review(admin.getId(), document.id(), true);
         submissionService.submit(teacher.getId(), educationId);
     }
 

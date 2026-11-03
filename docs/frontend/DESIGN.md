@@ -1,9 +1,9 @@
 # DESIGN.md — Sistema visual de ClaseYa
 
-Versión: 2.0
+Versión: 2.1 (2026-11-02: actualización de versiones de tooling y CSRF)
 Estado: PROPUESTO (para revisión del arquitecto/director)
 Owner: Frontend / Arquitectura de Producto
-Alcance: `frontend/` (React 18 + TypeScript + Tailwind CSS 3.4 + Vite)
+Alcance: `frontend/` (React 18 + TypeScript + Tailwind CSS 4.3 + Vite 8.3)
 
 > Este documento formaliza el sistema visual **tal como está implementado hoy** en el código.
 > No propone una identidad nueva: extrae tokens, componentes y patrones existentes para
@@ -434,10 +434,15 @@ Reglas:
   | `/favoritos` | Mis favoritos | STUDENT |
   | `/mensajes` / `/mensajes/:conversationId` | Mensajería | Autenticado |
   | `/mi-anuncio` | Mi anuncio | TEACHER |
+| `/admin` | Panel de administración | ADMIN |
+| `/admin/usuarios` | Directorio de cuentas | ADMIN |
+| `/admin/verificacion` | Cola de revisión de documentación | ADMIN |
   | `*` | No encontrada | Público |
 
-- **Sesión**: cookie `HttpOnly` (`CLASEYA_SESSION`) + `/api/auth/me`; la SPA nunca ve el JWT. Los writes piden un CSRF nuevo a `/api/auth/csrf` y envían `X-XSRF-TOKEN` (SEC-002).
+- **Sesión**: cookie `HttpOnly` (`CLASEYA_SESSION`) + `/api/auth/me`; la SPA nunca ve el JWT. Los writes usan el token CSRF cacheado en memoria y envían `X-XSRF-TOKEN`; si el servidor responde 403, la SPA invalida el token, pide uno nuevo a `/api/auth/csrf` y reintenta una vez (SEC-002/FE-02).
 - **Verificación**: carga de documentos + submit por credencial; estado por `Badge` (`Pendiente`/`En revisión`/`Verificado`/`Rechazado`).
+- **Panel de administración** (`/admin`, `/admin/usuarios`, `/admin/verificacion`): solo ADMIN (el guard del SPA es UX; la API responde `403`). Suspender una cuenta se trata como acción reversible: se ejecuta y el toast ofrece "Deshacer"; el efecto es inmediato porque el backend recarga la cuenta en cada request.
+- **Revisión de documentación**: cola a la izquierda (filtro por estado, default "En revisión"), detalle a la derecha. Cada documento tiene casilla "Revisado" (se guarda al instante) y badge de escaneo; `Sin escanear` se resalta. Verificar exige **todos** los documentos revisados: el formulario lo dice y el backend lo rechaza con 400.
 - **Acciones destructivas**: si son **reversibles** (quitar materia, desactivar disponibilidad) → se ejecutan y se ofrece **`Toast` con "Deshacer"**. Si son **irreversibles** (quitar formación con documentos/verificación asociados, eliminar un documento ya subido) → **`ConfirmDialog`** (`Modal` + `Button variant="danger"`). Nunca destructivo sin una de las dos.
 
 ---
@@ -523,7 +528,7 @@ Reglas:
 
 ## Apéndice B — Inventario de componentes
 
-`components/ui/`: `Button`, `primitives` (`Card`, `SubCard`, `Badge`, `VerifiedBadge`, `Tag`, `Chip`, `Avatar`, `Rating`, `Skeleton`, `EmptyState`, `ConfirmDialog`), `Field` (`Input`, `Textarea`, `Select`), `Modal`, `Toast` (+`ToastProvider`/`useToast`), `Navbar`, `Footer`, `Section`, `SearchInput`, `PriceRange`.
+`components/ui/`: `Button`, `primitives` (`Card`, `SubCard`, `Badge`, `VerifiedBadge`, `Tag`, `Chip`, `Avatar`, `Rating`, `Skeleton`, `EmptyState`, `ConfirmDialog`), `Field` (`Input`, `Textarea`, `Select`), `Modal`, `Toast` (+`ToastProvider`/`useToast`), `Navbar`, `Footer`, `Section`, `SearchInput`, `PriceRange`, `Pagination`.
 `components/teacher/`: `TeacherCard`, `CategoryCard`, `VerificationPanel`.
 `components/`: `LoginModal`, `ContactModal`, `StudentProfileModal`, `GoogleSignInButton`.
 

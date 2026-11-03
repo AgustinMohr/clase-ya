@@ -24,6 +24,19 @@ class InMemoryRateLimitStoreTest {
     }
 
     @Test
+    void keepsTheCapUnderManyDistinctKeys() {
+        RateLimitProperties properties = new RateLimitProperties();
+        properties.setMaxEntries(10);
+        InMemoryRateLimitStore store = new InMemoryRateLimitStore(properties, new MutableTimeMeter());
+
+        for (int i = 0; i < 1_000; i++) {
+            store.bucket("key-" + i, POLICY);
+        }
+
+        assertThat(store.size()).isLessThanOrEqualTo(10);
+    }
+
+    @Test
     void cleanupExpired_dropsIdleEntries() {
         RateLimitProperties properties = new RateLimitProperties();
         properties.setIdleTtl(Duration.ofMinutes(30));

@@ -1,7 +1,7 @@
 package com.claseya.teacher.controller;
 
 import com.claseya.model.enums.TeachingModality;
-import com.claseya.teacher.dto.SearchResultPage;
+import com.claseya.common.dto.SearchResultPage;
 import com.claseya.teacher.dto.TeacherPublicDetailResponse;
 import com.claseya.teacher.dto.TeacherSearchCriteria;
 import com.claseya.teacher.dto.TeacherSummaryResponse;

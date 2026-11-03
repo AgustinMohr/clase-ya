@@ -4,6 +4,7 @@ export const API_URL = 'http://localhost:8080';
 export const PASSWORD = 'Password123';
 export const STUDENT = 'student@claseya.dev';
 export const TEACHER = 'ana.profe@claseya.dev';
+export const ADMIN = 'admin@claseya.dev';
 
 export interface TeacherRef {
   id: string;

@@ -11,7 +11,7 @@ import com.claseya.model.Favorite;
 import com.claseya.model.StudentProfile;
 import com.claseya.model.TeacherProfile;
 import com.claseya.student.repository.StudentProfileRepository;
-import com.claseya.teacher.dto.SearchResultPage;
+import com.claseya.common.dto.SearchResultPage;
 import com.claseya.teacher.dto.TeacherSummaryResponse;
 import com.claseya.teacher.repository.TeacherProfileRepository;
 import com.claseya.teacher.service.TeacherSummaryAssembler;

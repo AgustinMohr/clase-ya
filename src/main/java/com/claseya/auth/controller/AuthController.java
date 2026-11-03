@@ -5,10 +5,12 @@ import com.claseya.auth.dto.CsrfResponse;
 import com.claseya.auth.dto.IssuedSession;
 import com.claseya.auth.dto.LoginRequest;
 import com.claseya.auth.dto.LoginResponse;
+import com.claseya.auth.dto.MessageLinkRequest;
 import com.claseya.auth.dto.RegisterRequest;
 import com.claseya.auth.dto.ResendActivationRequest;
 import com.claseya.auth.dto.SessionUserResponse;
 import com.claseya.auth.service.AuthService;
+import com.claseya.auth.service.MessageLinkAuthService;
 import com.claseya.security.AuthCookieFactory;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -26,10 +28,14 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private final AuthService authService;
+    private final MessageLinkAuthService messageLinkAuthService;
     private final AuthCookieFactory cookieFactory;
 
-    public AuthController(AuthService authService, AuthCookieFactory cookieFactory) {
+    public AuthController(AuthService authService,
+                          MessageLinkAuthService messageLinkAuthService,
+                          AuthCookieFactory cookieFactory) {
         this.authService = authService;
+        this.messageLinkAuthService = messageLinkAuthService;
         this.cookieFactory = cookieFactory;
     }
 
@@ -74,6 +80,18 @@ public class AuthController {
     public ResponseEntity<Void> logout(HttpServletResponse response) {
         response.addHeader(HttpHeaders.SET_COOKIE, cookieFactory.clearedSession().toString());
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * REVIEW2-002: exchanges the single-use link from the contact email for a normal session
+     * cookie. Same generic error for expired, used, unknown or disabled accounts.
+     */
+    @PostMapping("/message-link")
+    public LoginResponse messageLink(@Valid @RequestBody MessageLinkRequest request,
+                                     HttpServletResponse response) {
+        IssuedSession session = messageLinkAuthService.exchange(request.token());
+        response.addHeader(HttpHeaders.SET_COOKIE, cookieFactory.session(session.token()).toString());
+        return new LoginResponse(session.user(), session.expiresIn());
     }
 
     /**

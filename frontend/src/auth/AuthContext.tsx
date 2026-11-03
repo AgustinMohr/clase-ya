@@ -26,6 +26,24 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 /**
+ * Reads the single-use token from a contact-email link, removes it from the address bar (it is a
+ * credential) and returns it. Only conversation URLs are considered.
+ */
+function readMessageLinkToken(): string | null {
+  if (!window.location.pathname.startsWith('/mensajes')) {
+    return null;
+  }
+  const url = new URL(window.location.href);
+  const token = url.searchParams.get('token');
+  if (!token) {
+    return null;
+  }
+  url.searchParams.delete('token');
+  window.history.replaceState({}, '', url);
+  return token;
+}
+
+/**
  * Session state for the SPA. The JWT lives in an HttpOnly cookie (SEC-002 / ADR-020): it is never
  * readable here, so the user is resolved from `/api/auth/me` on load.
  */
@@ -35,10 +53,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let active = true;
-    api
-      .me()
-      .then((session) => {
-        if (active) setUser(session);
+    const linkToken = readMessageLinkToken();
+
+    // A contact email opens /mensajes/:id?token=...; exchange it before resolving the session.
+    const session = linkToken
+      ? api.exchangeMessageLink(linkToken).then((response) => response.user)
+      : api.me();
+
+    session
+      .then((user) => {
+        if (active) setUser(user);
       })
       .catch(() => {
         // 401 simply means no session; a network failure leaves the UI logged out.

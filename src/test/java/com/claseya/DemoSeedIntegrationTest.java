@@ -74,8 +74,6 @@ class DemoSeedIntegrationTest {
         assertThat(count("teacher_modalities")).isGreaterThanOrEqualTo(100);
         assertThat(count("teacher_education")).isPositive();
         assertThat(count("availability_windows")).isGreaterThanOrEqualTo(100);
-        assertThat(count("bookings")).isGreaterThanOrEqualTo(100);
-        assertThat(count("reviews")).isGreaterThanOrEqualTo(100);
         assertThat(count("favorites")).isGreaterThanOrEqualTo(100);
         assertThat(count("conversations")).isGreaterThanOrEqualTo(20);
         assertThat(count("conversation_participants")).isGreaterThanOrEqualTo(40);
@@ -123,7 +121,14 @@ class DemoSeedIntegrationTest {
 
     @Test
     void publicCatalogIsServed() throws Exception {
-        assertThat(getJson("/api/subjects?size=50").size()).isGreaterThanOrEqualTo(20);
+        JsonNode page = getJson("/api/subjects?size=50");
+        assertThat(page.get("content").size()).isGreaterThanOrEqualTo(20);
+    }
+
+    @Test
+    void landingAsksOnlyForPopularSubjects() throws Exception {
+        JsonNode popular = getJson("/api/subjects/popular?limit=12");
+        assertThat(popular.get("content").size()).isBetween(1, 12);
     }
 
     @Test
@@ -174,8 +179,6 @@ class DemoSeedIntegrationTest {
                 Map.entry("teacher_modalities", count("teacher_modalities")),
                 Map.entry("teacher_education", count("teacher_education")),
                 Map.entry("availability_windows", count("availability_windows")),
-                Map.entry("bookings", count("bookings")),
-                Map.entry("reviews", count("reviews")),
                 Map.entry("favorites", count("favorites")),
                 Map.entry("conversations", count("conversations")),
                 Map.entry("conversation_participants", count("conversation_participants")),

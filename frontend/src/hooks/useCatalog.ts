@@ -2,12 +2,15 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, type Subject } from '../api';
 
 /**
- * Loads the subject catalog once for the whole app. The landing used to request it again on top
- * of `App`, so every visit downloaded the (unpaginated) catalog twice and both failures were
- * swallowed (FE-01). One hook, one request, one error state with a retry.
+ * Landing/autocomplete data (REVIEW2-001).
+ *
+ * The app used to download the whole subject catalog on every visit — twice, before FE-01 — and
+ * filtered it in the browser. Now it asks only for what it renders: `popular` for the landing
+ * chips and a server-side query for the autocomplete, so a subject that is not among the popular
+ * ones is still found (AC-5).
  */
 export function useCatalog() {
-  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [popular, setPopular] = useState<Subject[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const requestSeq = useRef(0);
@@ -17,9 +20,9 @@ export function useCatalog() {
     setLoading(true);
     setError(false);
     try {
-      const list = await api.subjects();
+      const page = await api.popularSubjects(12);
       if (seq === requestSeq.current) {
-        setSubjects(list);
+        setPopular(page.content);
       }
     } catch {
       if (seq === requestSeq.current) {
@@ -32,9 +35,17 @@ export function useCatalog() {
     }
   }, []);
 
+  /** Debounced by the component that renders the dropdown, not here. */
+  const search = useCallback(async (term: string): Promise<Subject[]> => {
+    const trimmed = term.trim();
+    if (!trimmed) return [];
+    const page = await api.subjectSearch(trimmed, 10);
+    return page.content;
+  }, []);
+
   useEffect(() => {
     void reload();
   }, [reload]);
 
-  return { subjects, loading, error, reload };
+  return { popular, loading, error, reload, search };
 }

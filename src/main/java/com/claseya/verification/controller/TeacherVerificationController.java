@@ -94,6 +94,7 @@ public class TeacherVerificationController {
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION,
                         ContentDisposition.attachment().filename(document.filename()).build().toString())
+                .header(HttpHeaders.CACHE_CONTROL, "no-store")
                 .contentType(MediaType.parseMediaType(document.contentType()))
                 .body(document.content());
     }

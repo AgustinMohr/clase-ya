@@ -649,22 +649,24 @@ siguen fuera de alcance por PRD §10 y `AGENTS.md`.
 |---|---|---|
 | DOC-01 | ✅ Corregido | `a3af429` — visibilidad D1, modelo `Review`, conteos y docs de fase |
 | CFG-01 | ✅ Corregido | `ab6fead` — `ProductionConfigValidator` + 7 tests; tests bajo perfil `test` |
-| ARCH-01 | 🟡 Parcial | `bce1153` — favoritos usa `TeacherSpecifications`; ciclos en **ADR-027 (propuesto)** |
+| ARCH-01 | ✅ Corregido | `bce1153` — favoritos usa `TeacherSpecifications`; **ADR-027 implementado (2026-11-02)**: puertos `AvailabilityPresencePort`/`EducationEvidencePort` y `ArchitectureTest` sin ciclos |
 | DB-01 | ✅ Corregido | `ded275e` — V11 con 2 índices justificados (se descartaron 2 por no justificarse) + test de esquema |
-| TX-01 | 🟡 Parcial | `36d212c` — timeouts de SMTP/S3; outbox en **REVIEW2-002 (propuesta)** |
+| TX-01 | ✅ Corregido | `36d212c` timeouts; **REVIEW2-002 implementado**: outbox `V13`/`V14`, worker con lease/backoff/métricas, activación por outbox (`ADR-029`), ClamAV y S3 fuera de la transacción con re-chequeo de cupo bajo lock. 343 tests backend |
 | RACE-01 | ✅ Corregido | `4b04a92` — V12 `conversation_pairs`, `INSERT ... ON CONFLICT`, test de concurrencia |
 | FE-01 / FE-02 | ✅ Corregido | `useCatalog`, error con reintento, timeout, CSRF cacheado, retry en 403, `Retry-After` |
 | UX-02 / A11Y-01 (parte) | ✅ Corregido | copy de la landing; `ErrorBoundary` |
 | OPS-01 | ✅ Corregido | JaCoCo 85/70, CodeQL, dependency submission y Trivy |
-| DATA-01 | 🟡 Parcial | fetch duplicado y error de catálogo resueltos; contrato en **REVIEW2-001 (propuesta)** |
-| PERF-01 | ⏳ Decisión | **ADR-028 (propuesto)**: caché de 30 s con invalidación obligatoria |
-| RATE-01 | ⏳ Abierto | evicción O(n log n) del limitador; no estaba en el plan priorizado |
-| PERF-02 | ⏳ Abierto | requiere endpoint/DTO de hilo (Nivel 2) |
-| SEC-02 | ⏳ Abierto | el CAPTCHA mitiga la enumeración; el consumo atómico del token queda pendiente |
-| PERF-03 | ⏳ Abierto | consultas redundantes menores |
-| TEST-01 | 🟡 Parcial | cobertura medida + tests de concurrencia, esquema y transporte; ArchUnit en ADR-027 |
+| DATA-01 | ✅ Corregido | **REVIEW2-001 implementada**: `GET /api/subjects` paginado (+`/popular`, `Cache-Control`), landing con 12 materias y autocompletado server-side; 8 tests nuevos |
+| PERF-01 | 🟡 Parcial | **ADR-028 opción A**: `AuthService.me` usa el principal y los perfiles cargan el usuario con `@EntityGraph`; sin caché. Falta la medición HTTP de 100 requests |
+| RATE-01 | ✅ Corregido | evicción aproximada por lote bajo lock, sin copia ni sort del mapa; cubierto por `InMemoryRateLimitStoreTest` |
+| PERF-02 | ✅ Corregido | **REVIEW2-003 implementada**: `GET /conversations/{id}/thread` con keyset `before`/`hasMore`/`nextBefore`, `MessagesPage` con “Cargar mensajes anteriores” y 6 tests de integración |
+| SEC-02 | ✅ Corregido | `EmailVerificationTokenRepository.consume` (`UPDATE ... WHERE used_at IS NULL`) + `ActivationConcurrencyIntegrationTest` |
+| PERF-03 | ✅ Corregido | `@EntityGraph` en career/teacher/favorite; `TeacherSummaryAssembler` ya no re-consulta los perfiles que recibe |
+| TEST-01 | 🟡 Parcial | cobertura medida + tests de concurrencia (conversaciones, verificación, activación), esquema, transporte y ArchUnit; faltan contrato y carga |
 
-> Las propuestas `REVIEW2-001`, `REVIEW2-002`, `ADR-027` y `ADR-028` **no están implementadas**: son
-> el punto de REVIEW del flujo. Requieren aprobación humana antes de tocar contrato, esquema o
-> arquitectura.
+> **03/11/2026:** `REVIEW2-001`, `REVIEW2-002` y `REVIEW2-003` están implementadas. `ARCH-01`,
+> `RATE-01`, `SEC-02`, `PERF-02` y `PERF-03` quedaron cerrados en código; `PERF-01` mantiene pendiente
+> solo la medición HTTP y `TEST-01` los tests de contrato y carga. Verificación de esta pasada:
+> backend **427 tests** (`mvn -B clean test`), Vitest **55/55**, `tsc`, ESLint y build con CSP check
+> en verde. Playwright no se ejecutó.
 

@@ -1,0 +1,5 @@
+# Test profile: the outbox worker is driven explicitly by the tests, never by the scheduler.
+app:
+  notification:
+    worker:
+      enabled: false

@@ -168,7 +168,9 @@ class AcademicDomainIntegrationTest extends AbstractWebIntegrationTest {
                 """, 201);
 
         String results = getJson("/api/subjects?query=matem", null, 200);
-        assertThat(results).contains("matematica-discreta").doesNotContain("Historia del Arte");
+        assertThat(toJson(results).get("content").toString())
+                .contains("matematica-discreta")
+                .doesNotContain("Historia del Arte");
     }
 
     @Test

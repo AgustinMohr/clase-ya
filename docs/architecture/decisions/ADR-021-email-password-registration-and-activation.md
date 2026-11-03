@@ -49,3 +49,10 @@ El hallazgo `AUTH-01` de `review.md` pidió cerrar esa brecha.
   el bucket de registro por IP.
 - **Reversión:** quitar la dependencia y la migración no es trivial una vez aplicada; la alternativa
   segura es deshabilitar el alta por contraseña en la UI y dejar el endpoint detrás de un flag.
+
+## Actualización (2026-11-02)
+
+El envío inline fue reemplazado por `ADR-029`/`REVIEW2-002`: el email de activación se **encola** en
+`notification_outbox` dentro de la transacción y el worker lo entrega después del commit. El
+precheck de transporte sigue siendo sincrónico para responder 503 sin dejar una cuenta `PENDING`
+inactivable. El resto de esta ADR (token hash, TTL, activación) sigue vigente.

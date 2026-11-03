@@ -29,6 +29,7 @@ romperse.
    - Los métodos unsafe autenticados por cookie exigen `X-XSRF-TOKEN`.
    - La SPA pide un token **antes de cada request unsafe** (no lo cachea): el servidor rota/limpia
      la cookie al escribir y un token cacheado produciría `403` en la siguiente escritura.
+     **(Actualización 2026-11-02: ver addendum; la SPA cachea y reintenta una vez.)**
    - Los requests con `Authorization: Bearer` están exentos: un sitio cross-site no puede poner ese
      header, y así sigue funcionando la suite de integración.
 4. **Claims mínimos:** el JWT queda con `sub`, `jti`, `iat` y `exp`. Se eliminan `email` y `role`;
@@ -66,3 +67,11 @@ romperse.
 - `report-to`/`report-uri` de CSP.
 - Nonces/hashes para `style-src`.
 - Endurecer `img-src` cuando SEC-06 mueva las fotos a almacenamiento propio.
+
+## Actualización (2026-11-02)
+
+La implementación actual de la SPA (`frontend/src/api.ts`) **cachea** el token CSRF en memoria y lo
+reutiliza; si una escritura recibe `403`, invalida el cache, pide un token nuevo a `/api/auth/csrf`
+y reintenta **una vez**. El texto original de la decisión decía que se pedía antes de cada request
+sin cachear; el doble submit y las demás reglas de esta ADR siguen vigentes. El cambio de detalle se
+implementó en FE-02 y no altera el contrato de seguridad.

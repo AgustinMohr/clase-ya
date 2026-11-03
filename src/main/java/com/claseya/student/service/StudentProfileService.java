@@ -82,9 +82,11 @@ public class StudentProfileService {
     }
 
     private Career requireActiveCareerInUniversity(UUID careerId, UUID universityId) {
+        // PERF-03: the repository fetches academicUnit.university, so the association is checked
+        // against the already-loaded graph instead of issuing a second EXISTS query.
         Career career = careerRepository.findByIdAndActiveTrue(careerId)
                 .orElseThrow(() -> new ResourceNotFoundException("Career not found"));
-        if (!careerRepository.existsByIdAndAcademicUnit_University_Id(careerId, universityId)) {
+        if (!career.getAcademicUnit().getUniversity().getId().equals(universityId)) {
             throw new InvalidAssociationException("Career does not belong to the specified university");
         }
         return career;

@@ -50,9 +50,10 @@ spring:
           auth: ${MAIL_SMTP_AUTH:true}
           starttls:
             enable: ${MAIL_SMTP_STARTTLS:true}
-          # Bounded on purpose: the activation email is sent inside the registration
-          # transaction, so an unresponsive SMTP server must not hold a DB connection
-          # forever (TX-01). The full fix (outbox) is tracked as a spec.
+          # Bounded on purpose: the activation email is enqueued in the outbox and delivered
+          # after commit (REVIEW2-002), but the transport check still runs inside the
+          # registration flow. An unresponsive SMTP server must never hold a DB connection
+          # indefinitely (TX-01).
           connectiontimeout: ${MAIL_CONNECTION_TIMEOUT_MS:5000}
           timeout: ${MAIL_READ_TIMEOUT_MS:10000}
           writetimeout: ${MAIL_WRITE_TIMEOUT_MS:10000}
@@ -146,6 +147,27 @@ app:
   demo-seed:
     enabled: ${DEMO_SEED:false}
 
+  # REVIEW2-002: transactional outbox. The worker sends after commit, retries with backoff and
+  # uses a lease so a crashed instance does not leave rows stuck in SENDING.
+  notification:
+    worker:
+      enabled: ${NOTIFICATION_WORKER_ENABLED:true}
+      poll-interval-ms: ${NOTIFICATION_POLL_INTERVAL_MS:15000}
+      batch-size: ${NOTIFICATION_BATCH_SIZE:10}
+      max-attempts: ${NOTIFICATION_MAX_ATTEMPTS:5}
+    link-base-url: ${APP_BASE_URL:http://localhost:5173}
+    link-ttl: ${MESSAGE_LINK_TTL:PT168H}
+    # Development only: writes the single-use link to the log instead of sending it.
+    log-links: ${MESSAGE_LINK_LOG:false}
+    # NOTIF-001: email transport. `smtp` uses JavaMailSender (needs spring.mail.host);
+    # `brevo` uses the provider's HTTPS API, required on hosts that block outbound SMTP
+    # (Render Free blocks ports 25/465/587, so SMTP can never deliver there).
+    email:
+      transport: ${EMAIL_TRANSPORT:smtp}
+      api-url: ${EMAIL_API_URL:https://api.brevo.com/v3/smtp/email}
+      api-key: ${EMAIL_API_KEY:}
+      api-call-timeout: ${EMAIL_API_CALL_TIMEOUT:PT10S}
+
   auth:
     activation:
       # Public origin of the SPA: activation links point to ${base-url}/activar?token=...
@@ -176,8 +198,10 @@ app:
       api-call-timeout: ${STORAGE_API_CALL_TIMEOUT:PT20S}
       api-attempt-timeout: ${STORAGE_API_ATTEMPT_TIMEOUT:PT10S}
     scan:
-      # Production must enable ClamAV; without it the app stores unscanned evidence.
+      # Production should enable ClamAV. Without it, evidence is stored UNSCANNED, and outside
+      # local/test the app only starts when ALLOW_UNSCANNED_EVIDENCE explicitly acknowledges it.
       enabled: ${SCAN_ENABLED:false}
+      allow-unscanned: ${ALLOW_UNSCANNED_EVIDENCE:false}
       host: ${CLAMAV_HOST:localhost}
       port: ${CLAMAV_PORT:3310}
       timeout-ms: ${CLAMAV_TIMEOUT_MS:5000}

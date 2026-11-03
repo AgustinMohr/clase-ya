@@ -115,7 +115,9 @@ class VerificationConcurrencyIntegrationTest extends AbstractWebIntegrationTest 
         education.setEndYear(2010);
         teacherEducationRepository.saveAndFlush(education);
 
-        documentService.upload(teacher.getId(), education.getId(), DocumentType.DIPLOMA, PDF, "diploma.pdf");
+        documentService.review(adminA.getId(),
+                documentService.upload(teacher.getId(), education.getId(), DocumentType.DIPLOMA, PDF, "diploma.pdf").id(),
+                true);
         submissionService.submit(teacher.getId(), education.getId());
     }
 

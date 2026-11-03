@@ -31,3 +31,10 @@ mañana/tarde/noche), en vez de slots con fecha.
   del frontend; sin modelo de timezone de profesor (no existe) en AVAIL-001.
 - - Los FKs de reserva futura sobre `availability_windows` exigirán no borrar físicamente
   (status `DISABLED` conserva historial).
+
+## Actualización (2026-11-02)
+
+La elegibilidad cambió en `TEACHER-001` (D9): publicar disponibilidad **no** exige estar
+`VERIFIED`. La verificación es un plus de confianza y un filtro opcional; el profesor puede completar
+su anuncio (incluida la disponibilidad) antes de la revisión documental. La visibilidad pública sigue
+exigiendo `user.status = ACTIVE` + anuncio publicado.

@@ -18,6 +18,10 @@ const SearchPage = lazy(() => import('./pages/SearchPage'));
 const TeacherProfilePage = lazy(() => import('./pages/TeacherProfilePage'));
 const MessagesPage = lazy(() => import('./pages/MessagesPage'));
 const MyListingPage = lazy(() => import('./pages/MyListingPage'));
+const AdminPage = lazy(() => import('./pages/AdminPage'));
+const AdminUsersPage = lazy(() => import('./pages/AdminUsersPage'));
+const AdminVerificationsPage = lazy(() => import('./pages/AdminVerificationsPage'));
+const AdminReviewsPage = lazy(() => import('./pages/AdminReviewsPage'));
 const FavoritesPage = lazy(() => import('./pages/FavoritesPage'));
 const RegisterPage = lazy(() => import('./pages/RegisterPage'));
 const ActivateAccountPage = lazy(() => import('./pages/ActivateAccountPage'));
@@ -137,6 +141,8 @@ export default function App() {
   }, [location.pathname]);
 
   const needsProfile = Boolean(user && user.role === 'STUDENT' && profileChecked && !profile);
+  const isAdminSection =
+    location.pathname === ROUTES.admin || location.pathname.startsWith(`${ROUTES.admin}/`);
 
   async function toggleFavorite(teacher: TeacherSummary) {
     if (!user) {
@@ -218,7 +224,8 @@ export default function App() {
               path={ROUTES.home}
               element={
                 <LandingPage
-                  subjects={catalog.subjects}
+                  popular={catalog.popular}
+                  loadSuggestions={catalog.search}
                   subjectsLoading={catalog.loading}
                   subjectsError={catalog.error}
                   onRetrySubjects={catalog.reload}
@@ -234,7 +241,8 @@ export default function App() {
               path={ROUTES.search}
               element={
                 <SearchPage
-                  subjects={catalog.subjects}
+                  popular={catalog.popular}
+                  loadSuggestions={catalog.search}
                   subjectsError={catalog.error}
                   onRetrySubjects={catalog.reload}
                   onBack={() => navigate(ROUTES.home)}
@@ -304,12 +312,48 @@ export default function App() {
 
             <Route path={ROUTES.activate} element={<ActivateAccountPage onLogin={requireLogin} />} />
 
+            <Route
+              path={ROUTES.admin}
+              element={
+                <ProtectedRoute role="ADMIN" onRequireLogin={requireLogin}>
+                  <AdminPage />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path={`${ROUTES.admin}/usuarios`}
+              element={
+                <ProtectedRoute role="ADMIN" onRequireLogin={requireLogin}>
+                  <AdminUsersPage />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path={`${ROUTES.admin}/verificacion`}
+              element={
+                <ProtectedRoute role="ADMIN" onRequireLogin={requireLogin}>
+                  <AdminVerificationsPage />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path={ROUTES.adminReviews}
+              element={
+                <ProtectedRoute role="ADMIN" onRequireLogin={requireLogin}>
+                  <AdminReviewsPage />
+                </ProtectedRoute>
+              }
+            />
+
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </Suspense>
       </main>
 
-      <Footer onNavigate={() => navigate(ROUTES.home)} />
+      {!isAdminSection && <Footer onNavigate={() => navigate(ROUTES.home)} />}
 
       <LoginModal
         open={loginOpen}

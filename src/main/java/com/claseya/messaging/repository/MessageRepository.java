@@ -11,6 +11,7 @@ import org.springframework.data.repository.query.Param;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface MessageRepository extends JpaRepository<Message, UUID> {
@@ -24,6 +25,40 @@ public interface MessageRepository extends JpaRepository<Message, UUID> {
             countQuery = "select count(m) from Message m where m.conversation.id = :conversationId")
     Page<Message> findWithSenderByConversation(@Param("conversationId") UUID conversationId,
                                                Pageable pageable);
+
+    Optional<Message> findByIdAndConversation_Id(UUID id, UUID conversationId);
+
+    /**
+     * REVIEW2-003: newest {@code limit + 1} messages of a thread. Fetching one extra row tells the
+     * service whether an older page exists without a count query.
+     */
+    @Query("""
+            select m from Message m
+            join fetch m.sender
+            join fetch m.conversation
+            where m.conversation.id = :conversationId
+            order by m.createdAt desc, m.id desc
+            """)
+    List<Message> findLatestThreadPage(@Param("conversationId") UUID conversationId,
+                                       Pageable pageable);
+
+    /** Keyset page strictly older than the anchor {@code (createdAt, id)}. */
+    @Query("""
+            select m from Message m
+            join fetch m.sender
+            join fetch m.conversation
+            where m.conversation.id = :conversationId
+              and (m.createdAt < :beforeCreatedAt
+                   or (m.createdAt = :beforeCreatedAt and m.id < :beforeId))
+            order by m.createdAt desc, m.id desc
+            """)
+    List<Message> findThreadPageBefore(@Param("conversationId") UUID conversationId,
+                                       @Param("beforeCreatedAt") Instant beforeCreatedAt,
+                                       @Param("beforeId") UUID beforeId,
+                                       Pageable pageable);
+
+    /** OPINION-001: the teacher must have replied before a review is allowed. */
+    boolean existsByConversation_IdAndSender_Id(UUID conversationId, UUID senderId);
 
     interface UnreadByConversation {
         UUID getConversationId();

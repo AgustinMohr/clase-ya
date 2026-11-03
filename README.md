@@ -66,8 +66,9 @@ comienza como spec en `docs/specs/`, se implementa con tests y recién después 
 terminada. El repositorio (código, specs, ADRs y docs) es la única fuente de verdad.
 
 Hoy conviven piezas **ya implementadas** (autenticación, perfiles, búsqueda, favoritos, mensajería,
-verificación documental) con piezas **en desarrollo o planificadas** (opiniones, notificaciones por
-email). No es un producto terminado.
+verificación documental y opiniones/rating) con piezas **en desarrollo o no implementadas**
+(notificaciones in-app, recuperación de contraseña, MFA y refresh tokens). No es un producto
+terminado.
 
 ---
 
@@ -93,8 +94,11 @@ email). No es un producto terminado.
 **Para estudiantes**
 - Guardar y quitar profesores de **Mis favoritos**.
 - **Contactar** a un profesor: crea (o reutiliza) una conversación y opcionalmente envía el primer
-  mensaje.
+  mensaje. El profesor recibe un email con un enlace de un solo uso que abre el hilo (requiere un
+  transporte de email configurado: SMTP o Brevo; ver `EMAIL_TRANSPORT` y `NOTIFICATION_*`).
 - Bandeja de **Mensajes**: listado de conversaciones, lectura de mensajes, envío y marca de leído.
+- **Opiniones**: si el profesor respondió a su contacto, el estudiante puede publicar o editar una
+  opinión (1..5 + comentario); una sola por profesor.
 
 **Para profesores**
 - Área **Mi anuncio**: nombre, bio, precio, ciudad, foto y nota de disponibilidad.
@@ -102,21 +106,22 @@ email). No es un producto terminado.
 - **Disponibilidad semanal** por franja (mañana/tarde/noche), sin solapamientos por día.
 - Indicador de completitud del anuncio (**INCOMPLETE / PUBLISHED**): un anuncio se publica cuando
   tiene nombre, bio, al menos una materia, una modalidad y una disponibilidad.
-- **Verificación académica**: sube documentos de respaldo (PDF/JPG/PNG), presenta credenciales y ve
-  el estado y el historial de cada decisión.
+- **Verificación académica**: sube documentos de respaldo (PDF), presenta credenciales y ve el
+  estado y el historial de cada decisión.
+- **Respuesta a opiniones**: puede responder una vez por opinión desde su perfil público.
 
 **Para administración**
 - CRUD del catálogo académico (**University, AcademicUnit, Career, Subject, CareerSubject**).
+- Directorio de cuentas con filtros y acciones de **activar / suspender / restaurar**.
 - Cola de verificación: ver docentes en revisión, revisar detalle, decidir
   (**VERIFIED / REJECTED / MORE_INFO_REQUIRED**) y revocar una verificación, con auditoría.
+- **Moderación de opiniones**: ocultar/restaurar con motivo y auditoría append-only.
 
 ### En desarrollo o no implementadas (no las uses como si existieran)
 
-- **Opiniones y rating**: los agregados (`ratingAverage`/`ratingCount`) existen en el perfil, pero
-  **no hay modelo ni lógica de opiniones** (`Review` se retiró en `ADR-024`); el perfil muestra un
-  mensaje de “próxima fase”.
-- **Notificaciones por email de contactos**, **contraseña olvidada**, **MFA** y **refresh tokens**:
-  no implementados. (La activación de cuentas sí está implementada: ver “Cuenta y acceso”.)
+- **Notificaciones in-app** (tabla `notifications` conservada para futuro), **contraseña olvidada**,
+  **MFA** y **refresh tokens**: no implementados. (La activación de cuentas, el aviso de contacto
+  por email y las opiniones sí están implementados.)
 - **Chat en tiempo real (WebSockets)**: no implementado (los servicios están preparados para
   reutilizarse).
 - **Reservas / agenda / pagos / Calendly**: **fuera del rumbo del producto** (ver sección 10).
@@ -149,7 +154,7 @@ email). No es un producto terminado.
 - **Lombok** (opcional) y `spring-boot-devtools` (solo desarrollo, no entra en el JAR).
 
 ### Persistencia
-- **PostgreSQL** como única base. El schema es propiedad de **Flyway** (migraciones `V1..V8`).
+- **PostgreSQL** como única base. El schema es propiedad de **Flyway** (migraciones `V1..V18`).
 - Hibernate corre con `ddl-auto=validate`: la app **no** genera ni modifica el schema.
 - **Testcontainers (postgres:16)** para los tests de integración.
 
@@ -328,7 +333,7 @@ sequenceDiagram
 - **Bean Validation** en los DTOs de entrada y validación de negocio en los servicios.
 - Paginación y orden con **whitelist** (nunca columnas arbitrarias del cliente); límites de tamaño
   de página (400 fuera de rango).
-- Archivos de verificación validados por **magic bytes** (PDF/JPG/PNG), no por extensión, con
+- Archivos de verificación validados por **magic bytes** (solo PDF), no por extensión, con
   **SHA-256** y nombre saneado.
 
 ### Protección de credenciales y secretos
@@ -340,10 +345,11 @@ sequenceDiagram
 
 ### CORS, errores y otras medidas
 - **CORS restringido** a `cors.allowed-origins` (`FRONTEND_URL`), sin wildcard, con los headers
-  `Authorization` y `Content-Type`.
+  `Authorization`, `Content-Type` y `X-XSRF-TOKEN`.
 - **CSRF activo para cookies**: los requests unsafe autenticados por cookie exigen
   `X-XSRF-TOKEN` (doble submit); los requests con Bearer están exentos porque un sitio cross-site
-  no puede poner ese header. La SPA pide un token nuevo antes de cada escritura.
+  no puede poner ese header. La SPA cachea el token en memoria y lo renueva si recibe 403; el
+  servidor no lo rota en cada escritura.
 - **Anti-enumeración**: los fallos de login devuelven un único mensaje genérico.
 - **Rate limiting (RATE-001)**: límites por IP para login/registro/Google y por usuario para contacto,
   mensajes y subida de evidencia; respuesta `429` con `Retry-After`. Es **por instancia** (sin Redis)
@@ -421,9 +427,19 @@ desarrollo**:
 | `APP_BASE_URL` | `http://localhost:5173` | Origen público de la SPA; base de los enlaces de activación |
 | `AUTH_ACTIVATION_TTL` | `PT24H` | Vigencia del token de activación |
 | `AUTH_LOG_ACTIVATION_LINKS` | `false` | **Solo desarrollo**: escribe el enlace en el log en lugar de enviarlo |
-| `MAIL_HOST` / `MAIL_PORT` | *(vacío)* / `587` | SMTP del email de activación; sin host el registro responde `503` |
+| `MAIL_HOST` / `MAIL_PORT` | *(vacío)* / `587` | SMTP del email de activación. Sin **ningún** transporte (SMTP o Brevo), el registro responde `503` |
 | `MAIL_USERNAME` / `MAIL_PASSWORD` | *(vacío)* | Credenciales SMTP |
 | `MAIL_FROM` | `no-reply@claseya.app` | Remitente del email de activación |
+| `EMAIL_TRANSPORT` | `smtp` | `smtp` (JavaMailSender) o `brevo` (API HTTPS). Usá `brevo` donde el hosting bloquee SMTP (NOTIF-001) |
+| `EMAIL_API_URL` | `https://api.brevo.com/v3/smtp/email` | Endpoint del proveedor HTTP |
+| `EMAIL_API_KEY` | *(vacío)* | API key del proveedor; **obligatoria** si `EMAIL_TRANSPORT=brevo` |
+| `EMAIL_API_CALL_TIMEOUT` | `PT10S` | Timeout de conexión/lectura del envío HTTP |
+| `MESSAGE_LINK_TTL` | `PT168H` | Vigencia del enlace de un solo uso del aviso de contacto (7 días) |
+| `MESSAGE_LINK_LOG` | `false` | **Solo desarrollo**: escribe el enlace de contacto en el log en vez de enviarlo |
+| `NOTIFICATION_WORKER_ENABLED` | `true` | Activa el worker del outbox (envía después del commit) |
+| `NOTIFICATION_POLL_INTERVAL_MS` | `15000` | Cada cuánto busca el worker filas pendientes |
+| `NOTIFICATION_BATCH_SIZE` | `10` | Filas que reclama el worker por pasada |
+| `NOTIFICATION_MAX_ATTEMPTS` | `5` | Intentos antes de marcar la fila `DEAD` |
 | `CAPTCHA_ENABLED` | `false` | Exige CAPTCHA (Turnstile) en el registro. **Debe ser `true` fuera de `local`/`test`** |
 | `TURNSTILE_SECRET` | *(vacío)* | Secret de Turnstile; obligatorio si `CAPTCHA_ENABLED=true` |
 | `TURNSTILE_VERIFY_URL` | `https://challenges.cloudflare.com/turnstile/v0/siteverify` | Endpoint de verificación |
@@ -433,7 +449,8 @@ desarrollo**:
 | `STORAGE_BUCKET` | *(vacío)* | Bucket privado de evidencia |
 | `STORAGE_ACCESS_KEY` / `STORAGE_SECRET_KEY` | *(vacío)* | Credenciales del bucket |
 | `STORAGE_PATH_STYLE` | `false` | `true` si el proveedor lo requiere |
-| `SCAN_ENABLED` | `false` | Exige ClamAV antes de guardar evidencia. **Debe ser `true` fuera de `local`/`test`** |
+| `SCAN_ENABLED` | `false` | Escanea con ClamAV antes de guardar evidencia. Si es `false`, la evidencia queda `UNSCANNED` (STOR-002) |
+| `ALLOW_UNSCANNED_EVIDENCE` | `false` | Ack explícito para arrancar sin escáner fuera de `local`/`test` |
 | `CLAMAV_HOST` / `CLAMAV_PORT` | `localhost` / `3310` | ClamAV INSTREAM |
 | `CLAMAV_TIMEOUT_MS` | `5000` | Timeout del escaneo |
 | `RATE_LIMIT_TRUST_FORWARDED_HEADERS` | `false` | Confía en `X-Forwarded-For`/`Forwarded` solo detrás de un proxy confiable |
@@ -443,13 +460,15 @@ Los límites de cada scope (`RATE_LIMIT_LOGIN_IP_LIMIT`, `RATE_LIMIT_LOGIN_ACCOU
 `RATE_LIMIT_CONTACT_USER_LIMIT`, etc.) tienen defaults en `application.yml` y se pueden sobrescribir
 por entorno. Ver `docs/architecture/security.md` y el ADR-017.
 
-En producción, la evidencia usa `STORAGE_PROVIDER=s3` + `SCAN_ENABLED=true` (ClamAV). Sin el
-escáner, el sistema no debe recibir evidencia real.
+En producción idealmente la evidencia usa `STORAGE_PROVIDER=s3` + `SCAN_ENABLED=true` (ClamAV). Si el
+hosting no permite un escáner (Render Free no puede), `SCAN_ENABLED=false` +
+`ALLOW_UNSCANNED_EVIDENCE=true` mantiene el sistema operativo **declarando** que la evidencia no se
+escaneó; ver `STOR-002` y `ADR-031`.
 
 **Guard de arranque (CFG-01):** fuera de los perfiles `local` y `test`, la aplicación **no arranca**
-si `SCAN_ENABLED` o `CAPTCHA_ENABLED` no son `true`, o si `DEMO_SEED` es `true`
-(`ProductionConfigValidator`). Es a propósito: un deploy que olvide una variable falla fuerte en vez
-de servir evidencia sin escanear o aceptar registros sin desafío.
+si `CAPTCHA_ENABLED` no es `true`, si `DEMO_SEED` es `true`, o si `SCAN_ENABLED` es `false` sin
+`ALLOW_UNSCANNED_EVIDENCE=true` (`ProductionConfigValidator`). Es a propósito: un deploy que olvide
+una variable falla fuerte en vez de servir evidencia sin escanear sin que nadie lo haya decidido.
 
 ### Base de datos local (Docker)
 
@@ -538,6 +557,14 @@ la cookie CSRF (`SameSite=Lax`) no viaja entre sitios y el login responde `403 A
 - Agregá `https://<proyecto>.vercel.app` a *Authorized JavaScript origins* de Google.
 - Si activás CAPTCHA: `CAPTCHA_ENABLED=true` y `TURNSTILE_SECRET` en el backend;
   `VITE_TURNSTILE_SITE_KEY` en Vercel (variable de build).
+- **Email:** Render Free bloquea los puertos SMTP 25/465/587, así que el transporte `smtp` no puede
+  entregar nada ahí (el registro responde `202` y el mail nunca llega). En ese host usá
+  `EMAIL_TRANSPORT=brevo` + `EMAIL_API_KEY`, con el remitente verificado en Brevo (NOTIF-001).
+  Un plan pago de Render sí permite 587 y puede seguir con `EMAIL_TRANSPORT=smtp`.
+- **Primer ADMIN:** no hay auto-registro de administradores. Promové una cuenta existente desde la
+  consola SQL de Neon y verificá que esté `ACTIVE` (ADMIN-001):
+  `UPDATE users SET role = 'ADMIN' WHERE lower(email) = lower('tu-correo@dominio');`.
+  En local el seed ya trae `admin@claseya.dev` / `Password123`.
 
 Si el proyecto de Vercel usa la raíz del repo como root (en lugar de `frontend/`), mové
 `vercel.json` a la raíz y agregá `"buildCommand": "npm --prefix frontend run build"` y
@@ -597,8 +624,8 @@ scripts\e2e.ps1                   # levanta su propio backend (determinista)
 scripts\e2e.ps1 -ReuseBackend     # reutiliza un backend ya levantado (más rápido)
 ```
 
-> No se afirman valores de cobertura: el repositorio no publica un porcentaje medido. La referencia
-> verificable es que la suite de integración y los E2E existan y pasen con Docker activo.
+> La cobertura se mide con JaCoCo y se exige en `verify` (piso de 85 % de líneas y 70 % de ramas).
+> La referencia verificable sigue siendo la suite de integración y los E2E con Docker activo.
 
 ---
 
@@ -624,7 +651,7 @@ clase-ya/
 │  ├─ bootstrap/            DemoDataSeeder (solo desarrollo)
 ├─ src/main/resources/
 │  ├─ application.yml        Configuración (defaults solo de desarrollo)
-│  ├─ db/migration/          Migraciones Flyway V1..V8 (schema)
+│  ├─ db/migration/          Migraciones Flyway V1..V18 (schema)
 │  └─ db/seed/demo-data.sql  Dataset demo (idempotente, solo desarrollo)
 ├─ src/test/java/com/claseya/  Tests unitarios e integración (Testcontainers)
 ├─ frontend/                 SPA React + TypeScript + Vite
@@ -655,11 +682,11 @@ reutilización deliberada de helpers de presentación entre módulos (favoritos 
   verificación.
 - Favoritos y mensajería interna (con contacto que abre conversación).
 - Circuito de verificación académica con evidencia documental, auditoría y decisiones de admin.
+- Opiniones/rating: una por par estudiante↔profesor, respuesta del profesor y moderación admin.
 
 ### En desarrollo
-- **Opiniones y rating** (sin modelo ni lógica de creación; `ADR-024` retiró el modelo legacy).
-- **Notificación de contactos por email** (la activación de cuentas ya está implementada).
-- Chat en tiempo real (WebSockets); el rate limiting básico ya está implementado (RATE-001).
+- **Notificaciones in-app** y **chat en tiempo real (WebSockets)**; las opiniones, el aviso de
+  contacto por email y el rate limiting básico ya están implementados.
 
 ### Fuera del alcance actual (documentado, no descartado a futuro)
 - **Reservas, agenda online y Calendly** quedaron **deprecadas como rumbo de producto**; las specs y

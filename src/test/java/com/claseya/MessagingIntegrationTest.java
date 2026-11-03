@@ -128,6 +128,15 @@ class MessagingIntegrationTest extends AbstractWebIntegrationTest {
         return toJson(getJson("/api/conversations/" + conversationId + "/messages", token, expected));
     }
 
+    private String sendMessageId(String token, String conversationId, String content) throws Exception {
+        return toJson(sendMessage(token, conversationId, content, 201)).get("id").asText();
+    }
+
+    private JsonNode thread(String token, String conversationId, String query, int expected) throws Exception {
+        return toJson(getJson("/api/conversations/" + conversationId + "/thread" + query,
+                token, expected));
+    }
+
     // ------------------------------------------------------------------ creation
 
     @Test
@@ -400,6 +409,123 @@ class MessagingIntegrationTest extends AbstractWebIntegrationTest {
                 "/api/conversations/" + convId + "/messages?page=2&size=2", token, 200));
         assertThat(page2.get("content").size()).isEqualTo(1);
         assertThat(page2.get("content").get(0).get("content").asText()).isEqualTo("msg 4");
+    }
+
+    // ------------------------------------------------------------------ thread (REVIEW2-003)
+
+    @Test
+    void thread_returnsConversationAndLatestPageOldestFirst() throws Exception {
+        User student = newStudent("s@example.com");
+        TeacherProfile teacher = visibleTeacher("Ana", "ana@example.com");
+        String token = bearer(student);
+        String convId = toJson(createConversation(token, teacher.getId().toString(), 201))
+                .get("id").asText();
+        String[] ids = new String[5];
+        for (int i = 0; i < 5; i++) {
+            ids[i] = sendMessageId(token, convId, "msg " + i);
+        }
+
+        JsonNode body = thread(token, convId, "?limit=2", 200);
+
+        assertThat(body.get("id").asText()).isEqualTo(convId);
+        assertThat(body.get("otherParticipant").get("id").asText())
+                .isEqualTo(teacher.getUser().getId().toString());
+        assertThat(body.get("otherParticipant").get("role").asText()).isEqualTo("TEACHER");
+        assertThat(body.get("messages").size()).isEqualTo(2);
+        assertThat(body.get("messages").get(0).get("id").asText()).isEqualTo(ids[3]);
+        assertThat(body.get("messages").get(1).get("id").asText()).isEqualTo(ids[4]);
+        assertThat(body.get("hasMore").asBoolean()).isTrue();
+        assertThat(body.get("nextBefore").asText()).isEqualTo(ids[3]);
+    }
+
+    @Test
+    void thread_beforeLoadsOlderPagesWithoutDuplicates() throws Exception {
+        User student = newStudent("s@example.com");
+        TeacherProfile teacher = visibleTeacher("Ana", "ana@example.com");
+        String token = bearer(student);
+        String convId = toJson(createConversation(token, teacher.getId().toString(), 201))
+                .get("id").asText();
+        String[] ids = new String[5];
+        for (int i = 0; i < 5; i++) {
+            ids[i] = sendMessageId(token, convId, "msg " + i);
+        }
+
+        JsonNode first = thread(token, convId, "?limit=2", 200);
+        String firstCursor = first.get("nextBefore").asText();
+        assertThat(firstCursor).isEqualTo(ids[3]);
+
+        JsonNode second = thread(token, convId, "?before=" + firstCursor + "&limit=2", 200);
+        assertThat(second.get("messages").size()).isEqualTo(2);
+        assertThat(second.get("messages").get(0).get("id").asText()).isEqualTo(ids[1]);
+        assertThat(second.get("messages").get(1).get("id").asText()).isEqualTo(ids[2]);
+        assertThat(second.get("hasMore").asBoolean()).isTrue();
+        assertThat(second.get("nextBefore").asText()).isEqualTo(ids[1]);
+
+        JsonNode last = thread(token, convId, "?before=" + ids[1] + "&limit=2", 200);
+        assertThat(last.get("messages").size()).isEqualTo(1);
+        assertThat(last.get("messages").get(0).get("id").asText()).isEqualTo(ids[0]);
+        assertThat(last.get("hasMore").asBoolean()).isFalse();
+        assertThat(last.get("nextBefore").asText()).isEqualTo(ids[0]);
+
+        JsonNode empty = thread(token, convId, "?before=" + ids[0] + "&limit=2", 200);
+        assertThat(empty.get("messages").size()).isZero();
+        assertThat(empty.get("hasMore").asBoolean()).isFalse();
+        assertThat(empty.has("nextBefore")).isFalse();
+    }
+
+    @Test
+    void thread_nonParticipant_returns404() throws Exception {
+        User studentA = newStudent("a@example.com");
+        User studentC = newStudent("c@example.com");
+        TeacherProfile teacher = visibleTeacher("Ana", "ana@example.com");
+        String convId = toJson(createConversation(bearer(studentA),
+                teacher.getId().toString(), 201)).get("id").asText();
+        sendMessageId(bearer(studentA), convId, "privado");
+
+        thread(bearer(studentC), convId, "", 404);
+        thread(bearer(studentC), convId, "?before=" + UUID.randomUUID(), 404);
+    }
+
+    @Test
+    void thread_beforeFromAnotherConversation_returns404() throws Exception {
+        User student = newStudent("s@example.com");
+        TeacherProfile t1 = visibleTeacher("Ana", "ana@example.com");
+        TeacherProfile t2 = visibleTeacher("Bea", "bea@example.com");
+        String token = bearer(student);
+        String c1 = toJson(createConversation(token, t1.getId().toString(), 201)).get("id").asText();
+        String c2 = toJson(createConversation(token, t2.getId().toString(), 201)).get("id").asText();
+        String foreignMessage = sendMessageId(token, c1, "de la otra conversacion");
+
+        thread(token, c2, "?before=" + foreignMessage, 404);
+    }
+
+    @Test
+    void thread_invalidLimit_returns400() throws Exception {
+        User student = newStudent("s@example.com");
+        TeacherProfile teacher = visibleTeacher("Ana", "ana@example.com");
+        String token = bearer(student);
+        String convId = toJson(createConversation(token, teacher.getId().toString(), 201))
+                .get("id").asText();
+
+        thread(token, convId, "?limit=0", 400);
+        thread(token, convId, "?limit=101", 400);
+        thread(token, convId, "?limit=100", 200);
+    }
+
+    @Test
+    void thread_doesNotExposePrivateData() throws Exception {
+        User student = newStudent("s@example.com");
+        TeacherProfile teacher = newTeacher("Ana", "privada@example.com",
+                VerificationStatus.VERIFIED, UserStatus.ACTIVE);
+        makePublished(teacher.getUser());
+        String convId = toJson(createConversation(bearer(student),
+                teacher.getId().toString(), 201)).get("id").asText();
+        sendMessageId(bearer(student), convId, "hola");
+
+        String body = getJson("/api/conversations/" + convId + "/thread", bearer(student), 200);
+        assertThat(body).doesNotContain("privada@example.com")
+                .doesNotContain("passwordHash")
+                .doesNotContain("Privada Ana");
     }
 
     // ------------------------------------------------------------------ list, last message, unread, read

@@ -13,7 +13,7 @@ import com.claseya.model.TeacherProfile;
 import com.claseya.model.enums.AvailabilityDayPart;
 import com.claseya.model.enums.AvailabilityStatus;
 import com.claseya.model.enums.TeachingModality;
-import com.claseya.teacher.dto.SearchResultPage;
+import com.claseya.common.dto.SearchResultPage;
 import com.claseya.teacher.repository.TeacherProfileRepository;
 import com.claseya.teacher.service.TeacherVisibilityService;
 import org.springframework.dao.DataIntegrityViolationException;

@@ -98,6 +98,8 @@ public class RateLimitFilter extends OncePerRequestFilter {
         String path = request.getRequestURI().substring(request.getContextPath().length());
         return switch (path) {
             case "/api/auth/login" -> RateLimitScope.LOGIN_IP;
+            // REVIEW2-002: exchanging a message link is an authentication attempt.
+            case "/api/auth/message-link" -> RateLimitScope.LOGIN_IP;
             case "/api/auth/register" -> RateLimitScope.REGISTER_IP;
             // AUTH-001: activation/resend share the registration bucket (no new scope in this change).
             case "/api/auth/resend-activation" -> RateLimitScope.REGISTER_IP;

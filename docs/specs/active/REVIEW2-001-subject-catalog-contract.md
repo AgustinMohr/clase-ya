@@ -1,6 +1,6 @@
 # REVIEW2-001 — Catálogo de materias: contrato y paginación
 
-**Estado:** Propuesta (pendiente de REVIEW humano).
+**Estado:** Aprobada (REVIEW 2026-10-29) — pendiente de implementar.
 **Origen:** `review2.md` DATA-01. **Nivel:** 2 (cambio de contrato de API).
 
 ## 1. Objetivo
@@ -90,8 +90,25 @@ existente por `career_subject_id`) y `subjects.active`.
 
 ## 12. Definition of Done
 
-- [ ] Spec aprobada por el director/arquitecto.
-- [ ] Contrato nuevo documentado en `docs/teacher-search.md` o `docs/academic-profiles.md`.
-- [ ] Tests de integración de paginación, `popular` y validaciones.
-- [ ] Frontend actualizado (landing/popular + selectores paginados) con tests.
-- [ ] `mvn clean verify` y `npm test` verdes.
+- [x] Spec aprobada por el director/arquitecto.
+- [x] Contrato nuevo documentado en `docs/academic-profiles.md`.
+- [x] Tests de integración de paginación, `popular` y validaciones
+      (`SubjectCatalogIntegrationTest`, 8 tests).
+- [x] Frontend actualizado (landing usa `popular`, autocompletado server-side con debounce,
+      `resolveSubject` contra la API) con tests de `api.ts`.
+- [ ] `mvn clean verify` y `npm test` verdes — backend 352 tests y Vitest 34/34 verdes; **pendiente**
+      la corrida E2E de Playwright (requiere la base de desarrollo arriba).
+
+## 13. Implementación (2026-10-29)
+
+- `SubjectRepository`: `findByActiveTrue(pageable)`, `findByActiveTrueAndNameContainingIgnoreCase`,
+  `findPopular(limit)` (una sola consulta agregada sobre `career_subjects`/`teacher_subjects`,
+  orden `count(teacher) desc, name asc`). Se eliminaron los finders sin paginar.
+- `SubjectService.list(query, page, size)` / `popular(limit)` con validación de rango (400).
+- `SubjectController`: página + `GET /popular` + `Cache-Control: public, max-age=60`.
+- Frontend: `api.popularSubjects` / `api.subjectSearch`, `useCatalog` expone `popular` y `search`,
+  `SearchInput` acepta `loadSuggestions` (debounce 250 ms) y `SearchPage` resuelve el término por
+  API en lugar de buscar en un catálogo precargado.
+- Nota de acoplamiento: `popular` es SQL nativo en `academic` que lee `teacher_subjects`/
+  `teacher_profiles`/`users`. Es una lectura agregada de solo lectura; si `teacher` cambia esas
+  tablas, esta consulta debe revisarse.

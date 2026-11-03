@@ -22,6 +22,7 @@ public class AppUserDetails implements UserDetails {
 
     private final UUID id;
     private final String email;
+    private final String name;
     private final String passwordHash;
     private final UserRole role;
     private final UserStatus status;
@@ -29,6 +30,7 @@ public class AppUserDetails implements UserDetails {
     public AppUserDetails(User user) {
         this.id = user.getId();
         this.email = user.getEmail();
+        this.name = user.getName();
         this.passwordHash = user.getPasswordHash();
         this.role = user.getRole();
         this.status = user.getStatus();
@@ -40,6 +42,10 @@ public class AppUserDetails implements UserDetails {
 
     public String getEmail() {
         return email;
+    }
+
+    public String getName() {
+        return name;
     }
 
     public UserRole getRole() {

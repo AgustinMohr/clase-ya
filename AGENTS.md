@@ -39,12 +39,13 @@ Si una implementación contradice alguno de estos documentos, el agente debe det
 
 ## Stack (implementado)
 
-- Java 17, Maven, Spring Boot 3.2.6
-- Spring Web + Spring Security (JWT sin estado) + Spring Data JPA (Hibernate 6.4) + Bean Validation
-- PostgreSQL, Flyway (schema propiedad de las migraciones, `ddl-auto=validate`)
+- Java 17, Maven, Spring Boot 3.5.16
+- Spring Web + Spring Security (JWT sin estado) + Spring Data JPA (Hibernate gestionado por Spring
+  Boot) + Bean Validation
+- PostgreSQL 16, Flyway (schema propiedad de las migraciones, `ddl-auto=validate`)
 - Testcontainers (PostgreSQL 16) para tests de integración
-- Frontend: React 18.3 + TypeScript 5.6 + Vite 5.4 + Tailwind CSS.
-- Context API para sesión/autenticación JWT.
+- Frontend: React 18.3 + TypeScript 5.6 + Vite 8.3 + Tailwind CSS 4.3.
+- Context API para sesión (cookie `HttpOnly` + `/api/auth/me`).
 - El frontend vive en `frontend/` y evoluciona mediante specs igual que el backend.
 
 ## Arquitectura (implementada)
@@ -54,21 +55,26 @@ Monolito modular bajo `com.claseya`. Módulos:
 | Paquete | Responsabilidad |
 |---------|-----------------|
 | `model` | Entidades JPA + `model.enums`. No depende de nada más. |
-| `common` | Transversal: `exception` (errores + `GlobalExceptionHandler`), `util`. |
-| `auth` | Registro/login, DTOs y servicio de auth. |
+| `common` | Transversal: `exception` (errores + `GlobalExceptionHandler`), `dto` (`SearchResultPage`) y `util`. |
+| `auth` | Registro/login, activación por email, contraseñas, CAPTCHA y directorio admin de cuentas. |
+| `oauth` | Login con Google (validación de ID token y vinculación por `google_sub`). |
 | `user` | `UserRepository` (lookup compartido de identidad). |
 | `academic` | CRUD del catálogo (University, AcademicUnit, Career, Subject, CareerSubject). |
 | `student` | `StudentProfile`. |
-| `teacher` | Perfil de profesor, formación, materias, modalidades + búsqueda/detalle + `TeacherSummaryAssembler`. |
+| `teacher` | Perfil de profesor, formación, materias, modalidades, anuncio, búsqueda/detalle, visibilidad D1 y `TeacherSummaryAssembler`. |
 | `availability` | Disponibilidad **declarada** del profesor (`AvailabilityWindow`, franjas por día mañana/tarde/noche + nota). Sin agenda de reservas. |
 | `favorite` | Favoritos. |
-| `messaging` | Conversaciones/mensajes/estado de lectura. |
-| `security` | Configuración de Spring Security, JWT, `CurrentUser`, principal, handlers. |
+| `messaging` | Conversaciones/mensajes/estado de lectura y contacto inicial. |
+| `review` | Opiniones 1..5, respuesta del profesor, moderación admin y agregados de rating. |
+| `notification` | Outbox transaccional, worker, transportes SMTP/Brevo y links de contacto de un solo uso. |
+| `verification` | Evidencia documental, validación PDF, escaneo, storage y decisiones de verificación. |
+| `bootstrap` | `DemoDataSeeder` (solo perfil local). |
+| `security` | Configuración de Spring Security, JWT, `CurrentUser`, principal, handlers, rate limiting y validadores de arranque. |
 
 Dirección de dependencias: **`model` y `common` son módulos hoja.** Los módulos pueden usar
 `model`, `common`, `security`, `user`. Se permite reutilizar helpers de presentación entre módulos
-(p. ej. `favorite` y `messaging` reutilizan `teacher.dto.SearchResultPage`/
-`TeacherSummaryAssembler`); mantenlo a nivel de servicio, nunca dejes que un controller toque el
+(p. ej. `favorite` y `messaging` reutilizan `common.dto.SearchResultPage`/
+`teacher.service.TeacherSummaryAssembler`); mantenlo a nivel de servicio, nunca dejes que un controller toque el
 repository de otro módulo. Ver `docs/architecture/guardrails.md` para las reglas ArchUnit
 propuestas (aún no aplicadas).
 
@@ -79,12 +85,15 @@ propuestas (aún no aplicadas).
 - Contraseñas: solo BCrypt; nunca guardes ni loguees texto plano. Nunca expongas `passwordHash`.
 - JWT sin estado (`jwt.secret`, `jwt.expiration`); las cuentas **PENDING/INACTIVE/SUSPENDED no
   pueden autenticarse** (solo `ACTIVE`). La visibilidad pública de un profesor exige
-  `verificationStatus = VERIFIED` **y** `user.status = ACTIVE`; profesores ocultos → 404.
+  `user.status = ACTIVE` **y** un anuncio publicado (nombre, bio, ≥1 materia activa, ≥1 modalidad y
+  ≥1 disponibilidad). `verificationStatus = VERIFIED` es un plus de confianza y un filtro opcional
+  (`onlyVerified`), no un requisito de existencia; profesores ocultos → 404.
 - La sesión del navegador usa la cookie `CLASEYA_SESSION` (`HttpOnly`, `Secure`, `SameSite`); el JWT
   nunca se expone a JavaScript. Los métodos unsafe autenticados por cookie exigen CSRF
   (`X-XSRF-TOKEN`); Bearer queda solo para la suite de integración/tooling. Ver `ADR-020`.
 - Roles: `ROLE_STUDENT/ROLE_TEACHER/ROLE_ADMIN` (un único punto de mapeo en `AppUserDetails`).
-  ADMIN no puede auto-registrarse. Solo STUDENT gestiona favoritos e inicia conversaciones.
+  ADMIN no puede auto-registrarse. Solo STUDENT gestiona favoritos, inicia conversaciones y crea
+  opiniones; TEACHER responde opiniones de su perfil; ADMIN modera.
 - Nunca expongas emails, direcciones, coordenadas exactas, JWT/tokens ni hashes en DTOs públicos o
   personales.
 - CORS restringido a `cors.allowed-origins` (`FRONTEND_URL`); sin wildcard.
@@ -115,7 +124,7 @@ propuestas (aún no aplicadas).
 - REST bajo `/api`. Las respuestas son **DTOs (records)**, nunca entidades JPA.
 - Errores con la forma compartida `ApiError` vía `common.exception.GlobalExceptionHandler`
   (400/401/403/404/405/409 según corresponda). Nunca filtres stack traces/SQL.
-- La paginación reutiliza la forma genérica (`teacher.dto.SearchResultPage`); las opciones de orden
+- La paginación reutiliza la forma genérica (`common.dto.SearchResultPage`); las opciones de orden
   deben estar en whitelist (nunca nombres de columna arbitrarios del cliente).
 - Solo los controllers mapean HTTP; las reglas de negocio viven en services; el acceso a datos vive
   en repositories. Sin lógica de negocio en controllers/entidades.
@@ -189,8 +198,9 @@ modificación de seguridad, modificación del schema, dependencia nueva o cambio
 - Nunca cambies el comportamiento de seguridad en silencio.
 - Nunca expongas secretos; nunca commitees credenciales reales.
 - Nunca rehagas una fase que ya funciona "para mejorarla" dentro de una tarea no relacionada.
-- Fuera de alcance hasta que exista spec: bookings/Calendly, reviews, notificaciones, pagos,
-  WebSockets, frontend, Elasticsearch, Redis, PostGIS, microservicios.
+- Fuera de alcance hasta que exista spec: reports y notifications (tablas conservadas) y pagos,
+  WebSockets, Elasticsearch, Redis, PostGIS, microservicios. Las opiniones están implementadas
+  (`OPINION-001`); `bookings`/`calendly_integrations` se eliminaron en `V17`.
 - Nunca modifiques el backend desde una tarea exclusivamente de frontend.
 - Nunca cambies contratos de API para acomodar el frontend sin aprobación.
 - Nunca implementes componentes visuales fuera del Design System si pueden ser reutilizables.

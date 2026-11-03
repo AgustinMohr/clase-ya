@@ -1,5 +1,9 @@
 # ClaseYa — Academic Domain & Profiles (Phase 3)
 
+> **Estado (2026-11-02): snapshot de Phase 3.** El esquema actual llega a `V16` y los perfiles
+> incorporaron campos posteriores (precio, ciudad, foto, disponibilidad, verificación). La
+> referencia vigente es `docs/architecture/database.md` y `guia-proyecto.md`.
+
 CRUD for the academic catalog (university → academic unit → career → career-subject → subject)
 and the student/teacher profiles built on top of the Phase 1 model and Phase 2 authentication.
 A new migration `V2__add_teacher_modalities.sql` adds teaching modalities (`ONLINE`/`IN_PERSON`)
@@ -20,7 +24,8 @@ as a join table, because a teacher may offer both.
 | Academic catalog reads (`GET /api/universities/**`, `/api/academic-units/**`, `/api/careers/**`, `/api/career-subjects/**`, `/api/subjects/**`) | public |
 | Academic catalog writes (`POST`/`PUT`/`DELETE` on those) | `ADMIN` |
 | `/api/students/**` | `STUDENT` or `ADMIN` |
-| `/api/teachers/**` | `TEACHER` or `ADMIN` |
+| `GET /api/teachers`, `GET /api/teachers/{id}` | public (visible profiles only) |
+| `/api/teachers/me/**`, `/api/teachers/profile`, writes under `/api/teachers/**` | `TEACHER` or `ADMIN` |
 
 The authenticated user is always resolved from the `SecurityContext` (`CurrentUser`); no endpoint
 accepts a client-supplied `userId`. Ownership is enforced in the service layer, not only by the
@@ -49,7 +54,8 @@ POST /api/academic-units/{academicUnitId}/careers      {name, code?}
 PUT  /api/careers/{id}
 DELETE /api/careers/{id}
 
-GET  /api/subjects?query=matem                      (optional simple contains)
+GET  /api/subjects?page=0&size=50&query=matem      (paginated: page>=0, size 1..100)
+GET  /api/subjects/popular?limit=12                 (landing: most used, limit 1..50)
 GET  /api/subjects/{id}
 POST /api/subjects                                   {name, description?}
 PUT  /api/subjects/{id}
@@ -66,6 +72,16 @@ DELETE /api/career-subjects/{id}
 `name` (ASCII-folded, unique-suffixed). `POST /careers/{id}/subjects` only links an **existing**
 `subjectId`; it never creates a subject.
 
+**Subject catalog contract (REVIEW2-001).** `GET /api/subjects` no longer returns the whole table:
+it takes `page` (>= 0) and `size` (1..100, default 50) and answers
+`{content, page, size, totalElements, totalPages}`, ordered by `name` then `id`. `query` keeps the
+case-insensitive name search, now paginated. `GET /api/subjects/popular` answers the same page shape
+with at most `limit` (1..50, default 12) ACTIVE subjects that have at least one active
+`teacher_subjects` link owned by an ACTIVE user, ordered by teacher count desc then name. Both are
+cacheable (`Cache-Control: public, max-age=60`); a `page`/`size`/`limit` outside those bounds is a
+`400 ApiError`. The landing must use `popular`, and the autocomplete asks
+`/api/subjects?query=…&size=10`; nothing preloads the full catalog.
+
 ### Student profile
 
 ```
@@ -77,7 +93,7 @@ PUT  /api/students/me
 ### Teacher profile, education, subjects, modalities
 
 ```
-POST /api/teachers/profile    {bio?, address?, latitude?, longitude?}   → 201 / 409 if exists
+POST /api/teachers/profile    {name?, bio?, address?, availabilityNote?, pricePerHour?, city?, photoUrl?, latitude?, longitude?}   → 201 / 409 if exists
 GET  /api/teachers/me
 PUT  /api/teachers/me
 

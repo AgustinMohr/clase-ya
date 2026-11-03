@@ -95,6 +95,12 @@ public class SecurityConfig {
                         // is open. Matcher order matters: /me routes come first.
                         .requestMatchers("/api/teachers/me").hasAnyRole("TEACHER", "ADMIN")
                         .requestMatchers("/api/teachers/me/**").hasAnyRole("TEACHER", "ADMIN")
+                        // OPINION-001: reviews. Order matters before the public teacher matchers.
+                        .requestMatchers(HttpMethod.GET, "/api/teachers/*/reviews/me").hasRole("STUDENT")
+                        .requestMatchers(HttpMethod.POST, "/api/teachers/*/reviews").hasRole("STUDENT")
+                        .requestMatchers(HttpMethod.GET, "/api/teachers/*/reviews").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/reviews/*/response").hasRole("TEACHER")
+                        .requestMatchers("/api/reviews/**").hasRole("STUDENT")
                         .requestMatchers(HttpMethod.GET, "/api/teachers", "/api/teachers/*").permitAll()
                         .requestMatchers("/api/teachers/**").hasAnyRole("TEACHER", "ADMIN")
                         // Availability: public discovery is open; publishing is teacher-only.

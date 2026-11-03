@@ -34,7 +34,7 @@ export default defineConfig({
       // SEC-002: the session cookie is HttpOnly+Secure in production; E2E runs over HTTP.
       // AUTH-001: without SMTP the activation link is logged instead of emailed (test-only).
       command:
-        'mvn -q spring-boot:run -Dspring-boot.run.profiles=local "-Dspring-boot.run.jvmArguments=-Duser.timezone=UTC -Dsecurity.rate-limit.enabled=false -Dauth.cookie.secure=false -Dapp.auth.activation.log-links=true"',
+        'mvn -q spring-boot:run -Dspring-boot.run.profiles=local "-Dspring-boot.run.jvmArguments=-Duser.timezone=UTC -Dsecurity.rate-limit.enabled=false -Dauth.cookie.secure=false -Dapp.auth.activation.log-links=true -Dapp.notification.worker.enabled=false"',
       cwd: '..',
       url: `${BACKEND_URL}/actuator/health`,
       reuseExistingServer: process.env.E2E_REUSE_BACKEND === 'true',
