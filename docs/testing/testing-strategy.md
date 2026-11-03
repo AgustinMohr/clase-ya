@@ -28,6 +28,15 @@ Documenta cómo se ejecutan realmente los tests del proyecto.
 - `ArchitectureTest` (ArchUnit) no requiere Docker: verifica que los módulos no tengan ciclos y que
   `teacher` no dependa de `availability`/`verification`.
 
+## Load smoke (k6)
+
+- `scripts/load.ps1` ejecuta `scripts/load/search-and-inbox.js` con la imagen Docker
+  `grafana/k6` (fijable con `-K6Image`); no agrega dependencias Maven/npm.
+- Mide `GET /api/teachers` y `GET /api/conversations` con `p95 < 800 ms` y
+  `http_req_failed < 1 %` como presupuesto inicial.
+- Requiere un backend corriendo y `claseya-pg`; para el dataset de ~5.000 profesores se apunta
+  `-BaseUrl` a staging. Detalle: `docs/testing/load-testing.md`.
+
 ## Convenciones
 
 - Clases de integración anotadas `@Transactional` → cada test hace rollback y no necesita limpieza
@@ -48,6 +57,7 @@ mvn -B test -Dtest=XxxIntegrationTest    # una clase
 mvn -B test "-Dtest=XxxIntegrationTest#metodo"  # un método
 scripts/test.ps1           # preflight de docker + mvn -B clean test
 scripts/verify.ps1         # verificación reproducible, reporta PASS/FAIL
+scripts/load.ps1           # load smoke k6 (requiere backend + claseya-pg)
 ```
 
 Docker Desktop debe estar corriendo para los tests de integración (Testcontainers). No se dejan
