@@ -26,6 +26,10 @@ updates:
       testcontainers:
         patterns:
           - "org.testcontainers*"
+    ignore:
+      # Spring Boot 4 needs a deliberate migration (Spring Framework 7, Jakarta changes).
+      - dependency-name: "org.springframework.boot:spring-boot-starter-parent"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
@@ -61,4 +65,7 @@ updates:
       - dependency-name: "@types/react"
         update-types: ["version-update:semver-major"]
       - dependency-name: "@types/react-dom"
+        update-types: ["version-update:semver-major"]
+      # React Router 8 is a major migration; keep 7.x patches and security updates.
+      - dependency-name: "react-router"
         update-types: ["version-update:semver-major"]
