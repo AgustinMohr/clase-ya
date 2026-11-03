@@ -662,11 +662,11 @@ siguen fuera de alcance por PRD §10 y `AGENTS.md`.
 | PERF-02 | ✅ Corregido | **REVIEW2-003 implementada**: `GET /conversations/{id}/thread` con keyset `before`/`hasMore`/`nextBefore`, `MessagesPage` con “Cargar mensajes anteriores” y 6 tests de integración |
 | SEC-02 | ✅ Corregido | `EmailVerificationTokenRepository.consume` (`UPDATE ... WHERE used_at IS NULL`) + `ActivationConcurrencyIntegrationTest` |
 | PERF-03 | ✅ Corregido | `@EntityGraph` en career/teacher/favorite; `TeacherSummaryAssembler` ya no re-consulta los perfiles que recibe |
-| TEST-01 | 🟡 Parcial | cobertura medida + tests de concurrencia (conversaciones, verificación, activación), esquema, transporte y ArchUnit; faltan contrato y carga |
+| TEST-01 | 🟡 Parcial | `ApiContractIntegrationTest` congela los DTOs principales; quedan pendientes los tests de carga (k6) |
 
 > **03/11/2026:** `REVIEW2-001`, `REVIEW2-002` y `REVIEW2-003` están implementadas. `ARCH-01`,
 > `RATE-01`, `SEC-02`, `PERF-01`, `PERF-02` y `PERF-03` quedaron cerrados en código; `TEST-01`
-> mantiene pendientes los tests de contrato y carga. Verificación de esta pasada: backend **428
-> tests** (`mvn -B clean test`), Vitest **55/55**, `tsc`, ESLint y build con CSP check en verde.
-> Playwright no se ejecutó.
+> ya tiene tests de contrato y mantiene pendientes solo los de carga (k6). Verificación de esta
+> pasada: backend **432 tests** (`mvn -B clean test`), Vitest **55/55**, `tsc`, ESLint y build con
+> CSP check en verde. Playwright no se ejecutó.
 
