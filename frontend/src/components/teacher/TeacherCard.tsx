@@ -4,6 +4,7 @@ import { Avatar, Badge, Card } from '../ui/primitives';
 import { Button } from '../ui/Button';
 import { cn } from '../../lib/cn';
 import { formatPriceHour, modalityLabel } from '../../lib/format';
+import { ROUTES } from '../../routes';
 
 interface Props {
   teacher: TeacherSummary;
@@ -22,8 +23,18 @@ export function TeacherCard({ teacher, onOpen, onToggleFavorite, favorite, featu
       interactive
       data-testid="teacher-card"
       className={cn('relative flex h-full flex-col gap-3 p-5', featured && 'border-primary-200 ring-1 ring-primary-100 dark:ring-primary-900/40')}
-      onClick={() => onOpen(teacher.id)}
     >
+      {/* Stretched link: the card is operable with mouse and keyboard; inner controls sit above it. */}
+      <a
+        href={ROUTES.teacher(teacher.id)}
+        aria-label={`Ver perfil de ${teacher.displayName || 'Profesor'}`}
+        onClick={(event) => {
+          event.preventDefault();
+          onOpen(teacher.id);
+        }}
+        className="absolute inset-0 z-0 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      />
+      <div className="pointer-events-none relative z-10 flex h-full flex-col gap-3">
       <div className="flex items-start gap-3">
         <Avatar src={teacher.photoUrl} name={teacher.displayName} size="lg" />
         <div className="min-w-0 flex-1">
@@ -39,7 +50,7 @@ export function TeacherCard({ teacher, onOpen, onToggleFavorite, favorite, featu
                   onToggleFavorite(teacher);
                 }}
                 className={cn(
-                  'rounded-full p-1.5 transition-colors',
+                  'pointer-events-auto relative z-20 rounded-full p-1.5 transition-colors',
                   favorite ? 'text-error-600' : 'text-content-muted hover:text-error-600',
                 )}
               >
@@ -92,6 +103,7 @@ export function TeacherCard({ teacher, onOpen, onToggleFavorite, favorite, featu
       <Button
         size="sm"
         block
+        className="pointer-events-auto relative z-20"
         onClick={(e) => {
           e.stopPropagation();
           onOpen(teacher.id);
@@ -99,6 +111,7 @@ export function TeacherCard({ teacher, onOpen, onToggleFavorite, favorite, featu
       >
         Ver perfil
       </Button>
+      </div>
     </Card>
   );
 }

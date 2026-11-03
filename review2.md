@@ -654,7 +654,7 @@ siguen fuera de alcance por PRD §10 y `AGENTS.md`.
 | TX-01 | ✅ Corregido | `36d212c` timeouts; **REVIEW2-002 implementado**: outbox `V13`/`V14`, worker con lease/backoff/métricas, activación por outbox (`ADR-029`), ClamAV y S3 fuera de la transacción con re-chequeo de cupo bajo lock. 343 tests backend |
 | RACE-01 | ✅ Corregido | `4b04a92` — V12 `conversation_pairs`, `INSERT ... ON CONFLICT`, test de concurrencia |
 | FE-01 / FE-02 | ✅ Corregido | `useCatalog`, error con reintento, timeout, CSRF cacheado, retry en 403, `Retry-After` |
-| UX-02 / A11Y-01 (parte) | ✅ Corregido | copy de la landing; `ErrorBoundary` |
+| UX-02 / A11Y-01 | ✅ Corregido | copy de la landing; `ErrorBoundary`; `TeacherCard` con link estirable focusable (mouse y teclado) sin romper favoritos ni “Ver perfil” |
 | OPS-01 | ✅ Corregido | JaCoCo 85/70, CodeQL, dependency submission y Trivy |
 | DATA-01 | ✅ Corregido | **REVIEW2-001 implementada**: `GET /api/subjects` paginado (+`/popular`, `Cache-Control`), landing con 12 materias y autocompletado server-side; 8 tests nuevos |
 | PERF-01 | ✅ Corregido | **ADR-028 opción A**: `AuthService.me` usa el principal, sin caché; `UserLookupBudgetIntegrationTest` mide 100 requests → 100 cargas de `User` y 100 statements (una por request, sin re-consultas de service) |
@@ -668,5 +668,7 @@ siguen fuera de alcance por PRD §10 y `AGENTS.md`.
 > `RATE-01`, `SEC-02`, `PERF-01`, `PERF-02` y `PERF-03` quedaron cerrados en código; `TEST-01`
 > ya tiene tests de contrato y mantiene pendientes solo los de carga (k6). Verificación de esta
 > pasada: backend **432 tests** (`mvn -B clean test`), Vitest **55/55**, `tsc`, ESLint y build con
-> CSP check en verde. Playwright no se ejecutó.
+> CSP check en verde. Playwright **41/44**: los 20 escenarios de tarjetas/búsqueda/routing/sesión
+> pasan; quedan 3 fallos de aislamiento de datos demo (admin, filtro de precio y una fila de
+> credencial), ajenos a A11Y-01.
 
