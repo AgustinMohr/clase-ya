@@ -22,7 +22,7 @@ jobs:
           distribution: temurin
           java-version: '17'
           cache: maven
-      - uses: advanced-security/maven-dependency-submission-action@v4
+      - uses: advanced-security/maven-dependency-submission-action@v6
         with:
           directory: .
           # The action runs `mvnw` without `./`; CI uses the Maven installed by setup-java.
