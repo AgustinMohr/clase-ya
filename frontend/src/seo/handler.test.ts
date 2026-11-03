@@ -58,6 +58,15 @@ function json(body: unknown, status = 200) {
   };
 }
 
+/** The self-fetch of /index.html returns HTML, not JSON. */
+function htmlResponse(body: string) {
+  return {
+    ok: true,
+    status: 200,
+    text: async () => body,
+  };
+}
+
 async function run(path: string) {
   const { response, res } = fakeResponse();
   await handler({ query: { path }, headers: { host: 'preview.vercel.app' } }, res);
@@ -83,7 +92,7 @@ describe('Vercel SEO handler', () => {
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
       if (url === `${BACKEND}/api/teachers/${TEACHER_ID}`) return json(teacher);
-      if (url === `${ORIGIN}/index.html`) return json(indexHtml);
+      if (url === `${ORIGIN}/index.html`) return htmlResponse(indexHtml);
       throw new Error(`unexpected fetch ${url}`);
     }));
 
@@ -102,7 +111,7 @@ describe('Vercel SEO handler', () => {
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
       if (url === `${BACKEND}/api/teachers/${TEACHER_ID}`) return json(teacher);
-      if (url === `${ORIGIN}/index.html`) return json(indexHtml);
+      if (url === `${ORIGIN}/index.html`) return htmlResponse(indexHtml);
       throw new Error(`unexpected fetch ${url}`);
     }));
 
@@ -116,7 +125,7 @@ describe('Vercel SEO handler', () => {
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
       if (url === `${BACKEND}/api/teachers/${TEACHER_ID}`) return json({}, 404);
-      if (url === `${ORIGIN}/index.html`) return json(indexHtml);
+      if (url === `${ORIGIN}/index.html`) return htmlResponse(indexHtml);
       throw new Error(`unexpected fetch ${url}`);
     }));
 
@@ -138,7 +147,7 @@ describe('Vercel SEO handler', () => {
       if (url.startsWith(`${BACKEND}/api/teachers?subjectId=subject-1`)) {
         return json({ content: [teacher], totalElements: 1 });
       }
-      if (url === `${ORIGIN}/index.html`) return json(indexHtml);
+      if (url === `${ORIGIN}/index.html`) return htmlResponse(indexHtml);
       throw new Error(`unexpected fetch ${url}`);
     }));
 
@@ -156,7 +165,7 @@ describe('Vercel SEO handler', () => {
   it('marks a filtered search noindex and does not query teacher results', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
-      if (url === `${ORIGIN}/index.html`) return json(indexHtml);
+      if (url === `${ORIGIN}/index.html`) return htmlResponse(indexHtml);
       throw new Error(`unexpected fetch ${url}`);
     });
     vi.stubGlobal('fetch', fetchMock);
@@ -178,7 +187,7 @@ describe('Vercel SEO handler', () => {
   it('fails open with the SPA shell when the backend is unreachable', async () => {
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
-      if (url === `${ORIGIN}/index.html`) return json(indexHtml);
+      if (url === `${ORIGIN}/index.html`) return htmlResponse(indexHtml);
       throw new Error('backend down');
     }));
 
@@ -192,7 +201,7 @@ describe('Vercel SEO handler', () => {
   it('rejects invalid absolute-path input without fetching the backend', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
-      if (url === `${ORIGIN}/index.html`) return json(indexHtml);
+      if (url === `${ORIGIN}/index.html`) return htmlResponse(indexHtml);
       throw new Error(`unexpected fetch ${url}`);
     });
     vi.stubGlobal('fetch', fetchMock);

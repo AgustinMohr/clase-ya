@@ -92,7 +92,10 @@ class GoogleAuthIntegrationTest extends AbstractWebIntegrationTest {
         googlePost(body("jane@gmail.com", "sub-2", null, null, null, true), 200);
 
         assertThat(userRepository.findById(existing.getId()).orElseThrow().getGoogleSub()).isEqualTo("sub-2");
-        assertThat(userRepository.count()).isEqualTo(1);
+        // Scope the duplicate check to this email: other integration tests may commit users in the
+        // shared PostgreSQL container (the suite is not one global transaction).
+        assertThat(userRepository.findAll().stream()
+                .filter(u -> "jane@gmail.com".equalsIgnoreCase(u.getEmail())).count()).isEqualTo(1);
     }
 
     @Test
