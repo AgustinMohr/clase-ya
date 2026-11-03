@@ -63,9 +63,9 @@ Si la medición justifica B, con estas condiciones:
 - Refresh tokens.
 - Redis o caché distribuida antes de tener más de una instancia.
 
-## Estado de implementación (2026-11-02)
+## Estado de implementación (2026-11-03)
 
-**Opción A implementada parcialmente.** `JwtAuthenticationFilter` sigue recargando el usuario en
+**Opción A implementada y medida.** `JwtAuthenticationFilter` sigue recargando el usuario en
 cada request (es lo que da revocación inmediata), pero:
 - `AuthService.me` construye la respuesta desde el `AppUserDetails` del `SecurityContext`, sin
   consultar `users` otra vez. `AuthServiceRateLimitTest` verifica que el repositorio no se toca.
@@ -75,5 +75,8 @@ cada request (es lo que da revocación inmediata), pero:
   perfil; `StudentProfileService` valida la carrera contra la universidad ya cargada; y
   `TeacherSummaryAssembler` dejó de re-consultar los perfiles (búsqueda y favoritos los cargan con
   `@EntityGraph`).
-- No se introdujo caché. AC-1 queda verificado a nivel de servicio; la medición HTTP de 100 requests
-  sigue pendiente (requiere Docker/Testcontainers).
+- **Medición HTTP (2026-11-03):** `UserLookupBudgetIntegrationTest` ejecuta 100 requests
+  autenticadas a `/api/auth/me` con estadísticas de Hibernate y verifica **100 cargas de `User` y
+  100 statements** (una por request, sin re-consultas de service). Ese es el presupuesto de la
+  opción A; AC-1 (1 query por 100 requests) aplica solo a la opción B y queda diferido.
+- No se introdujo caché.

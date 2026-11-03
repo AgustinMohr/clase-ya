@@ -12,7 +12,7 @@ Documenta cómo se ejecutan realmente los tests del proyecto.
   prueban el stack completo sobre PostgreSQL 16 real (auth, dominio académico, perfiles, búsqueda,
   favoritos, mensajería, disponibilidad, verificación, reviews/rating, admin, outbox y endurecimiento
   HTTP). La
-  suite actual tiene **425 métodos de test** (unitarios + integración, conteo estático) y **2 reglas
+  suite actual tiene **426 métodos de test** (unitarios + integración, conteo estático) y **2 reglas
   ArchUnit** (`ArchitectureTest`: sin ciclos y `teacher` no depende de availability/verification).
   El frontend suma **55 tests de Vitest** (lógica pura, transporte HTTP y componentes) y **44 E2E**
   de Playwright.

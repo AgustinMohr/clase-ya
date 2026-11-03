@@ -657,7 +657,7 @@ siguen fuera de alcance por PRD §10 y `AGENTS.md`.
 | UX-02 / A11Y-01 (parte) | ✅ Corregido | copy de la landing; `ErrorBoundary` |
 | OPS-01 | ✅ Corregido | JaCoCo 85/70, CodeQL, dependency submission y Trivy |
 | DATA-01 | ✅ Corregido | **REVIEW2-001 implementada**: `GET /api/subjects` paginado (+`/popular`, `Cache-Control`), landing con 12 materias y autocompletado server-side; 8 tests nuevos |
-| PERF-01 | 🟡 Parcial | **ADR-028 opción A**: `AuthService.me` usa el principal y los perfiles cargan el usuario con `@EntityGraph`; sin caché. Falta la medición HTTP de 100 requests |
+| PERF-01 | ✅ Corregido | **ADR-028 opción A**: `AuthService.me` usa el principal, sin caché; `UserLookupBudgetIntegrationTest` mide 100 requests → 100 cargas de `User` y 100 statements (una por request, sin re-consultas de service) |
 | RATE-01 | ✅ Corregido | evicción aproximada por lote bajo lock, sin copia ni sort del mapa; cubierto por `InMemoryRateLimitStoreTest` |
 | PERF-02 | ✅ Corregido | **REVIEW2-003 implementada**: `GET /conversations/{id}/thread` con keyset `before`/`hasMore`/`nextBefore`, `MessagesPage` con “Cargar mensajes anteriores” y 6 tests de integración |
 | SEC-02 | ✅ Corregido | `EmailVerificationTokenRepository.consume` (`UPDATE ... WHERE used_at IS NULL`) + `ActivationConcurrencyIntegrationTest` |
@@ -665,8 +665,8 @@ siguen fuera de alcance por PRD §10 y `AGENTS.md`.
 | TEST-01 | 🟡 Parcial | cobertura medida + tests de concurrencia (conversaciones, verificación, activación), esquema, transporte y ArchUnit; faltan contrato y carga |
 
 > **03/11/2026:** `REVIEW2-001`, `REVIEW2-002` y `REVIEW2-003` están implementadas. `ARCH-01`,
-> `RATE-01`, `SEC-02`, `PERF-02` y `PERF-03` quedaron cerrados en código; `PERF-01` mantiene pendiente
-> solo la medición HTTP y `TEST-01` los tests de contrato y carga. Verificación de esta pasada:
-> backend **427 tests** (`mvn -B clean test`), Vitest **55/55**, `tsc`, ESLint y build con CSP check
-> en verde. Playwright no se ejecutó.
+> `RATE-01`, `SEC-02`, `PERF-01`, `PERF-02` y `PERF-03` quedaron cerrados en código; `TEST-01`
+> mantiene pendientes los tests de contrato y carga. Verificación de esta pasada: backend **428
+> tests** (`mvn -B clean test`), Vitest **55/55**, `tsc`, ESLint y build con CSP check en verde.
+> Playwright no se ejecutó.
 
