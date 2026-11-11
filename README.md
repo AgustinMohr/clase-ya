@@ -103,7 +103,8 @@ terminado.
 
 **Para profesores**
 - Área **Mi anuncio**: nombre, bio, precio, ciudad, foto y nota de disponibilidad.
-- Materias que enseña, modalidades (Online / Presencial) y formación declarada.
+- Materias que enseña (buscadas directamente en el catálogo, sin exigir universidad/carrera),
+  modalidades (Online / Presencial) y formación declarada.
 - **Disponibilidad semanal** por franja (mañana/tarde/noche), sin solapamientos por día.
 - Indicador de completitud del anuncio (**INCOMPLETE / PUBLISHED**): un anuncio se publica cuando
   tiene nombre, bio, al menos una materia, una modalidad y una disponibilidad.
@@ -155,7 +156,7 @@ terminado.
 - **Lombok** (opcional) y `spring-boot-devtools` (solo desarrollo, no entra en el JAR).
 
 ### Persistencia
-- **PostgreSQL** como única base. El schema es propiedad de **Flyway** (migraciones `V1..V19`).
+- **PostgreSQL** como única base. El schema es propiedad de **Flyway** (migraciones `V1..V20`).
 - Hibernate corre con `ddl-auto=validate`: la app **no** genera ni modifica el schema.
 - **Testcontainers (postgres:16)** para los tests de integración.
 
@@ -714,7 +715,7 @@ clase-ya/
 │  ├─ bootstrap/            DemoDataSeeder (solo desarrollo)
 ├─ src/main/resources/
 │  ├─ application.yml        Configuración (defaults solo de desarrollo)
-│  ├─ db/migration/          Migraciones Flyway V1..V19 (schema)
+│  ├─ db/migration/          Migraciones Flyway V1..V20 (schema)
 │  └─ db/seed/demo-data.sql  Dataset demo (idempotente, solo desarrollo)
 ├─ src/test/java/com/claseya/  Tests unitarios e integración (Testcontainers)
 ├─ frontend/                 SPA React + TypeScript + Vite

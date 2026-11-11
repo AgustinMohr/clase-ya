@@ -34,13 +34,21 @@ public interface SubjectRepository extends JpaRepository<Subject, UUID> {
             select s.id, s.name, s.normalized_name, s.slug, s.description, s.active,
                    s.created_at, s.updated_at
             from subjects s
-            join career_subjects cs on cs.subject_id = s.id and cs.active
-            join teacher_subjects ts on ts.career_subject_id = cs.id and ts.active
-            join teacher_profiles tp on tp.id = ts.teacher_id
+            join (
+                select ts.teacher_id as teacher_id, cs.subject_id as subject_id
+                from teacher_subjects ts
+                join career_subjects cs on cs.id = ts.career_subject_id
+                where ts.active and cs.active
+                union
+                select ts.teacher_id, ts.subject_id
+                from teacher_subjects ts
+                where ts.active and ts.subject_id is not null
+            ) links on links.subject_id = s.id
+            join teacher_profiles tp on tp.id = links.teacher_id
             join users u on u.id = tp.user_id
             where s.active and u.status = 'ACTIVE'
             group by s.id
-            order by count(distinct ts.teacher_id) desc, s.name asc
+            order by count(distinct links.teacher_id) desc, s.name asc
             limit :limit
             """, nativeQuery = true)
     List<Subject> findPopular(@Param("limit") int limit);

@@ -115,17 +115,35 @@ public final class TeacherSpecifications {
             List<Predicate> predicates = new ArrayList<>();
             predicates.add(cb.equal(ts.get("teacher"), root));
             predicates.add(cb.isTrue(ts.get("active")));
-            predicates.add(cb.isTrue(ts.get("careerSubject").get("active")));
+
+            List<Predicate> alternatives = new ArrayList<>();
+
+            // Legacy/tertiary path: CareerSubject carries subject, career and university.
+            List<Predicate> careerPath = new ArrayList<>();
+            careerPath.add(cb.isNotNull(ts.get("careerSubject")));
+            careerPath.add(cb.isTrue(ts.get("careerSubject").get("active")));
             if (subjectId != null) {
-                predicates.add(cb.equal(ts.get("careerSubject").get("subject").get("id"), subjectId));
+                careerPath.add(cb.equal(ts.get("careerSubject").get("subject").get("id"), subjectId));
             }
             if (careerId != null) {
-                predicates.add(cb.equal(ts.get("careerSubject").get("career").get("id"), careerId));
+                careerPath.add(cb.equal(ts.get("careerSubject").get("career").get("id"), careerId));
             }
             if (universityId != null) {
-                predicates.add(cb.equal(ts.get("careerSubject").get("career")
+                careerPath.add(cb.equal(ts.get("careerSubject").get("career")
                         .get("academicUnit").get("university").get("id"), universityId));
             }
+            alternatives.add(cb.and(careerPath.toArray(Predicate[]::new)));
+
+            // Direct path: a subject without a career. It can answer a subject filter only;
+            // career/university filters cannot match a direct subject.
+            if (subjectId != null && careerId == null && universityId == null) {
+                alternatives.add(cb.and(
+                        cb.isNotNull(ts.get("subject")),
+                        cb.isTrue(ts.get("subject").get("active")),
+                        cb.equal(ts.get("subject").get("id"), subjectId)));
+            }
+
+            predicates.add(cb.or(alternatives.toArray(Predicate[]::new)));
             subquery.where(cb.and(predicates.toArray(Predicate[]::new)));
             return cb.exists(subquery);
         };

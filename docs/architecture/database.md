@@ -5,7 +5,7 @@ Documenta la persistencia real: PostgreSQL + JPA/Hibernate + Flyway. No cambia e
 ## Motor y mapeo
 
 - **PostgreSQL** como única base. **Flyway** define el schema
-  (`src/main/resources/db/migration/V1..V19`); Hibernate corre con `ddl-auto=validate`, por lo que
+  (`src/main/resources/db/migration/V1..V20`); Hibernate corre con `ddl-auto=validate`, por lo que
   el modelo JPA debe coincidir con las migraciones.
 - Mapeo JPA en el módulo `model`; todas las asociaciones se mapean del lado owning y las N:M son
   entidades join explícitas (sin `@ManyToMany`).
@@ -23,7 +23,7 @@ Documenta la persistencia real: PostgreSQL + JPA/Hibernate + Flyway. No cambia e
 ```
 users 1:0..1 student_profiles N:0..1 universities | careers  (académico opcional desde V19)
 users 1:0..1 teacher_profiles 1:N teacher_education
-                            | N:M career_subjects (vía teacher_subjects)
+                            | N:M career_subjects o subjects (vía teacher_subjects, V20)
                             | N:M teacher_modalities (ONLINE/IN_PERSON)
                             | 1:N availability_windows
                             | 1:N verification_documents
@@ -49,6 +49,10 @@ mensajería.
 `student_profiles` (V19) usa `level` (`PRIMARIA`/`SECUNDARIA`/`TERCIARIO`/`UNIVERSIDAD`/`ADULTO`) y
 `city` como datos mínimos. `university_id`, `career_id` y `current_year` son opcionales, pero la
 universidad y la carrera deben venir juntas o ambas nulas (lo valida el servicio).
+
+`teacher_subjects` (V20) apunta a exactamente un target: `career_subject_id` (catálogo académico) o
+`subject_id` (materia directa, sin carrera). El CHECK lo garantiza en SQL y la búsqueda pública
+resuelve ambos caminos.
 
 ## Constraints destacadas
 
@@ -83,7 +87,8 @@ universidad y la carrera deben venir juntas o ambas nulas (lo valida el servicio
 - `users(email)` (unique), `users(role)`, `users(status)`, `teacher_profiles(verification_status)`,
   `(verification_status, rating_average DESC, rating_count DESC)` (V3), `(latitude, longitude)`.
 - Catálogo/búsqueda: `career_subjects(subject_id)`, `teacher_subjects(career_subject_id)`,
-  `teacher_modalities(modality)` (V3).
+  `teacher_subjects(subject_id) WHERE subject_id IS NOT NULL` (V20), `teacher_modalities(modality)`
+  (V3).
 - Favoritos/mensajería: el UNIQUE de `favorites(student_id, teacher_id)` cubre por `student_id`;
   `conversation_participants(user_id)`, `messages(conversation_id, sender_id)`,
   `messages(conversation_id, created_at)` (V4).
@@ -109,7 +114,8 @@ universidad y la carrera deben venir juntas o ambas nulas (lo valida el servicio
   `UNSCANNED` · `V16` revisión por documento (VERIF-001) · `V17` drop de `bookings`/
   `calendly_integrations` y de `reviews.booking_id` (ADR-032) · `V18` habilita reviews/rating
   (OPINION-001): estado, respuesta, moderación, UNIQUE por par e índice de listado · `V19` hace
-  opcional el bloque académico del estudiante y agrega `level`/`city` (PROFILE-003).
+  opcional el bloque académico del estudiante y agrega `level`/`city` (PROFILE-003) · `V20` permite
+  que `teacher_subjects` apunte a una materia directa sin carrera (PROFILE-004).
 
 ## Borrado y normalización
 

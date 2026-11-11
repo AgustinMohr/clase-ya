@@ -1,5 +1,7 @@
 package com.claseya.teacher.dto;
 
+import com.claseya.model.CareerSubject;
+import com.claseya.model.Subject;
 import com.claseya.model.TeacherSubject;
 
 import java.time.Instant;
@@ -22,7 +24,24 @@ public record TeacherSubjectResponse(
 ) {
 
     public static TeacherSubjectResponse from(TeacherSubject teacherSubject) {
-        var careerSubject = teacherSubject.getCareerSubject();
+        CareerSubject careerSubject = teacherSubject.getCareerSubject();
+        if (careerSubject == null) {
+            Subject subject = teacherSubject.getSubject();
+            return new TeacherSubjectResponse(
+                    teacherSubject.getId(),
+                    null,
+                    null,
+                    null,
+                    subject.getId(),
+                    subject.getName(),
+                    null,
+                    null,
+                    null,
+                    null,
+                    teacherSubject.getDescription(),
+                    teacherSubject.getYearsExperience(),
+                    teacherSubject.getCreatedAt());
+        }
         return new TeacherSubjectResponse(
                 teacherSubject.getId(),
                 careerSubject.getId(),

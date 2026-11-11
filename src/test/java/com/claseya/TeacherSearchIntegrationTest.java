@@ -216,6 +216,26 @@ class TeacherSearchIntegrationTest extends AbstractWebIntegrationTest {
     }
 
     @Test
+    void search_subjectFilterMatchesDirectSubjectWithoutCareer() throws Exception {
+        Catalog cat = seedCatalog();
+        TeacherProfile direct = seedTeacher("Profe Directo", UserStatus.ACTIVE,
+                VerificationStatus.VERIFIED, new BigDecimal("4.5"), 3, null, null,
+                List.of(), TeachingModality.ONLINE);
+
+        TeacherSubject link = new TeacherSubject();
+        link.setTeacher(direct);
+        link.setSubject(cat.subject1);
+        link.setActive(true);
+        teacherSubjectRepository.saveAndFlush(link);
+
+        assertThat(contentNames(search("?subjectId=" + cat.subject1.getId())))
+                .containsExactly("Profe Directo");
+        // Career/university filters cannot match a subject that has no career.
+        assertThat(contentNames(search("?careerId=" + cat.career1.getId())))
+                .doesNotContain("Profe Directo");
+    }
+
+    @Test
     void search_filtersByCityCaseInsensitiveAndTrimmed() throws Exception {
         Catalog cat = seedCatalog();
         TeacherProfile ana = seedTeacher("Ana Santa Fe", UserStatus.ACTIVE, VerificationStatus.VERIFIED,

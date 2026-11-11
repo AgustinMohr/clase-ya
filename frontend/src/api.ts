@@ -178,7 +178,8 @@ export interface AnnouncementStatus {
 
 export interface OwnSubject {
   id: string;
-  careerSubjectId: string;
+  careerSubjectId?: string;
+  subjectId?: string;
   careerName?: string;
   subjectName?: string;
   year?: number;
@@ -731,8 +732,10 @@ export const api = {
   mySubjects: () => request<OwnSubject[]>('GET', '/api/teachers/me/subjects', undefined, true),
   addSubject: (careerSubjectId: string) =>
     request<OwnSubject>('POST', '/api/teachers/me/subjects', { careerSubjectId }, true),
-  removeSubject: (careerSubjectId: string) =>
-    request<void>('DELETE', `/api/teachers/me/subjects/${careerSubjectId}`, undefined, true),
+  addSubjectBySubject: (subjectId: string) =>
+    request<OwnSubject>('POST', '/api/teachers/me/subjects', { subjectId }, true),
+  removeSubject: (teacherSubjectId: string) =>
+    request<void>('DELETE', `/api/teachers/me/subjects/${teacherSubjectId}`, undefined, true),
   myModalities: () =>
     request<{ id: string; modality: string }[]>('GET', '/api/teachers/me/modalities', undefined, true),
   addModality: (modality: string) =>

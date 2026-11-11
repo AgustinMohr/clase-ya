@@ -1,56 +1,65 @@
-import { Plus } from 'lucide-react';
-import type {
-  AcademicUnit,
-  Career,
-  CareerSubject,
-  OwnSubject,
-  University,
-} from '../../../api';
+import { useState } from 'react';
+import { Plus, Search } from 'lucide-react';
+import type { OwnSubject, Subject } from '../../../api';
 import { Button } from '../../ui/Button';
-import { Field, Select } from '../../ui/Field';
+import { Field, Input, Select } from '../../ui/Field';
 import { Card, EmptyState, Tag } from '../../ui/primitives';
 
 interface Props {
   subjects: OwnSubject[];
-  universities: University[];
-  units: AcademicUnit[];
-  careers: Career[];
-  careerSubjects: CareerSubject[];
-  selUniversity: string;
-  selUnit: string;
-  selCareer: string;
-  selCareerSubject: string;
-  setSelCareerSubject: (id: string) => void;
-  onPickUnit: (id: string) => void;
-  onPickCareer: (id: string) => void;
-  onPickCareerSubject: (id: string) => void;
   addingSubject: boolean;
-  onAddSubject: (careerSubjectId: string) => Promise<boolean>;
+  searchSubjects: (term: string) => Promise<Subject[]>;
+  onAddSubjectById: (subjectId: string) => Promise<boolean>;
   onRemoveSubject: (subject: OwnSubject) => void | Promise<void>;
 }
 
-/** Subjects the teacher teaches, picked through the academic cascade. */
+/**
+ * PROFILE-004: a teacher publishes subjects directly from the catalog. The old
+ * university/faculty/career cascade is gone; a school tutor can add “Matemática” or “Inglés”
+ * without inventing academic data.
+ */
 export default function SubjectsSection({
   subjects,
-  universities,
-  units,
-  careers,
-  careerSubjects,
-  selUniversity,
-  selUnit,
-  selCareer,
-  selCareerSubject,
-  setSelCareerSubject,
-  onPickUnit,
-  onPickCareer,
-  onPickCareerSubject,
   addingSubject,
-  onAddSubject,
+  searchSubjects,
+  onAddSubjectById,
   onRemoveSubject,
 }: Props) {
+  const [term, setTerm] = useState('');
+  const [results, setResults] = useState<Subject[]>([]);
+  const [selected, setSelected] = useState('');
+  const [searching, setSearching] = useState(false);
+  const [error, setError] = useState('');
+
+  async function search(event: React.FormEvent) {
+    event.preventDefault();
+    const query = term.trim();
+    if (!query) return;
+    setSearching(true);
+    setError('');
+    try {
+      const list = await searchSubjects(query);
+      setResults(list);
+      setSelected(list[0]?.id ?? '');
+      if (list.length === 0) {
+        setError('No encontramos materias con ese nombre. Probá con otra palabra.');
+      }
+    } catch {
+      setError('No pudimos buscar materias. Revisá tu conexión e intentá de nuevo.');
+    } finally {
+      setSearching(false);
+    }
+  }
+
   async function add() {
-    const added = await onAddSubject(selCareerSubject);
-    if (added) setSelCareerSubject('');
+    if (!selected) return;
+    const added = await onAddSubjectById(selected);
+    if (added) {
+      setTerm('');
+      setResults([]);
+      setSelected('');
+      setError('');
+    }
   }
 
   return (
@@ -58,11 +67,16 @@ export default function SubjectsSection({
       <h2 className="mb-4 font-display text-xl">Materias</h2>
       {subjects.length > 0 ? (
         <ul className="mb-4 flex flex-wrap gap-2">
-          {subjects.map((s) => (
-            <li key={s.careerSubjectId}>
-              <Tag tone="primary" data-testid="subject-tag" onRemove={() => onRemoveSubject(s)} removeLabel={`Quitar ${s.subjectName ?? 'materia'}`}>
-                {s.subjectName}
-                {s.careerName ? ` · ${s.careerName}` : ''}
+          {subjects.map((subject) => (
+            <li key={subject.id}>
+              <Tag
+                tone="primary"
+                data-testid="subject-tag"
+                onRemove={() => onRemoveSubject(subject)}
+                removeLabel={`Quitar ${subject.subjectName ?? 'materia'}`}
+              >
+                {subject.subjectName}
+                {subject.careerName ? ` · ${subject.careerName}` : ''}
               </Tag>
             </li>
           ))}
@@ -70,53 +84,53 @@ export default function SubjectsSection({
       ) : (
         <EmptyState size="compact" className="mb-4" title="Todavía no agregaste materias" />
       )}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Field label="Universidad">
-          {({ id }) => (
-            <Select id={id} value={selUniversity} onChange={(e) => onPickUnit(e.target.value)}>
-              <option value="">Elegir…</option>
-              {universities.map((u) => (
-                <option key={u.id} value={u.id}>{u.name}</option>
-              ))}
-            </Select>
+
+      <form onSubmit={search} className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
+        <Field label="Buscar materia" hint="Elegí la materia que enseñás; no hace falta una carrera.">
+          {(props) => (
+            <Input
+              {...props}
+              type="search"
+              value={term}
+              onChange={(e) => setTerm(e.target.value)}
+              placeholder="Ej. Matemática, Inglés, Apoyo escolar"
+              maxLength={255}
+            />
           )}
         </Field>
-        <Field label="Unidad académica">
-          {({ id }) => (
-            <Select id={id} value={selUnit} disabled={!selUniversity} onChange={(e) => onPickCareer(e.target.value)}>
-              <option value="">Elegir…</option>
-              {units.map((u) => (
-                <option key={u.id} value={u.id}>{u.name}</option>
-              ))}
-            </Select>
-          )}
-        </Field>
-        <Field label="Carrera">
-          {({ id }) => (
-            <Select id={id} value={selCareer} disabled={!selUnit} onChange={(e) => onPickCareerSubject(e.target.value)}>
-              <option value="">Elegir…</option>
-              {careers.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </Select>
-          )}
-        </Field>
-        <Field label="Materia">
-          {({ id }) => (
-            <Select id={id} value={selCareerSubject} disabled={!selCareer} onChange={(e) => setSelCareerSubject(e.target.value)}>
-              <option value="">Elegir…</option>
-              {careerSubjects.map((cs) => (
-                <option key={cs.id} value={cs.id}>{cs.subjectName}</option>
-              ))}
-            </Select>
-          )}
-        </Field>
-      </div>
-      <div className="mt-4">
-        <Button variant="outline" onClick={add} loading={addingSubject} disabled={!selCareerSubject}>
-          <Plus className="h-4 w-4" aria-hidden="true" /> Agregar materia
+        <Button type="submit" variant="outline" loading={searching} disabled={!term.trim()}>
+          <Search className="h-4 w-4" aria-hidden="true" /> Buscar
         </Button>
-      </div>
+      </form>
+
+      {results.length > 0 && (
+        <div className="mt-4 grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
+          <Field label="Resultados">
+            {(props) => (
+              <Select
+                {...props}
+                value={selected}
+                onChange={(e) => setSelected(e.target.value)}
+              >
+                {results.map((subject) => (
+                  <option key={subject.id} value={subject.id}>
+                    {subject.name}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </Field>
+          <Button onClick={() => void add()} loading={addingSubject} disabled={!selected}>
+            <Plus className="h-4 w-4" aria-hidden="true" /> Agregar materia
+          </Button>
+        </div>
+      )}
+
+      {error && (
+        <p role="alert" className="mt-4 rounded-xl border border-error-500/30 bg-error-50 px-3 py-2 text-sm font-semibold text-error-700 dark:bg-error-700/20 dark:text-error-500">
+          {error}
+        </p>
+      )}
     </Card>
   );
 }

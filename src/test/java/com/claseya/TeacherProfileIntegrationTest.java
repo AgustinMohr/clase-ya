@@ -3,6 +3,7 @@ package com.claseya;
 import com.claseya.model.User;
 import com.claseya.model.enums.UserRole;
 import com.claseya.model.enums.UserStatus;
+import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.api.Test;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -203,6 +204,7 @@ class TeacherProfileIntegrationTest extends AbstractWebIntegrationTest {
                 """
                 {"careerSubjectId":"%s","yearsExperience":5}
                 """.formatted(careerSubjectId), 201);
+        String teacherSubjectId = idOf(added);
         assertThat(toJson(added).get("subjectName").asText()).startsWith("Matem");
 
         // duplicate
@@ -212,11 +214,39 @@ class TeacherProfileIntegrationTest extends AbstractWebIntegrationTest {
                 """.formatted(careerSubjectId), 409);
 
         String list = getJson("/api/teachers/me/subjects", token, 200);
-        assertThat(list).contains(careerSubjectId);
+        assertThat(list).contains(careerSubjectId, teacherSubjectId);
 
-        deleteJson("/api/teachers/me/subjects/" + careerSubjectId, token, 204);
+        deleteJson("/api/teachers/me/subjects/" + teacherSubjectId, token, 204);
         String afterDelete = getJson("/api/teachers/me/subjects", token, 200);
         assertThat(afterDelete).isEqualTo("[]");
+    }
+
+    @Test
+    void teacherSubjects_canAddDirectSubjectWithoutCareer() throws Exception {
+        String admin = adminBearer();
+        String subjectId = idOf(postJson("/api/subjects", admin,
+                """
+                {"name":"Apoyo escolar"}
+                """, 201));
+        User teacher = createUser("prof-direct@example.com", UserRole.TEACHER, UserStatus.ACTIVE);
+        String token = bearer(teacher);
+        postJson("/api/teachers/profile", token, profileBody(), 201);
+
+        String added = postJson("/api/teachers/me/subjects", token,
+                """
+                {"subjectId":"%s","description":"Apoyo para primaria y secundaria"}
+                """.formatted(subjectId), 201);
+        JsonNode body = toJson(added);
+        String teacherSubjectId = body.get("id").asText();
+        assertThat(body.get("subjectId").asText()).isEqualTo(subjectId);
+        assertThat(body.get("subjectName").asText()).isEqualTo("Apoyo escolar");
+        assertThat(body.has("careerSubjectId")).isFalse();
+
+        String list = getJson("/api/teachers/me/subjects", token, 200);
+        assertThat(list).contains(subjectId).doesNotContain("careerSubjectId");
+
+        deleteJson("/api/teachers/me/subjects/" + teacherSubjectId, token, 204);
+        assertThat(getJson("/api/teachers/me/subjects", token, 200)).isEqualTo("[]");
     }
 
     @Test
