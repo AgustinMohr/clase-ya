@@ -13,6 +13,7 @@ import { useAuth } from '../auth/AuthContext';
 import { usePageMeta } from '../hooks/usePageMeta';
 import { Button } from '../components/ui/Button';
 import { EmptyState, Skeleton } from '../components/ui/primitives';
+import { mergeMessages } from '../lib/messaging';
 import { ROUTES } from '../routes';
 
 interface Thread {
@@ -21,6 +22,10 @@ interface Thread {
   hasMore: boolean;
   nextBefore?: string;
 }
+
+/** AUDIT-1.7: a visible tab notices replies without a manual refresh. */
+const POLL_INTERVAL_MS = 20_000;
+const NEAR_BOTTOM_PX = 80;
 
 function formatWhen(value: string | undefined): string {
   if (!value) return '';
@@ -60,6 +65,8 @@ export default function MessagesPage() {
   const threadsRef = useRef(new Map<string, Thread>());
   // Guards against out-of-order responses when switching conversations quickly.
   const threadSeq = useRef(0);
+  // One poll at a time: a slow request must not stack behind the interval.
+  const pollingRef = useRef(false);
 
   /** `silent` refreshes (after opening or sending) must not put the list back into skeletons. */
   const loadConversations = useCallback(async (silent = false) => {
@@ -153,6 +160,53 @@ export default function MessagesPage() {
     }
     void openConversation(routeConversationId);
   }, [routeConversationId, openConversation]);
+
+  // AUDIT-1.7: poll the visible tab so replies and unread badges show up without a refresh.
+  // Hidden tabs skip the request; the thread is merged, never replaced, to keep loaded history.
+  useEffect(() => {
+    if (!user) return;
+
+    const poll = async () => {
+      if (document.visibilityState === 'hidden' || pollingRef.current) return;
+      pollingRef.current = true;
+      const seq = threadSeq.current;
+      try {
+        if (openId) {
+          const page = await api.conversationThread(openId);
+          if (seq !== threadSeq.current) return;
+          const cached = threadsRef.current.get(openId);
+          const current = cached?.messages ?? [];
+          const merged = mergeMessages(current, page.messages);
+          if (merged.length !== current.length) {
+            const body = bodyRef.current;
+            const nearBottom =
+              !body || body.scrollHeight - body.scrollTop - body.clientHeight < NEAR_BOTTOM_PX;
+            const next: Thread = {
+              other: page.otherParticipant,
+              messages: merged,
+              hasMore: cached?.hasMore ?? page.hasMore,
+              nextBefore: cached?.nextBefore ?? page.nextBefore,
+            };
+            threadsRef.current.set(openId, next);
+            setOther(next.other);
+            setMessages(merged);
+            if (nearBottom) {
+              scrollToBottomRef.current = true;
+              await api.markConversationRead(openId);
+            }
+          }
+        }
+        await loadConversations(true);
+      } catch {
+        // Best effort: keep the current view and retry on the next tick.
+      } finally {
+        pollingRef.current = false;
+      }
+    };
+
+    const timer = window.setInterval(() => void poll(), POLL_INTERVAL_MS);
+    return () => window.clearInterval(timer);
+  }, [openId, user, loadConversations]);
 
   // Older messages are inserted above: keep the reading position instead of jumping to the end.
   const loadOlder = useCallback(async () => {
