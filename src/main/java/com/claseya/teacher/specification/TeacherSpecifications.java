@@ -115,44 +115,51 @@ public final class TeacherSpecifications {
             List<Predicate> predicates = new ArrayList<>();
             predicates.add(cb.equal(ts.get("teacher"), root));
             predicates.add(cb.isTrue(ts.get("active")));
-
-            List<Predicate> alternatives = new ArrayList<>();
-
-            // Legacy/tertiary path: CareerSubject carries subject, career and university.
-            List<Predicate> careerPath = new ArrayList<>();
-            careerPath.add(cb.isNotNull(ts.get("careerSubject")));
-            careerPath.add(cb.isTrue(ts.get("careerSubject").get("active")));
+            predicates.add(cb.isNotNull(ts.get("careerSubject")));
+            predicates.add(cb.isTrue(ts.get("careerSubject").get("active")));
             if (subjectId != null) {
-                careerPath.add(cb.equal(ts.get("careerSubject").get("subject").get("id"), subjectId));
+                predicates.add(cb.equal(ts.get("careerSubject").get("subject").get("id"), subjectId));
             }
             if (careerId != null) {
-                careerPath.add(cb.equal(ts.get("careerSubject").get("career").get("id"), careerId));
+                predicates.add(cb.equal(ts.get("careerSubject").get("career").get("id"), careerId));
             }
             if (universityId != null) {
-                careerPath.add(cb.equal(ts.get("careerSubject").get("career")
+                predicates.add(cb.equal(ts.get("careerSubject").get("career")
                         .get("academicUnit").get("university").get("id"), universityId));
             }
-            alternatives.add(cb.and(careerPath.toArray(Predicate[]::new)));
-
-            // Direct path: a subject without a career. It lives in its own subquery so its
-            // subject join never filters the career rows of the outer subquery. It can answer a
-            // subject filter only; career/university filters cannot match a direct subject.
-            if (subjectId != null && careerId == null && universityId == null) {
-                Subquery<TeacherSubject> direct = query.subquery(TeacherSubject.class);
-                Root<TeacherSubject> dts = direct.from(TeacherSubject.class);
-                direct.select(dts);
-                direct.where(cb.and(
-                        cb.equal(dts.get("teacher"), root),
-                        cb.isTrue(dts.get("active")),
-                        cb.isNotNull(dts.get("subject")),
-                        cb.isTrue(dts.get("subject").get("active")),
-                        cb.equal(dts.get("subject").get("id"), subjectId)));
-                alternatives.add(cb.exists(direct));
-            }
-
-            predicates.add(cb.or(alternatives.toArray(Predicate[]::new)));
             subquery.where(cb.and(predicates.toArray(Predicate[]::new)));
             return cb.exists(subquery);
+        };
+    }
+
+    /**
+     * PROFILE-004: a subject-only filter matches both the academic link (CareerSubject) and the
+     * direct link (Subject). Each path is a separate EXISTS so the direct subject join cannot
+     * filter the career rows.
+     */
+    public static Specification<TeacherProfile> teachesSubjectEither(UUID subjectId) {
+        return (root, query, cb) -> {
+            Subquery<TeacherSubject> career = query.subquery(TeacherSubject.class);
+            Root<TeacherSubject> cts = career.from(TeacherSubject.class);
+            career.select(cts);
+            career.where(cb.and(
+                    cb.equal(cts.get("teacher"), root),
+                    cb.isTrue(cts.get("active")),
+                    cb.isNotNull(cts.get("careerSubject")),
+                    cb.isTrue(cts.get("careerSubject").get("active")),
+                    cb.equal(cts.get("careerSubject").get("subject").get("id"), subjectId)));
+
+            Subquery<TeacherSubject> direct = query.subquery(TeacherSubject.class);
+            Root<TeacherSubject> dts = direct.from(TeacherSubject.class);
+            direct.select(dts);
+            direct.where(cb.and(
+                    cb.equal(dts.get("teacher"), root),
+                    cb.isTrue(dts.get("active")),
+                    cb.isNotNull(dts.get("subject")),
+                    cb.isTrue(dts.get("subject").get("active")),
+                    cb.equal(dts.get("subject").get("id"), subjectId)));
+
+            return cb.or(cb.exists(career), cb.exists(direct));
         };
     }
 

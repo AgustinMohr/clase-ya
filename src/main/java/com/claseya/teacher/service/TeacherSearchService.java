@@ -103,10 +103,16 @@ public class TeacherSearchService {
         if (criteria.onlyVerified()) {
             parts.add(TeacherSpecifications.verifiedOnly());
         }
-        Specification<TeacherProfile> academic = TeacherSpecifications.teachesAcademicCombination(
-                criteria.subjectId(), criteria.careerId(), criteria.universityId());
-        if (academic != null) {
-            parts.add(academic);
+        if (criteria.subjectId() != null
+                && criteria.careerId() == null
+                && criteria.universityId() == null) {
+            parts.add(TeacherSpecifications.teachesSubjectEither(criteria.subjectId()));
+        } else {
+            Specification<TeacherProfile> academic = TeacherSpecifications.teachesAcademicCombination(
+                    criteria.subjectId(), criteria.careerId(), criteria.universityId());
+            if (academic != null) {
+                parts.add(academic);
+            }
         }
         if (criteria.city() != null && !criteria.city().isBlank()) {
             parts.add(TeacherSpecifications.inCity(criteria.city()));
