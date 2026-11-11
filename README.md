@@ -487,6 +487,20 @@ docker start claseya-pg
 
 No mezcles ambos: el compose usa el mismo nombre de contenedor y un volumen propio.
 
+### Datos demo en producción (OPS-003)
+
+El dominio `@claseya.dev` es exclusivo del dataset demo y su contraseña (`Password123`) está
+documentada en este repositorio. Fuera de los perfiles `local` y `test`, el backend **neutraliza
+esas cuentas al arrancar**: las pasa a `SUSPENDED` y reemplaza su hash de contraseña por uno
+aleatorio. Un JWT demo vigente deja de autenticar y un perfil demo deja de ser visible (la
+visibilidad pública exige `user.status = ACTIVE`).
+
+El guard es idempotente y **no borra filas**. La eliminación definitiva de conversaciones, mensajes,
+reviews y documentos demo es una tarea operativa separada sobre la base. Si el log muestra
+`SECURITY: quarantined N demo account(s)`, programá esa limpieza antes de abrir tráfico real.
+
+Nunca ejecutes `scripts/seed-demo.ps1` ni `DEMO_SEED=true` contra una base de producción.
+
 Las migraciones de Flyway se aplican automáticamente al levantar el backend.
 
 ### Backend
