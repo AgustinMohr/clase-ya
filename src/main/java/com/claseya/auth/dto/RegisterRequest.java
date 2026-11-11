@@ -13,6 +13,10 @@ public record RegisterRequest(
         @Size(max = 255, message = "Email is too long")
         String email,
 
+        /** Visible name; the SPA requires it, the API keeps it optional for older clients. */
+        @Size(max = 255, message = "Name is too long")
+        String name,
+
         @NotBlank(message = "Password is required")
         @ValidPassword
         String password,

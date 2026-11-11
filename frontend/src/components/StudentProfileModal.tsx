@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { api, ApiError, MAX_STUDENT_BIO_LENGTH, type AcademicUnit, type Career, type StudentProfile, type University } from '../api';
 import Modal from './ui/Modal';
 import { Button } from './ui/Button';
-import { Field, Select, Textarea } from './ui/Field';
+import { Field, Input, Select, Textarea } from './ui/Field';
 
 interface Props {
   open: boolean;
@@ -22,6 +22,7 @@ export default function StudentProfileModal({ open, onClose, onSaved, initial }:
   const [universities, setUniversities] = useState<University[]>([]);
   const [units, setUnits] = useState<AcademicUnit[]>([]);
   const [careers, setCareers] = useState<Career[]>([]);
+  const [name, setName] = useState('');
   const [universityId, setUniversityId] = useState('');
   const [unitId, setUnitId] = useState('');
   const [careerId, setCareerId] = useState('');
@@ -34,6 +35,7 @@ export default function StudentProfileModal({ open, onClose, onSaved, initial }:
   useEffect(() => {
     if (!open) return;
     setError('');
+    setName(initial?.name ?? '');
     setUniversityId(initial?.universityId ?? '');
     setUnitId(initial?.academicUnitId ?? '');
     setCareerId(initial?.careerId ?? '');
@@ -96,6 +98,10 @@ export default function StudentProfileModal({ open, onClose, onSaved, initial }:
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
+    if (!name.trim()) {
+      setError('Ingresá tu nombre y apellido.');
+      return;
+    }
     if (!universityId || !careerId) {
       setError('Elegí universidad, facultad y carrera.');
       return;
@@ -103,7 +109,13 @@ export default function StudentProfileModal({ open, onClose, onSaved, initial }:
     setLoading(true);
     setError('');
     try {
-      const input = { universityId, careerId, currentYear, bio: bio.trim() || undefined };
+      const input = {
+        name: name.trim(),
+        universityId,
+        careerId,
+        currentYear,
+        bio: bio.trim() || undefined,
+      };
       const saved = initial ? await api.updateStudentProfile(input) : await api.createStudentProfile(input);
       onSaved(saved);
     } catch (e) {
@@ -122,9 +134,24 @@ export default function StudentProfileModal({ open, onClose, onSaved, initial }:
 
         {initial && (
           <p className="rounded-xl bg-surface-muted px-3 py-2 text-xs text-content-muted">
-            Guardado: {initial.universityName} · {initial.careerName} · Año {initial.currentYear}
+            Guardado: {initial.name || 'Sin nombre'} · {initial.universityName} · {initial.careerName} ·
+            Año {initial.currentYear}
           </p>
         )}
+
+        <Field label="Nombre y apellido">
+          {(props) => (
+            <Input
+              {...props}
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              autoComplete="name"
+              maxLength={255}
+              required
+            />
+          )}
+        </Field>
 
         <Field label="Universidad">
           {(props) => (

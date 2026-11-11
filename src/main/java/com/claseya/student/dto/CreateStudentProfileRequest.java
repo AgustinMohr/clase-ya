@@ -8,6 +8,9 @@ import jakarta.validation.constraints.Size;
 import java.util.UUID;
 
 public record CreateStudentProfileRequest(
+        @Size(max = 255, message = "Name is too long")
+        String name,
+
         @NotNull(message = "universityId is required")
         UUID universityId,
 

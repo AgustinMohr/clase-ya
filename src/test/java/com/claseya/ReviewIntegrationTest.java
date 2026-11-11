@@ -73,6 +73,8 @@ class ReviewIntegrationTest extends AbstractWebIntegrationTest {
 
     private User newStudent(String email) {
         User user = createUser(email, UserRole.STUDENT, UserStatus.ACTIVE);
+        user.setName("Student " + email);
+        userRepository.saveAndFlush(user);
         StudentProfile profile = new StudentProfile();
         profile.setUser(user);
         profile.setUniversity(university());

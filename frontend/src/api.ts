@@ -111,6 +111,7 @@ export interface Career {
 export interface StudentProfile {
   id: string;
   userId: string;
+  name?: string | null;
   universityId: string;
   universityName: string;
   academicUnitId: string;
@@ -121,6 +122,7 @@ export interface StudentProfile {
 }
 
 export interface StudentProfileInput {
+  name: string;
   universityId: string;
   careerId: string;
   currentYear: number;
@@ -656,9 +658,9 @@ export const api = {
   exchangeMessageLink: (token: string) =>
     request<LoginResponse>('POST', '/api/auth/message-link', { token }),
   /** AUTH-001/SEC-04: always 202; the account stays PENDING until the emailed link is opened. */
-  register: (email: string, password: string, role: 'STUDENT' | 'TEACHER', captchaToken?: string) =>
+  register: (email: string, password: string, role: 'STUDENT' | 'TEACHER', name: string, captchaToken?: string) =>
     request<void>('POST', '/api/auth/register',
-      captchaToken ? { email, password, role, captchaToken } : { email, password, role }),
+      captchaToken ? { email, password, role, name, captchaToken } : { email, password, role, name }),
   activate: (token: string) => request<void>('POST', '/api/auth/activate', { token }),
   /** Always 202: the backend never reveals whether the email is registered. */
   resendActivation: (email: string) => request<void>('POST', '/api/auth/resend-activation', { email }),

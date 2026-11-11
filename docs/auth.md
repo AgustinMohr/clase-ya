@@ -31,13 +31,15 @@ suite/tooling may still send `Authorization: Bearer <jwt>`. The SPA never sees t
 
 ```
 POST /api/auth/register
-{ "email": "student@example.com", "password": "Password123", "role": "STUDENT" }
+{ "email": "student@example.com", "name": "Ana Estudiante", "password": "Password123", "role": "STUDENT" }
 
 202 Accepted
 (no body)
 ```
 
 - Email is normalized to lowercase before save and lookup.
+- `name` is the visible display name (trimmed, max 255). The SPA requires it; the API keeps it
+  optional for older clients. It is persisted in `users.name`.
 - **Password policy (AUTH-002 / SEC-04):** at least 10 characters, at least one letter and one
   digit, and at most **72 UTF-8 bytes** (BCrypt silently truncates beyond that). Violations →
   **400** with `fieldErrors.password`.

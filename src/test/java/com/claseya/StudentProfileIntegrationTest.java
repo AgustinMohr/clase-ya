@@ -33,7 +33,7 @@ class StudentProfileIntegrationTest extends AbstractWebIntegrationTest {
 
     private String profileBody(String universityId, String careerId, int year) {
         return """
-                {"universityId":"%s","careerId":"%s","currentYear":%d,"bio":"Estudiante"}
+                {"name":"Estudiante Test","universityId":"%s","careerId":"%s","currentYear":%d,"bio":"Estudiante"}
                 """.formatted(universityId, careerId, year);
     }
 
@@ -45,11 +45,13 @@ class StudentProfileIntegrationTest extends AbstractWebIntegrationTest {
         String created = postJson("/api/students/profile", bearer(student),
                 profileBody(unl.universityId, unl.careerId, 2), 201);
         assertThat(toJson(created).get("email").asText()).isEqualTo("stu@example.com");
+        assertThat(toJson(created).get("name").asText()).isEqualTo("Estudiante Test");
 
         String me = getJson("/api/students/me", bearer(student), 200);
         assertThat(toJson(me).get("careerName").asText()).startsWith("Ingenier");
         assertThat(toJson(me).get("academicUnitId").asText()).isEqualTo(unl.unitId);
         assertThat(toJson(me).get("currentYear").asInt()).isEqualTo(2);
+        assertThat(toJson(me).get("name").asText()).isEqualTo("Estudiante Test");
     }
 
     @Test
@@ -103,10 +105,11 @@ class StudentProfileIntegrationTest extends AbstractWebIntegrationTest {
 
         String updated = putJson("/api/students/me", token,
                 """
-                {"universityId":"%s","careerId":"%s","currentYear":4,"bio":"Nueva bio"}
+                {"name":"Nombre Actualizado","universityId":"%s","careerId":"%s","currentYear":4,"bio":"Nueva bio"}
                 """.formatted(unl.universityId, unl.careerId), 200);
         assertThat(toJson(updated).get("currentYear").asInt()).isEqualTo(4);
         assertThat(toJson(updated).get("bio").asText()).isEqualTo("Nueva bio");
+        assertThat(toJson(updated).get("name").asText()).isEqualTo("Nombre Actualizado");
     }
 
     @Test

@@ -1,11 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import { validateRegistration } from './validation';
 
-const valid = { email: 'alumno@example.com', password: 'Password123', confirmation: 'Password123' };
+const valid = { name: 'Ana Estudiante', email: 'alumno@example.com', password: 'Password123', confirmation: 'Password123' };
 
 describe('validateRegistration', () => {
   it('accepts a valid form', () => {
     expect(validateRegistration(valid)).toEqual({});
+  });
+
+  it('requires a visible name', () => {
+    expect(validateRegistration({ ...valid, name: '   ' })).toEqual({
+      name: 'Ingresá tu nombre y apellido.',
+    });
   });
 
   it('requires an email', () => {

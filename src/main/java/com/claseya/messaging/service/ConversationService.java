@@ -88,6 +88,10 @@ public class ConversationService {
         StudentProfile student = studentProfileRepository.findByUser_Id(studentUserId)
                 .orElseThrow(() -> new ConflictException(
                         "Student profile must be completed before starting a conversation"));
+        if (student.getUser().getName() == null || student.getUser().getName().isBlank()) {
+            throw new ConflictException(
+                    "Student profile must include a visible name before starting a conversation");
+        }
 
         // Validate the optional first message before touching anything: an invalid
         // contact must not leave an empty conversation behind (CONTACT-001).

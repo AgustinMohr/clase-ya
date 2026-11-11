@@ -74,6 +74,8 @@ class MessagingIntegrationTest extends AbstractWebIntegrationTest {
 
     private User newStudent(String email) {
         User user = createUser(email, UserRole.STUDENT, UserStatus.ACTIVE);
+        user.setName("Student " + email);
+        userRepository.saveAndFlush(user);
         seedCareerForProfiles();
         StudentProfile profile = new StudentProfile();
         profile.setUser(user);
@@ -178,6 +180,22 @@ class MessagingIntegrationTest extends AbstractWebIntegrationTest {
     void studentWithoutProfile_cannotStart_returns409() throws Exception {
         User student = createUser("noprofile@example.com", UserRole.STUDENT, UserStatus.ACTIVE);
         TeacherProfile teacher = visibleTeacher("Ana", "ana@example.com");
+        createConversation(bearer(student), teacher.getId().toString(), 409);
+    }
+
+    @Test
+    void studentWithProfileButNoVisibleName_cannotStart_returns409() throws Exception {
+        User student = createUser("noname@example.com", UserRole.STUDENT, UserStatus.ACTIVE);
+        TeacherProfile teacher = visibleTeacher("Profe", "prof-noname@example.com");
+        seedCareerForProfiles();
+
+        StudentProfile profile = new StudentProfile();
+        profile.setUser(student);
+        profile.setUniversity(universityRepository.findAll().get(0));
+        profile.setCareer(careerRepository.findAll().get(0));
+        profile.setCurrentYear(2);
+        studentProfileRepository.saveAndFlush(profile);
+
         createConversation(bearer(student), teacher.getId().toString(), 409);
     }
 

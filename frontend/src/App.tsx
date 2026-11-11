@@ -140,7 +140,12 @@ export default function App() {
     window.scrollTo({ top: 0, left: 0 });
   }, [location.pathname]);
 
-  const needsProfile = Boolean(user && user.role === 'STUDENT' && profileChecked && !profile);
+  const needsProfile = Boolean(
+    user &&
+      user.role === 'STUDENT' &&
+      profileChecked &&
+      (!profile || !profile.name?.trim()),
+  );
   const isAdminSection =
     location.pathname === ROUTES.admin || location.pathname.startsWith(`${ROUTES.admin}/`);
 

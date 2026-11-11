@@ -83,6 +83,7 @@ public class AuthService {
 
         User user = new User();
         user.setEmail(email);
+        user.setName(blankToNull(request.name()));
         user.setPasswordHash(passwordEncoder.encode(request.password()));
         user.setRole(request.role());
         // Accounts start PENDING and become ACTIVE through the activation link (AUTH-001) or an
@@ -159,5 +160,12 @@ public class AuthService {
 
     private String normalizeEmail(String email) {
         return email == null ? null : email.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private static String blankToNull(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return value.trim();
     }
 }

@@ -8,6 +8,7 @@ import com.claseya.common.exception.ResourceNotFoundException;
 import com.claseya.model.Career;
 import com.claseya.model.StudentProfile;
 import com.claseya.model.University;
+import com.claseya.model.User;
 import com.claseya.student.dto.CreateStudentProfileRequest;
 import com.claseya.student.dto.StudentProfileResponse;
 import com.claseya.student.dto.UpdateStudentProfileRequest;
@@ -44,8 +45,11 @@ public class StudentProfileService {
         University university = requireActiveUniversity(request.universityId());
         Career career = requireActiveCareerInUniversity(request.careerId(), request.universityId());
 
+        User user = userRepository.getReferenceById(userId);
+        applyVisibleName(user, request.name());
+
         StudentProfile profile = new StudentProfile();
-        profile.setUser(userRepository.getReferenceById(userId));
+        profile.setUser(user);
         profile.setUniversity(university);
         profile.setCareer(career);
         profile.setCurrentYear(request.currentYear());
@@ -64,11 +68,22 @@ public class StudentProfileService {
         University university = requireActiveUniversity(request.universityId());
         Career career = requireActiveCareerInUniversity(request.careerId(), request.universityId());
 
+        applyVisibleName(profile.getUser(), request.name());
         profile.setUniversity(university);
         profile.setCareer(career);
         profile.setCurrentYear(request.currentYear());
         profile.setBio(request.bio());
         return StudentProfileResponse.from(studentProfileRepository.saveAndFlush(profile));
+    }
+
+    /**
+     * The student profile owns the visible name used by messaging, reviews and contact emails.
+     * Blank input keeps the name already stored (for example, the one captured at registration).
+     */
+    private static void applyVisibleName(User user, String name) {
+        if (name != null && !name.isBlank()) {
+            user.setName(name.trim());
+        }
     }
 
     private StudentProfile requireByUser(UUID userId) {

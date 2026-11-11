@@ -24,6 +24,7 @@ function fieldErrorsOf(error: unknown): Record<string, string> {
 export default function RegisterPage({ onLogin }: Props) {
   const { register } = useAuth();
   const navigate = useNavigate();
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
@@ -35,7 +36,7 @@ export default function RegisterPage({ onLogin }: Props) {
   const [sentTo, setSentTo] = useState<string | null>(null);
 
   function validate(): boolean {
-    const next = validateRegistration({ email, password, confirmation });
+    const next = validateRegistration({ name, email, password, confirmation });
     setErrors(next);
     return Object.keys(next).length === 0;
   }
@@ -46,7 +47,7 @@ export default function RegisterPage({ onLogin }: Props) {
     if (!validate()) return;
     setLoading(true);
     try {
-      await register(email.trim(), password, role, captchaToken || undefined);
+      await register(email.trim(), password, role, name.trim(), captchaToken || undefined);
       setSentTo(email.trim());
     } catch (error) {
       if (error instanceof ApiError && error.status === 400) {
@@ -123,6 +124,20 @@ export default function RegisterPage({ onLogin }: Props) {
               Doy clases
             </button>
           </div>
+
+          <Field label="Nombre y apellido" error={errors.name}>
+            {(props) => (
+              <Input
+                {...props}
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                autoComplete="name"
+                maxLength={255}
+                required
+              />
+            )}
+          </Field>
 
           <Field label="Email" error={errors.email}>
             {(props) => (

@@ -77,6 +77,20 @@ class AuthIntegrationTest extends AbstractWebIntegrationTest {
     }
 
     @Test
+    void register_withName_persistsTheVisibleName() throws Exception {
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType("application/json")
+                        .content("""
+                                {"email":"named@example.com","name":"  Ana Estudiante  ",
+                                 "password":"%s","role":"STUDENT"}
+                                """.formatted(PASSWORD)))
+                .andExpect(status().isAccepted());
+
+        assertThat(userRepository.findByEmail("named@example.com").orElseThrow().getName())
+                .isEqualTo("Ana Estudiante");
+    }
+
+    @Test
     void register_existingActiveEmail_returns202WithoutQueueingMail() throws Exception {
         createUser("dup@example.com", UserRole.STUDENT, UserStatus.ACTIVE);
 
