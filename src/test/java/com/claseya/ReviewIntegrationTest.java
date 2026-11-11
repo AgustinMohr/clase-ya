@@ -126,7 +126,8 @@ class ReviewIntegrationTest extends AbstractWebIntegrationTest {
         JsonNode body = toJson(getJson("/api/teachers/" + teacher.getId() + "/reviews", null, 200));
         assertThat(body.get("totalElements").asInt()).isEqualTo(1);
         assertThat(body.get("content").get(0).get("id").asText()).isEqualTo(reviewId);
-        assertThat(body.get("content").get(0).get("authorDisplayName").asText()).isEqualTo("Estudiante");
+        assertThat(body.get("content").get(0).get("authorDisplayName").asText())
+                .isEqualTo("Student student@example.com");
 
         TeacherProfile reloaded = teacherProfileRepository.findById(teacher.getId()).orElseThrow();
         assertThat(reloaded.getRatingCount()).isEqualTo(1);
