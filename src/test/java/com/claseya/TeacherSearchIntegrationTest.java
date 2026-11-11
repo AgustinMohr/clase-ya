@@ -207,6 +207,30 @@ class TeacherSearchIntegrationTest extends AbstractWebIntegrationTest {
     }
 
     @Test
+    void search_filtersByCityCaseInsensitiveAndTrimmed() throws Exception {
+        Catalog cat = seedCatalog();
+        TeacherProfile ana = seedTeacher("Ana Santa Fe", UserStatus.ACTIVE, VerificationStatus.VERIFIED,
+                new BigDecimal("4.5"), 3, null, null, List.of(cat.csA), TeachingModality.ONLINE);
+        ana.setCity("Santa Fe");
+        teacherProfileRepository.saveAndFlush(ana);
+
+        TeacherProfile bruno = seedTeacher("Bruno Rosario", UserStatus.ACTIVE, VerificationStatus.VERIFIED,
+                new BigDecimal("4.5"), 3, null, null, List.of(cat.csA), TeachingModality.ONLINE);
+        bruno.setCity("Rosario");
+        teacherProfileRepository.saveAndFlush(bruno);
+
+        seedTeacher("Sin Ciudad", UserStatus.ACTIVE, VerificationStatus.VERIFIED,
+                new BigDecimal("4.5"), 3, null, null, List.of(cat.csA), TeachingModality.ONLINE);
+
+        assertThat(contentNames(search("?city=Santa%20Fe"))).containsExactly("Ana Santa Fe");
+        assertThat(contentNames(search("?city=%20santa%20fe%20"))).containsExactly("Ana Santa Fe");
+        assertThat(contentNames(search("?city=Rosario"))).containsExactly("Bruno Rosario");
+        assertThat(contentNames(search("?city="))).hasSize(3);
+
+        getJson("/api/teachers?city=" + "x".repeat(101), null, 400);
+    }
+
+    @Test
     void search_onlyVerifiedFilter_excludesNonVerifiedTeachers() throws Exception {
         Catalog cat = seedCatalog();
         seedTeacher("Ana Verified", UserStatus.ACTIVE, VerificationStatus.VERIFIED,

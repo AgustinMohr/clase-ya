@@ -12,6 +12,7 @@ public record TeacherSearchCriteria(
         UUID subjectId,
         UUID careerId,
         UUID universityId,
+        String city,
         TeachingModality modality,
         Double minRating,
         BigDecimal minPrice,

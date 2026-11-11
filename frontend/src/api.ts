@@ -617,6 +617,7 @@ export const api = {
     ),
   teachers: (params: {
     subjectId?: string;
+    city?: string;
     modality?: string;
     minRating?: number;
     minPrice?: number;
@@ -626,6 +627,7 @@ export const api = {
   } = {}) => {
     const query = new URLSearchParams({ page: String(params.page ?? 0), size: '24' });
     if (params.subjectId) query.set('subjectId', params.subjectId);
+    if (params.city?.trim()) query.set('city', params.city.trim());
     if (params.modality) query.set('modality', params.modality);
     if (params.minRating) query.set('minRating', String(params.minRating));
     if (params.minPrice != null) query.set('minPrice', String(params.minPrice));

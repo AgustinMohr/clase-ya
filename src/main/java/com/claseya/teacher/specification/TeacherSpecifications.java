@@ -131,6 +131,14 @@ public final class TeacherSpecifications {
         };
     }
 
+    /** Case-insensitive, trimmed exact match on the public city/zone. */
+    public static Specification<TeacherProfile> inCity(String city) {
+        String normalized = city == null ? "" : city.trim().toLowerCase(java.util.Locale.ROOT);
+        return (root, query, cb) -> cb.equal(
+                cb.lower(cb.trim(root.<String>get("city"))),
+                normalized);
+    }
+
     /** Teachers offering the given modality. */
     public static Specification<TeacherProfile> hasModality(TeachingModality modality) {
         return (root, query, cb) -> {

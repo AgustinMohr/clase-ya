@@ -6,6 +6,7 @@ import { usePageMeta } from '../hooks/usePageMeta';
 import { isIndexableSearch } from '../seo/metadata';
 import SearchInput from '../components/ui/SearchInput';
 import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Field';
 import { Chip, EmptyState, Skeleton } from '../components/ui/primitives';
 import PriceRange, { type PriceValue } from '../components/ui/PriceRange';
 import { Pagination } from '../components/ui/Pagination';
@@ -26,6 +27,7 @@ type Modality = 'ONLINE' | 'IN_PERSON';
 
 interface Filters {
   subjectId: string | null;
+  city: string;
   modality: Modality | null;
   minRating: number | null;
   price: PriceValue;
@@ -38,7 +40,7 @@ interface SearchState {
   page: number;
 }
 
-const NO_FILTERS: Filters = { subjectId: null, modality: null, minRating: null, price: { min: null, max: null }, onlyVerified: false };
+const NO_FILTERS: Filters = { subjectId: null, city: '', modality: null, minRating: null, price: { min: null, max: null }, onlyVerified: false };
 
 /** A typed pair can be inverted; order it before querying (SEARCH-001). */
 function normalizePrice(price: PriceValue): PriceValue {
@@ -47,7 +49,7 @@ function normalizePrice(price: PriceValue): PriceValue {
 }
 
 function activeFilterCount(filters: Filters): number {
-  return [filters.subjectId, filters.modality, filters.minRating, filters.price.min, filters.price.max]
+  return [filters.subjectId, filters.city.trim() || null, filters.modality, filters.minRating, filters.price.min, filters.price.max]
     .filter((value) => value != null).length + (filters.onlyVerified ? 1 : 0);
 }
 
@@ -72,6 +74,7 @@ function parseSearch(params: URLSearchParams): SearchState {
     page,
     filters: {
       subjectId: null,
+      city: (params.get('ciudad') ?? '').trim(),
       modality,
       minRating,
       price: { min: parseNonNegativeInt(params.get('precioMin')), max: parseNonNegativeInt(params.get('precioMax')) },
@@ -85,6 +88,7 @@ function buildSearch(term: string, filters: Filters, page: number): URLSearchPar
   const params = new URLSearchParams();
   const trimmed = term.trim();
   if (trimmed) params.set('materia', trimmed);
+  if (filters.city.trim()) params.set('ciudad', filters.city.trim());
   if (filters.modality) params.set('modalidad', filters.modality);
   if (filters.minRating != null) params.set('rating', String(filters.minRating));
   if (filters.price.min != null) params.set('precioMin', String(filters.price.min));
@@ -181,6 +185,7 @@ export default function SearchPage({
       try {
         const result = await api.teachers({
           subjectId: subjectToUse ?? undefined,
+          city: effective.city || undefined,
           modality: effective.modality ?? undefined,
           minRating: effective.minRating ?? undefined,
           minPrice: effective.price.min ?? undefined,
@@ -290,6 +295,18 @@ export default function SearchPage({
                 <FilterX className="h-4 w-4" aria-hidden="true" /> Limpiar
               </Button>
             )}
+          </div>
+
+          <div>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-content-muted">Zona</p>
+            <Input
+              type="text"
+              value={draft.city}
+              onChange={(e) => updateDraft({ city: e.target.value })}
+              placeholder="Ej. Santa Fe"
+              maxLength={100}
+              aria-label="Filtrar por ciudad o zona"
+            />
           </div>
 
           <div>
