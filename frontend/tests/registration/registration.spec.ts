@@ -13,6 +13,7 @@ test.describe('Registro y activación de cuenta', () => {
       const email = `e2e-register-${Date.now()}@example.com`;
 
       await page.goto('/registro');
+      await page.getByLabel('Nombre y apellido').fill('E2E Estudiante');
       await page.getByLabel('Email').fill(email);
       await page.getByLabel('Contraseña', { exact: true }).fill('Password123');
       await page.getByLabel('Repetir contraseña').fill('Password123');
@@ -29,6 +30,7 @@ test.describe('Registro y activación de cuenta', () => {
     { tag: ['@medium', '@e2e', '@auth', '@AUTH-E2E-002'] },
     async ({ page }) => {
       await page.goto('/registro');
+      await page.getByLabel('Nombre y apellido').fill('E2E Estudiante');
       await page.getByLabel('Email').fill(`e2e-mismatch-${Date.now()}@example.com`);
       await page.getByLabel('Contraseña', { exact: true }).fill('Password123');
       await page.getByLabel('Repetir contraseña').fill('Password124');
