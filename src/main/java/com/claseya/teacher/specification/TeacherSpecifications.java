@@ -134,13 +134,20 @@ public final class TeacherSpecifications {
             }
             alternatives.add(cb.and(careerPath.toArray(Predicate[]::new)));
 
-            // Direct path: a subject without a career. It can answer a subject filter only;
-            // career/university filters cannot match a direct subject.
+            // Direct path: a subject without a career. It lives in its own subquery so its
+            // subject join never filters the career rows of the outer subquery. It can answer a
+            // subject filter only; career/university filters cannot match a direct subject.
             if (subjectId != null && careerId == null && universityId == null) {
-                alternatives.add(cb.and(
-                        cb.isNotNull(ts.get("subject")),
-                        cb.isTrue(ts.get("subject").get("active")),
-                        cb.equal(ts.get("subject").get("id"), subjectId)));
+                Subquery<TeacherSubject> direct = query.subquery(TeacherSubject.class);
+                Root<TeacherSubject> dts = direct.from(TeacherSubject.class);
+                direct.select(dts);
+                direct.where(cb.and(
+                        cb.equal(dts.get("teacher"), root),
+                        cb.isTrue(dts.get("active")),
+                        cb.isNotNull(dts.get("subject")),
+                        cb.isTrue(dts.get("subject").get("active")),
+                        cb.equal(dts.get("subject").get("id"), subjectId)));
+                alternatives.add(cb.exists(direct));
             }
 
             predicates.add(cb.or(alternatives.toArray(Predicate[]::new)));
