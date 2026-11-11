@@ -5,7 +5,7 @@ Documenta la persistencia real: PostgreSQL + JPA/Hibernate + Flyway. No cambia e
 ## Motor y mapeo
 
 - **PostgreSQL** como única base. **Flyway** define el schema
-  (`src/main/resources/db/migration/V1..V20`); Hibernate corre con `ddl-auto=validate`, por lo que
+  (`src/main/resources/db/migration/V1..V21`); Hibernate corre con `ddl-auto=validate`, por lo que
   el modelo JPA debe coincidir con las migraciones.
 - Mapeo JPA en el módulo `model`; todas las asociaciones se mapean del lado owning y las N:M son
   entidades join explícitas (sin `@ManyToMany`).
@@ -30,6 +30,7 @@ users 1:0..1 teacher_profiles 1:N teacher_education
                             | 1:N verification_decisions
 teacher_education 1:N verification_documents
 users 1:N email_verification_tokens
+users 1:N password_reset_tokens
 universities 1:N academic_units 1:N careers 1:N career_subjects N:1 subjects
 student_profiles N:M teacher_profiles (vía favorites)
 users N:M conversations (vía conversation_participants) 1:N messages
@@ -77,7 +78,8 @@ resuelve ambos caminos.
 - `verification_documents` (V8/V10/V15/V16): CHECK `content IS NOT NULL OR storage_key IS NOT NULL`,
   `scan_status` en `PENDING`/`CLEAN`/`INFECTED`/`UNSCANNED`; `verification_decisions` es
   append-only con CHECK de decisión/método. `email_verification_tokens.token_hash`,
-  `message_link_tokens.token_hash` y `notification_outbox.dedupe_key` son UNIQUE.
+  `password_reset_tokens.token_hash`, `message_link_tokens.token_hash` y
+  `notification_outbox.dedupe_key` son UNIQUE.
 - `reviews` (V18): UNIQUE `(student_id, teacher_id)`, `status` PUBLISHED/HIDDEN, respuesta del
   profesor y campos de moderación. `review_moderation_events` es append-only y referencia la review
   y al admin.
@@ -97,7 +99,8 @@ resuelve ambos caminos.
 - Verificación/outbox: `verification_documents(teacher_id)` y `(teacher_education_id)`,
   `verification_decisions(teacher_id, decided_at)`,
   `notification_outbox(next_attempt_at) WHERE status IN ('PENDING','FAILED')`,
-  `message_link_tokens(user_id)` y `email_verification_tokens(user_id)`. La cola admin relee
+  `message_link_tokens(user_id)`, `email_verification_tokens(user_id)` y
+  `password_reset_tokens(user_id)` (V21). La cola admin relee
   credenciales con `join fetch` para evitar N+1.
 - Reviews (V18): `reviews(teacher_id, status, created_at DESC)` para el listado público y
   `review_moderation_events(review_id, created_at DESC)` para la auditoría.
@@ -115,7 +118,8 @@ resuelve ambos caminos.
   `calendly_integrations` y de `reviews.booking_id` (ADR-032) · `V18` habilita reviews/rating
   (OPINION-001): estado, respuesta, moderación, UNIQUE por par e índice de listado · `V19` hace
   opcional el bloque académico del estudiante y agrega `level`/`city` (PROFILE-003) · `V20` permite
-  que `teacher_subjects` apunte a una materia directa sin carrera (PROFILE-004).
+  que `teacher_subjects` apunte a una materia directa sin carrera (PROFILE-004) · `V21` agrega
+  `password_reset_tokens` y el evento `PASSWORD_RESET` del outbox (AUTH-003).
 
 ## Borrado y normalización
 

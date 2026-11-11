@@ -25,6 +25,8 @@ const AdminReviewsPage = lazy(() => import('./pages/AdminReviewsPage'));
 const FavoritesPage = lazy(() => import('./pages/FavoritesPage'));
 const RegisterPage = lazy(() => import('./pages/RegisterPage'));
 const ActivateAccountPage = lazy(() => import('./pages/ActivateAccountPage'));
+const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'));
+const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 
 function RouteFallback() {
@@ -316,6 +318,13 @@ export default function App() {
             <Route path={ROUTES.register} element={<RegisterPage onLogin={requireLogin} />} />
 
             <Route path={ROUTES.activate} element={<ActivateAccountPage onLogin={requireLogin} />} />
+
+            <Route path={ROUTES.forgotPassword} element={<ForgotPasswordPage />} />
+
+            <Route
+              path={ROUTES.resetPassword}
+              element={<ResetPasswordPage onLogin={requireLogin} />}
+            />
 
             <Route
               path={ROUTES.admin}

@@ -10,6 +10,8 @@ export const ROUTES = {
   adminReviews: '/admin/opiniones',
   register: '/registro',
   activate: '/activar',
+  forgotPassword: '/recuperar',
+  resetPassword: '/restablecer',
 };
 
 /** Search URL with only the free-text term, used by the landing and category cards. */

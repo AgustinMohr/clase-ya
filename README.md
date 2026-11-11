@@ -67,7 +67,7 @@ terminada. El repositorio (código, specs, ADRs y docs) es la única fuente de v
 
 Hoy conviven piezas **ya implementadas** (autenticación, perfiles, búsqueda, favoritos, mensajería,
 verificación documental y opiniones/rating) con piezas **en desarrollo o no implementadas**
-(notificaciones in-app, recuperación de contraseña, MFA y refresh tokens). No es un producto
+(notificaciones in-app, MFA y refresh tokens). No es un producto
 terminado.
 
 ---
@@ -86,7 +86,8 @@ terminado.
 
 **Cuenta y acceso**
 - Registro e inicio de sesión con **email + contraseña** (BCrypt), con activación por enlace de un
-  solo uso enviado por email. La contraseña exige mínimo 10 caracteres, letras y números; el
+  solo uso enviado por email y **recuperación de contraseña** por enlace de un solo uso. La
+  contraseña exige mínimo 10 caracteres, letras y números; el
   registro responde siempre `202` para no revelar si el email existe.
 - Inicio de sesión con **Google OAuth** (validación de `id_token` en el backend).
 - Perfil de estudiante: nombre, nivel, ciudad (opcional) y descripción; universidad, carrera y año
@@ -121,9 +122,9 @@ terminado.
 
 ### En desarrollo o no implementadas (no las uses como si existieran)
 
-- **Notificaciones in-app** (tabla `notifications` conservada para futuro), **contraseña olvidada**,
-  **MFA** y **refresh tokens**: no implementados. (La activación de cuentas, el aviso de contacto
-  por email y las opiniones sí están implementados.)
+- **Notificaciones in-app** (tabla `notifications` conservada para futuro), **MFA** y
+  **refresh tokens**: no implementados. (La activación de cuentas, la recuperación de contraseña, el
+  aviso de contacto por email y las opiniones sí están implementados.)
 - **Chat en tiempo real (WebSockets)**: no implementado (los servicios están preparados para
   reutilizarse).
 - **Reservas / agenda / pagos / Calendly**: **fuera del rumbo del producto** (ver sección 10).
@@ -156,7 +157,7 @@ terminado.
 - **Lombok** (opcional) y `spring-boot-devtools` (solo desarrollo, no entra en el JAR).
 
 ### Persistencia
-- **PostgreSQL** como única base. El schema es propiedad de **Flyway** (migraciones `V1..V20`).
+- **PostgreSQL** como única base. El schema es propiedad de **Flyway** (migraciones `V1..V21`).
 - Hibernate corre con `ddl-auto=validate`: la app **no** genera ni modifica el schema.
 - **Testcontainers (postgres:16)** para los tests de integración.
 
@@ -364,7 +365,7 @@ sequenceDiagram
 ### Limitaciones y pendientes (no resueltas en el código)
 - **Rate limiting distribuido**: el limitador es en memoria; con varias instancias el límite efectivo
   se multiplica. Migrar a Redis requiere una spec/ADR futura.
-- Sin **refresh tokens**, recuperación de contraseña ni cambio de email.
+- Sin **refresh tokens** ni cambio de email.
 - Sin MFA ni otros proveedores sociales.
 
 ---
@@ -715,7 +716,7 @@ clase-ya/
 │  ├─ bootstrap/            DemoDataSeeder (solo desarrollo)
 ├─ src/main/resources/
 │  ├─ application.yml        Configuración (defaults solo de desarrollo)
-│  ├─ db/migration/          Migraciones Flyway V1..V20 (schema)
+│  ├─ db/migration/          Migraciones Flyway V1..V21 (schema)
 │  └─ db/seed/demo-data.sql  Dataset demo (idempotente, solo desarrollo)
 ├─ src/test/java/com/claseya/  Tests unitarios e integración (Testcontainers)
 ├─ frontend/                 SPA React + TypeScript + Vite

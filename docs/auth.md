@@ -74,6 +74,21 @@ POST /api/auth/register
 - ADMIN escape hatch: `POST /api/admin/users/{userId}/activate` → `204`. It sets `ACTIVE` but does
   **not** set `email_verified_at`.
 
+## Password reset (AUTH-003)
+
+| Endpoint | Request | Response |
+|---|---|---|
+| `POST /api/auth/forgot-password` | `{ "email": "<string>" }` | `202` always; `503` without email transport |
+| `POST /api/auth/reset-password` | `{ "token": "<string>", "newPassword": "<string>" }` | `204`; `400` invalid/expired/used/weak password |
+
+- Only a SHA-256 digest is stored (`password_reset_tokens`), with 30 min TTL and `used_at`.
+- A new request invalidates outstanding tokens for that account.
+- Only an `ACTIVE` account receives a link; the request never reveals whether the email exists.
+- The email is enqueued in `notification_outbox` as `PASSWORD_RESET`; the link points to
+  `${APP_BASE_URL}/restablecer?token=...`.
+- Both endpoints share the registration rate-limit bucket by IP (`429` + `Retry-After`).
+- A successful reset invalidates the token; existing JWT sessions still expire on their own.
+
 ## Login
 
 ```

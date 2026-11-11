@@ -127,6 +127,17 @@ export default function LoginModal({ open, onClose, onSuccess }: Props) {
             <Button type="submit" block loading={loading}>
               Ingresar
             </Button>
+
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                navigate(ROUTES.forgotPassword);
+              }}
+              className="mx-auto block text-sm font-semibold text-primary-700 underline dark:text-primary-200"
+            >
+              ¿Olvidaste tu contraseña?
+            </button>
           </form>
 
           <div className="flex items-center gap-3 text-xs uppercase tracking-wide text-content-muted">

@@ -104,6 +104,8 @@ public class RateLimitFilter extends OncePerRequestFilter {
             // AUTH-001: activation/resend share the registration bucket (no new scope in this change).
             case "/api/auth/resend-activation" -> RateLimitScope.REGISTER_IP;
             case "/api/auth/activate" -> RateLimitScope.REGISTER_IP;
+            case "/api/auth/forgot-password" -> RateLimitScope.REGISTER_IP;
+            case "/api/auth/reset-password" -> RateLimitScope.REGISTER_IP;
             case "/api/auth/google" -> RateLimitScope.GOOGLE_IP;
 
             case "/api/conversations" -> RateLimitScope.CONTACT_USER;

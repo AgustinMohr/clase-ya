@@ -25,3 +25,21 @@ export function validateRegistration(form: RegistrationForm): RegistrationErrors
   }
   return errors;
 }
+
+export interface PasswordResetForm {
+  password: string;
+  confirmation: string;
+}
+
+export type PasswordResetErrors = Partial<Record<keyof PasswordResetForm, string>>;
+
+export function validatePasswordReset(form: PasswordResetForm): PasswordResetErrors {
+  const errors: PasswordResetErrors = {};
+  if (form.password.length < 10 || !/\p{L}/u.test(form.password) || !/\d/.test(form.password)) {
+    errors.password = 'Usá al menos 10 caracteres, con letras y números.';
+  }
+  if (form.confirmation !== form.password) {
+    errors.confirmation = 'Las contraseñas no coinciden.';
+  }
+  return errors;
+}

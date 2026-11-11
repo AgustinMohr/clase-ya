@@ -52,6 +52,27 @@ public class NotificationOutboxService {
         repository.save(entry);
     }
 
+    /** Queues a single-use password-reset link (AUTH-003). */
+    @Transactional
+    public void enqueuePasswordReset(UUID recipientUserId, String email, UUID tokenId, String rawToken) {
+        String dedupeKey = "password-reset:" + tokenId;
+        if (repository.existsByDedupeKey(dedupeKey)) {
+            return;
+        }
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("email", email);
+        payload.put("token", rawToken);
+
+        NotificationOutboxEntry entry = new NotificationOutboxEntry();
+        entry.setEventType(NotificationEventType.PASSWORD_RESET);
+        entry.setRecipientUserId(recipientUserId);
+        entry.setDedupeKey(dedupeKey);
+        entry.setPayload(payload);
+        entry.setStatus(OutboxStatus.PENDING);
+        entry.setNextAttemptAt(Instant.now());
+        repository.save(entry);
+    }
+
     /**
      * Queues the teacher notification for a new contact. The dedupe key is the conversation, so a
      * retry (or a second call for the same thread) never sends two emails.

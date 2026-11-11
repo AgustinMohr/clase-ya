@@ -181,6 +181,8 @@ app:
       # link) to the application log. Use SMTP in any real environment.
       log-links: ${AUTH_LOG_ACTIVATION_LINKS:false}
       from: ${MAIL_FROM:no-reply@claseya.app}
+    password-reset:
+      token-ttl: ${AUTH_PASSWORD_RESET_TTL:PT30M}
     captcha:
       # SEC-04: Cloudflare Turnstile on registration. Off locally/tests; on in production
       # together with TURNSTILE_SECRET and the SPA's VITE_TURNSTILE_SITE_KEY.

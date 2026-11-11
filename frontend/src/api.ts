@@ -673,6 +673,11 @@ export const api = {
   activate: (token: string) => request<void>('POST', '/api/auth/activate', { token }),
   /** Always 202: the backend never reveals whether the email is registered. */
   resendActivation: (email: string) => request<void>('POST', '/api/auth/resend-activation', { email }),
+  /** AUTH-003: always 202; only an active account receives the single-use link. */
+  forgotPassword: (email: string) =>
+    request<void>('POST', '/api/auth/forgot-password', { email }),
+  resetPassword: (token: string, newPassword: string) =>
+    request<void>('POST', '/api/auth/reset-password', { token, newPassword }),
   me: () => request<SessionUser>('GET', '/api/auth/me'),
   logout: () => request<void>('POST', '/api/auth/logout', undefined, true),
 
