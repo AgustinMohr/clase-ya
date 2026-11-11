@@ -144,7 +144,7 @@ export default function App() {
     user &&
       user.role === 'STUDENT' &&
       profileChecked &&
-      (!profile || !profile.name?.trim()),
+      (!profile || !profile.name?.trim() || !profile.level),
   );
   const isAdminSection =
     location.pathname === ROUTES.admin || location.pathname.startsWith(`${ROUTES.admin}/`);

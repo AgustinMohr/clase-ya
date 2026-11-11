@@ -42,17 +42,19 @@ public class StudentProfileService {
         if (studentProfileRepository.existsByUser_Id(userId)) {
             throw new ConflictException("Student profile already exists");
         }
-        University university = requireActiveUniversity(request.universityId());
-        Career career = requireActiveCareerInUniversity(request.careerId(), request.universityId());
+        AcademicSelection academic = resolveAcademic(
+                request.universityId(), request.careerId(), request.currentYear());
 
         User user = userRepository.getReferenceById(userId);
         applyVisibleName(user, request.name());
 
         StudentProfile profile = new StudentProfile();
         profile.setUser(user);
-        profile.setUniversity(university);
-        profile.setCareer(career);
+        profile.setUniversity(academic.university());
+        profile.setCareer(academic.career());
         profile.setCurrentYear(request.currentYear());
+        profile.setLevel(request.level());
+        profile.setCity(blankToNull(request.city()));
         profile.setBio(request.bio());
         return StudentProfileResponse.from(studentProfileRepository.saveAndFlush(profile));
     }
@@ -65,15 +67,39 @@ public class StudentProfileService {
     @Transactional
     public StudentProfileResponse update(UUID userId, UpdateStudentProfileRequest request) {
         StudentProfile profile = requireByUser(userId);
-        University university = requireActiveUniversity(request.universityId());
-        Career career = requireActiveCareerInUniversity(request.careerId(), request.universityId());
+        AcademicSelection academic = resolveAcademic(
+                request.universityId(), request.careerId(), request.currentYear());
 
         applyVisibleName(profile.getUser(), request.name());
-        profile.setUniversity(university);
-        profile.setCareer(career);
+        profile.setUniversity(academic.university());
+        profile.setCareer(academic.career());
         profile.setCurrentYear(request.currentYear());
+        profile.setLevel(request.level());
+        profile.setCity(blankToNull(request.city()));
         profile.setBio(request.bio());
         return StudentProfileResponse.from(studentProfileRepository.saveAndFlush(profile));
+    }
+
+    /**
+     * PROFILE-003: the academic pair is optional, but it cannot be half-filled. A career without
+     * its university (or vice versa) would let the UI show an inconsistent profile.
+     */
+    private AcademicSelection resolveAcademic(UUID universityId, UUID careerId, Integer currentYear) {
+        boolean hasUniversity = universityId != null;
+        boolean hasCareer = careerId != null;
+        if (hasUniversity != hasCareer) {
+            throw new InvalidAssociationException("universityId and careerId must be provided together");
+        }
+        if (!hasCareer) {
+            if (currentYear != null) {
+                throw new InvalidAssociationException(
+                        "currentYear requires universityId and careerId");
+            }
+            return new AcademicSelection(null, null);
+        }
+        University university = requireActiveUniversity(universityId);
+        Career career = requireActiveCareerInUniversity(careerId, universityId);
+        return new AcademicSelection(university, career);
     }
 
     /**
@@ -84,6 +110,13 @@ public class StudentProfileService {
         if (name != null && !name.isBlank()) {
             user.setName(name.trim());
         }
+    }
+
+    private static String blankToNull(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return value.trim();
     }
 
     private StudentProfile requireByUser(UUID userId) {
@@ -105,5 +138,8 @@ public class StudentProfileService {
             throw new InvalidAssociationException("Career does not belong to the specified university");
         }
         return career;
+    }
+
+    private record AcademicSelection(University university, Career career) {
     }
 }

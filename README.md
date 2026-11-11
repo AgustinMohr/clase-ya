@@ -89,7 +89,8 @@ terminado.
   solo uso enviado por email. La contraseña exige mínimo 10 caracteres, letras y números; el
   registro responde siempre `202` para no revelar si el email existe.
 - Inicio de sesión con **Google OAuth** (validación de `id_token` en el backend).
-- Perfil de estudiante: universidad, carrera, año y descripción.
+- Perfil de estudiante: nombre, nivel, ciudad (opcional) y descripción; universidad, carrera y año
+  quedan como datos académicos opcionales.
 
 **Para estudiantes**
 - Guardar y quitar profesores de **Mis favoritos**.
@@ -154,7 +155,7 @@ terminado.
 - **Lombok** (opcional) y `spring-boot-devtools` (solo desarrollo, no entra en el JAR).
 
 ### Persistencia
-- **PostgreSQL** como única base. El schema es propiedad de **Flyway** (migraciones `V1..V18`).
+- **PostgreSQL** como única base. El schema es propiedad de **Flyway** (migraciones `V1..V19`).
 - Hibernate corre con `ddl-auto=validate`: la app **no** genera ni modifica el schema.
 - **Testcontainers (postgres:16)** para los tests de integración.
 
@@ -713,7 +714,7 @@ clase-ya/
 │  ├─ bootstrap/            DemoDataSeeder (solo desarrollo)
 ├─ src/main/resources/
 │  ├─ application.yml        Configuración (defaults solo de desarrollo)
-│  ├─ db/migration/          Migraciones Flyway V1..V18 (schema)
+│  ├─ db/migration/          Migraciones Flyway V1..V19 (schema)
 │  └─ db/seed/demo-data.sql  Dataset demo (idempotente, solo desarrollo)
 ├─ src/test/java/com/claseya/  Tests unitarios e integración (Testcontainers)
 ├─ frontend/                 SPA React + TypeScript + Vite

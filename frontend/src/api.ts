@@ -108,24 +108,30 @@ export interface Career {
   code?: string | null;
 }
 
+export type StudentLevel = 'PRIMARIA' | 'SECUNDARIA' | 'TERCIARIO' | 'UNIVERSIDAD' | 'ADULTO';
+
 export interface StudentProfile {
   id: string;
   userId: string;
   name?: string | null;
-  universityId: string;
-  universityName: string;
-  academicUnitId: string;
-  careerId: string;
-  careerName: string;
-  currentYear: number;
+  level?: StudentLevel | null;
+  city?: string | null;
+  universityId?: string | null;
+  universityName?: string | null;
+  academicUnitId?: string | null;
+  careerId?: string | null;
+  careerName?: string | null;
+  currentYear?: number | null;
   bio?: string | null;
 }
 
 export interface StudentProfileInput {
   name: string;
-  universityId: string;
-  careerId: string;
-  currentYear: number;
+  level: StudentLevel;
+  city?: string;
+  universityId?: string;
+  careerId?: string;
+  currentYear?: number;
   bio?: string;
 }
 

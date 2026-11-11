@@ -3,6 +3,7 @@ package com.claseya;
 import com.claseya.model.User;
 import com.claseya.model.enums.UserRole;
 import com.claseya.model.enums.UserStatus;
+import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.api.Test;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,7 +34,8 @@ class StudentProfileIntegrationTest extends AbstractWebIntegrationTest {
 
     private String profileBody(String universityId, String careerId, int year) {
         return """
-                {"name":"Estudiante Test","universityId":"%s","careerId":"%s","currentYear":%d,"bio":"Estudiante"}
+                {"name":"Estudiante Test","level":"UNIVERSIDAD","city":"Santa Fe",
+                 "universityId":"%s","careerId":"%s","currentYear":%d,"bio":"Estudiante"}
                 """.formatted(universityId, careerId, year);
     }
 
@@ -46,12 +48,43 @@ class StudentProfileIntegrationTest extends AbstractWebIntegrationTest {
                 profileBody(unl.universityId, unl.careerId, 2), 201);
         assertThat(toJson(created).get("email").asText()).isEqualTo("stu@example.com");
         assertThat(toJson(created).get("name").asText()).isEqualTo("Estudiante Test");
+        assertThat(toJson(created).get("level").asText()).isEqualTo("UNIVERSIDAD");
+        assertThat(toJson(created).get("city").asText()).isEqualTo("Santa Fe");
 
         String me = getJson("/api/students/me", bearer(student), 200);
         assertThat(toJson(me).get("careerName").asText()).startsWith("Ingenier");
         assertThat(toJson(me).get("academicUnitId").asText()).isEqualTo(unl.unitId);
         assertThat(toJson(me).get("currentYear").asInt()).isEqualTo(2);
         assertThat(toJson(me).get("name").asText()).isEqualTo("Estudiante Test");
+    }
+
+    @Test
+    void student_canCreateMinimalProfileWithoutAcademicData() throws Exception {
+        User student = createUser("minimal@example.com", UserRole.STUDENT, UserStatus.ACTIVE);
+
+        String created = postJson("/api/students/profile", bearer(student),
+                """
+                {"name":"Estudiante Secundaria","level":"SECUNDARIA","city":"Santa Fe"}
+                """, 201);
+
+        JsonNode body = toJson(created);
+        assertThat(body.get("name").asText()).isEqualTo("Estudiante Secundaria");
+        assertThat(body.get("level").asText()).isEqualTo("SECUNDARIA");
+        assertThat(body.get("city").asText()).isEqualTo("Santa Fe");
+        assertThat(body.get("universityId").isNull()).isTrue();
+        assertThat(body.get("careerId").isNull()).isTrue();
+        assertThat(body.get("currentYear").isNull()).isTrue();
+    }
+
+    @Test
+    void student_cannotSendHalfAnAcademicPair_returns400() throws Exception {
+        Seed unl = seedUniversityCareer("UNL", "FICH", "Ingeniería en Informática");
+        User student = createUser("half@example.com", UserRole.STUDENT, UserStatus.ACTIVE);
+
+        postJson("/api/students/profile", bearer(student),
+                """
+                {"name":"Medio Par","level":"UNIVERSIDAD","universityId":"%s"}
+                """.formatted(unl.universityId), 400);
     }
 
     @Test
@@ -105,11 +138,14 @@ class StudentProfileIntegrationTest extends AbstractWebIntegrationTest {
 
         String updated = putJson("/api/students/me", token,
                 """
-                {"name":"Nombre Actualizado","universityId":"%s","careerId":"%s","currentYear":4,"bio":"Nueva bio"}
+                {"name":"Nombre Actualizado","level":"TERCIARIO","city":"Rosario",
+                 "universityId":"%s","careerId":"%s","currentYear":4,"bio":"Nueva bio"}
                 """.formatted(unl.universityId, unl.careerId), 200);
         assertThat(toJson(updated).get("currentYear").asInt()).isEqualTo(4);
         assertThat(toJson(updated).get("bio").asText()).isEqualTo("Nueva bio");
         assertThat(toJson(updated).get("name").asText()).isEqualTo("Nombre Actualizado");
+        assertThat(toJson(updated).get("level").asText()).isEqualTo("TERCIARIO");
+        assertThat(toJson(updated).get("city").asText()).isEqualTo("Rosario");
     }
 
     @Test
