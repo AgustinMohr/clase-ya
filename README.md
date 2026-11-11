@@ -465,10 +465,14 @@ hosting no permite un escáner (Render Free no puede), `SCAN_ENABLED=false` +
 `ALLOW_UNSCANNED_EVIDENCE=true` mantiene el sistema operativo **declarando** que la evidencia no se
 escaneó; ver `STOR-002` y `ADR-031`.
 
-**Guard de arranque (CFG-01):** fuera de los perfiles `local` y `test`, la aplicación **no arranca**
-si `CAPTCHA_ENABLED` no es `true`, si `DEMO_SEED` es `true`, o si `SCAN_ENABLED` es `false` sin
-`ALLOW_UNSCANNED_EVIDENCE=true` (`ProductionConfigValidator`). Es a propósito: un deploy que olvide
-una variable falla fuerte en vez de servir evidencia sin escanear sin que nadie lo haya decidido.
+**Guard de arranque (CFG-01 / OPS-004):** fuera de los perfiles `local` y `test`, la aplicación
+**no arranca** si `CAPTCHA_ENABLED` no es `true`, si `DEMO_SEED` es `true`, o si `SCAN_ENABLED` es
+`false` sin `ALLOW_UNSCANNED_EVIDENCE=true`. Tampoco arranca si `APP_BASE_URL` o `FRONTEND_URL` no
+son orígenes HTTPS públicos, si `COOKIE_SECURE` es `false`, si `COOKIE_SAME_SITE` es inválido o
+`None` sin Secure, o si el transporte de email no está configurado (`smtp` + `MAIL_HOST`, o
+`brevo` + `EMAIL_API_KEY`). Todos los problemas se reportan juntos (`ProductionConfigValidator`). Es
+a propósito: un deploy que olvide una variable falla fuerte en vez de servir un registro roto,
+enlaces a `localhost` o evidencia sin escanear sin que nadie lo haya decidido.
 
 ### Base de datos local (Docker)
 
