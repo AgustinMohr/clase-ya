@@ -177,6 +177,15 @@ class TeacherSearchIntegrationTest extends AbstractWebIntegrationTest {
         return toJson(getJson("/api/teachers" + query, null, 200));
     }
 
+    private JsonNode searchWithCity(String city) throws Exception {
+        String body = mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .get("/api/teachers")
+                        .param("city", city))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        return toJson(body);
+    }
+
     private List<String> contentNames(JsonNode page) {
         List<String> names = new ArrayList<>();
         page.get("content").forEach(node -> names.add(node.get("displayName").asText()));
@@ -222,10 +231,12 @@ class TeacherSearchIntegrationTest extends AbstractWebIntegrationTest {
         seedTeacher("Sin Ciudad", UserStatus.ACTIVE, VerificationStatus.VERIFIED,
                 new BigDecimal("4.5"), 3, null, null, List.of(cat.csA), TeachingModality.ONLINE);
 
-        assertThat(contentNames(search("?city=Santa%20Fe"))).containsExactly("Ana Santa Fe");
-        assertThat(contentNames(search("?city=%20santa%20fe%20"))).containsExactly("Ana Santa Fe");
-        assertThat(contentNames(search("?city=Rosario"))).containsExactly("Bruno Rosario");
-        assertThat(contentNames(search("?city="))).hasSize(3);
+        assertThat(teacherProfileRepository.findById(ana.getId()).orElseThrow().getCity())
+                .isEqualTo("Santa Fe");
+        assertThat(contentNames(searchWithCity("Santa Fe"))).containsExactly("Ana Santa Fe");
+        assertThat(contentNames(searchWithCity(" santa fe "))).containsExactly("Ana Santa Fe");
+        assertThat(contentNames(searchWithCity("Rosario"))).containsExactly("Bruno Rosario");
+        assertThat(contentNames(searchWithCity(""))).hasSize(3);
 
         getJson("/api/teachers?city=" + "x".repeat(101), null, 400);
     }
