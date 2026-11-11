@@ -71,9 +71,9 @@ class StudentProfileIntegrationTest extends AbstractWebIntegrationTest {
         assertThat(body.get("name").asText()).isEqualTo("Estudiante Secundaria");
         assertThat(body.get("level").asText()).isEqualTo("SECUNDARIA");
         assertThat(body.get("city").asText()).isEqualTo("Santa Fe");
-        assertThat(body.get("universityId").isNull()).isTrue();
-        assertThat(body.get("careerId").isNull()).isTrue();
-        assertThat(body.get("currentYear").isNull()).isTrue();
+        assertThat(body.has("universityId")).isFalse();
+        assertThat(body.has("careerId")).isFalse();
+        assertThat(body.has("currentYear")).isFalse();
     }
 
     @Test
