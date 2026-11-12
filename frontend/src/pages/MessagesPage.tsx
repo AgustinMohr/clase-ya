@@ -16,7 +16,7 @@ import { EmptyState, Skeleton } from '../components/ui/primitives';
 import Modal from '../components/ui/Modal';
 import { useToast } from '../components/ui/Toast';
 import ReportModal from '../components/ReportModal';
-import { mergeMessages } from '../lib/messaging';
+import { mergeConversations, mergeMessages } from '../lib/messaging';
 import { ROUTES } from '../routes';
 
 interface Thread {
@@ -29,6 +29,7 @@ interface Thread {
 /** AUDIT-1.7: a visible tab notices replies without a manual refresh. */
 const POLL_INTERVAL_MS = 20_000;
 const NEAR_BOTTOM_PX = 80;
+const CONVERSATION_PAGE_SIZE = 50;
 
 function formatWhen(value: string | undefined): string {
   if (!value) return '';
@@ -49,6 +50,9 @@ export default function MessagesPage() {
 
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [loadingList, setLoadingList] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [conversationPage, setConversationPage] = useState(0);
+  const [conversationTotalPages, setConversationTotalPages] = useState(0);
   const [listError, setListError] = useState('');
   const [openId, setOpenId] = useState<string | null>(null);
   const [other, setOther] = useState<Thread['other'] | null>(null);
@@ -82,8 +86,15 @@ export default function MessagesPage() {
       setLoadingList(true);
     }
     try {
-      const page = await api.conversations(0, 50);
-      setConversations(page.content);
+      const page = await api.conversations(0, CONVERSATION_PAGE_SIZE);
+      // Polling refreshes page 0; keep older pages the user already loaded.
+      setConversations((previous) =>
+        silent ? mergeConversations(page.content, previous) : page.content,
+      );
+      if (!silent) {
+        setConversationPage(0);
+      }
+      setConversationTotalPages(page.totalPages);
       setListError('');
     } catch {
       if (!silent) {
@@ -95,6 +106,21 @@ export default function MessagesPage() {
       }
     }
   }, []);
+
+  async function loadMoreConversations() {
+    if (loadingMore || conversationPage + 1 >= conversationTotalPages) return;
+    setLoadingMore(true);
+    try {
+      const page = await api.conversations(conversationPage + 1, CONVERSATION_PAGE_SIZE);
+      setConversations((previous) => mergeConversations(previous, page.content));
+      setConversationPage((previous) => previous + 1);
+      setConversationTotalPages(page.totalPages);
+    } catch {
+      notify('No pudimos cargar más conversaciones.', 'error');
+    } finally {
+      setLoadingMore(false);
+    }
+  }
 
   useEffect(() => {
     void loadConversations();
@@ -399,34 +425,48 @@ export default function MessagesPage() {
               }
             />
           ) : (
-            <ul className="space-y-2">
-              {conversations.map((conversation) => (
-                <li key={conversation.id}>
-                  <button
-                    type="button"
-                    onClick={() => navigate(ROUTES.conversation(conversation.id))}
-                    className={`w-full rounded-2xl border p-4 text-left transition-colors ${
-                      openId === conversation.id
-                        ? 'border-primary-300 bg-primary-50/60 dark:border-primary-800 dark:bg-primary-900/20'
-                        : 'border-border bg-surface hover:bg-surface-muted'
-                    }`}
+            <>
+              <ul className="space-y-2">
+                {conversations.map((conversation) => (
+                  <li key={conversation.id}>
+                    <button
+                      type="button"
+                      onClick={() => navigate(ROUTES.conversation(conversation.id))}
+                      className={`w-full rounded-2xl border p-4 text-left transition-colors ${
+                        openId === conversation.id
+                          ? 'border-primary-300 bg-primary-50/60 dark:border-primary-800 dark:bg-primary-900/20'
+                          : 'border-border bg-surface hover:bg-surface-muted'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-semibold">{conversation.otherParticipant.displayName || 'Sin nombre'}</span>
+                        {conversation.unreadCount > 0 && (
+                          <span className="rounded-full bg-primary-600 px-2 py-0.5 text-xs font-bold text-white">
+                            {conversation.unreadCount}
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-1 truncate text-sm text-content-muted">
+                        {conversation.lastMessage?.content ?? 'Sin mensajes todavía'}
+                      </p>
+                      <p className="mt-1 text-[11px] text-content-muted">{formatWhen(conversation.updatedAt)}</p>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              {conversationPage + 1 < conversationTotalPages && (
+                <div className="mt-3 flex justify-center">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    loading={loadingMore}
+                    onClick={() => void loadMoreConversations()}
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-semibold">{conversation.otherParticipant.displayName || 'Sin nombre'}</span>
-                      {conversation.unreadCount > 0 && (
-                        <span className="rounded-full bg-primary-600 px-2 py-0.5 text-xs font-bold text-white">
-                          {conversation.unreadCount}
-                        </span>
-                      )}
-                    </div>
-                    <p className="mt-1 truncate text-sm text-content-muted">
-                      {conversation.lastMessage?.content ?? 'Sin mensajes todavía'}
-                    </p>
-                    <p className="mt-1 text-[11px] text-content-muted">{formatWhen(conversation.updatedAt)}</p>
-                  </button>
-                </li>
-              ))}
-            </ul>
+                    Cargar más conversaciones
+                  </Button>
+                </div>
+              )}
+            </>
           )}
         </section>
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { Message } from '../api';
-import { mergeMessages } from './messaging';
+import type { ConversationSummary, Message } from '../api';
+import { mergeConversations, mergeMessages } from './messaging';
 
 function message(id: string, createdAt: string, content = id): Message {
   return {
@@ -34,5 +34,30 @@ describe('mergeMessages', () => {
     const latestPage = [message('m9', '2026-11-11T10:09:00Z')];
 
     expect(mergeMessages(current, latestPage).map((item) => item.id)).toEqual(['m1', 'm9']);
+  });
+});
+
+describe('mergeConversations', () => {
+  function conversation(id: string): ConversationSummary {
+    return {
+      id,
+      otherParticipant: { id: `user-${id}`, displayName: id, role: 'TEACHER' },
+      unreadCount: 0,
+      updatedAt: '2026-11-11T10:00:00Z',
+    };
+  }
+
+  it('keeps the fresh page first and appends unseen older conversations', () => {
+    const primary = [conversation('c3'), conversation('c2')];
+    const older = [conversation('c2'), conversation('c1')];
+
+    expect(mergeConversations(primary, older).map((item) => item.id)).toEqual(['c3', 'c2', 'c1']);
+  });
+
+  it('does not duplicate a conversation refreshed by polling', () => {
+    const refreshed = [conversation('c2')];
+    const loaded = [conversation('c2'), conversation('c1')];
+
+    expect(mergeConversations(refreshed, loaded).map((item) => item.id)).toEqual(['c2', 'c1']);
   });
 });

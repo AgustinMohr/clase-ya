@@ -1,4 +1,4 @@
-import type { Message } from '../api';
+import type { ConversationSummary, Message } from '../api';
 
 /**
  * Merges a freshly polled page with the messages already rendered for a thread.
@@ -14,4 +14,16 @@ export function mergeMessages(current: Message[], incoming: Message[]): Message[
     (left, right) =>
       left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id),
   );
+}
+
+/**
+ * Merges conversation pages without duplicates. The first array keeps its order (fresh page 0),
+ * and unseen older conversations are appended.
+ */
+export function mergeConversations(
+  primary: ConversationSummary[],
+  secondary: ConversationSummary[],
+): ConversationSummary[] {
+  const seen = new Set(primary.map((conversation) => conversation.id));
+  return [...primary, ...secondary.filter((conversation) => !seen.has(conversation.id))];
 }
