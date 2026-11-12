@@ -29,8 +29,11 @@ export default function LoginModal({ open, onClose, onSuccess }: Props) {
 
   function describe(e: unknown): string {
     if (e instanceof ApiError) {
-      const detail = e.message && e.message.trim().length > 0 ? e.message : 'Error';
-      return `[${e.status}] ${detail}`;
+      if (e.status === 401) return 'Email o contraseña incorrectos.';
+      if (e.status === 429) return 'Demasiados intentos. Esperá unos minutos e intentá de nuevo.';
+      if (e.status >= 500) return 'El servidor no está disponible. Intentá de nuevo en unos minutos.';
+      if (e.status === 400) return 'Revisá los datos e intentá de nuevo.';
+      return 'No pudimos iniciar sesión. Intentá de nuevo.';
     }
     return 'No pudimos conectar con el servidor.';
   }
