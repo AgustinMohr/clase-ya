@@ -418,7 +418,7 @@ desarrollo**:
 | `DB_URL` | `jdbc:postgresql://localhost:5432/claseya` | Conexión JDBC |
 | `DB_USERNAME` / `DB_PASSWORD` | `claseya` / `claseya` | Credenciales de la base |
 | `JWT_SECRET` | placeholder de dev | Clave de firma JWT. **Obligatoria** y ≥32 bytes fuera de `local` |
-| `JWT_EXPIRATION` | `3600` | Vida del token (segundos) |
+| `JWT_EXPIRATION` | `43200` | Vida del token (segundos; 12 h) |
 | `COOKIE_SECURE` | `true` | Flag `Secure` de las cookies de sesión/CSRF. `false` **solo** para HTTP local |
 | `COOKIE_SAME_SITE` | `Lax` | `Lax` para SPA/API same-site; `None` (+ `Secure`) si el API está en otro sitio |
 | `FRONTEND_URL` | `http://localhost:3000,http://localhost:5173` | Orígenes permitidos por CORS (lista separada por comas) |

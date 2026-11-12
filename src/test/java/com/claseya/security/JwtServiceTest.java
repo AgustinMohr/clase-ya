@@ -51,6 +51,7 @@ class JwtServiceTest {
         assertNotNull(claims.getId(), "jti is required for future revocation");
         assertNotNull(claims.getIssuedAt());
         assertNotNull(claims.getExpiration());
+        assertEquals(0, ((Number) claims.get("ver")).intValue(), "session version claim");
         // SEC-002: no PII (email) and no role: the backend reloads both from the database.
         assertNull(claims.get("email"));
         assertNull(claims.get("role"));

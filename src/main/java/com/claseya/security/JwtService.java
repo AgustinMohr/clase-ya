@@ -40,6 +40,7 @@ public class JwtService {
         return Jwts.builder()
                 .id(UUID.randomUUID().toString())
                 .subject(user.getId().toString())
+                .claim("ver", user.getSessionVersion())
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plusSeconds(expirationSeconds)))
                 .signWith(key)

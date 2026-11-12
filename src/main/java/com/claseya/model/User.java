@@ -62,6 +62,10 @@ public class User {
     @Column(name = "last_login_at")
     private Instant lastLoginAt;
 
+    /** AUTH-004: incremented on logout/password reset; JWTs carry the version they were issued with. */
+    @Column(name = "session_version", nullable = false)
+    private Integer sessionVersion = 0;
+
     /** Set when the owner proves ownership through the activation link (AUTH-001). */
     @Column(name = "email_verified_at")
     private Instant emailVerifiedAt;

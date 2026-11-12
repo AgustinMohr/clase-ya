@@ -9,7 +9,8 @@ real; ver el paquete `security` y `SecurityConfig`.
   auto-registrarse) crea una cuenta `PENDING`; `POST /api/auth/login` autentica email+password a
   través del `AuthenticationManager` de Spring Security → `DaoAuthenticationProvider` con
   `AppUserDetailsService` + `BCryptPasswordEncoder`, y devuelve `{user, expiresIn}` + cookie
-  `CLASEYA_SESSION` (`HttpOnly`, `Secure`, `SameSite`). El JWT no viaja en el body.
+  `CLASEYA_SESSION` (`HttpOnly`, `Secure`, `SameSite`). El JWT no viaja en el body. Desde AUTH-004
+  la vida por defecto es **12 h** (`JWT_EXPIRATION`).
 - **Ciclo de cuenta**: solo `status = ACTIVE` puede autenticarse. Las cuentas
   `PENDING`/`INACTIVE`/`SUSPENDED` se tratan como deshabilitadas (`AppUserDetails.isEnabled()`),
   por lo que un token ya emitido se rechaza en el siguiente request (el filtro recarga el usuario
@@ -27,8 +28,11 @@ real; ver el paquete `security` y `SecurityConfig`.
   email **no se envía dentro de la transacción**: el
   token se guarda (solo el hash) y se encola `ACTIVATION` en `notification_outbox`; el worker entrega
   después del commit y borra el token crudo del payload al llegar a `SENT`/`DEAD`.
-- **FUTURO**: refresh tokens, revocación server-side de JWT (usar `jti`), password reset, MFA,
-  otros proveedores sociales.
+- **AUTH-004 (implementado)**: el JWT lleva `ver` (versión de sesión del usuario). Logout y reset
+  de contraseña incrementan `users.session_version`; un token con versión vieja no autentica, sin
+  una consulta extra (la versión viene con la fila `users` que el filtro ya carga). El logout
+  invalida todas las sesiones de la cuenta y borra la cookie.
+- **FUTURO**: refresh tokens con rotación, MFA, otros proveedores sociales.
 - **Google OAuth (OAUTH-001, implementado)**: `POST /api/auth/google` valida el `id_token` de
   Google (firma/JWKS, `iss`, `aud`, `exp`, `email_verified`) y vincula por `users.google_sub`
   (único). Nuevos por Google = `ACTIVE`; una cuenta password solo se vincula si está `ACTIVE` y su
@@ -65,9 +69,9 @@ real; ver el paquete `security` y `SecurityConfig`.
   Prometheus, trazas distribuidas y alertas.
 - `JWT_SECRET`/`JWT_EXPIRATION`/`DB_*`/`FRONTEND_URL` vienen de variables de entorno.
   `application.yml` tiene defaults **solo de desarrollo**; no son secretos de producción.
-- Claims del JWT mínimos: `sub` (id de usuario), `jti` (único), `iat`, `exp`. **Sin email, nombre
-  ni rol**: el backend recarga usuario y authorities desde la base en cada request. `jti` habilita
-  una futura lista de revocación.
+- Claims del JWT mínimos: `sub` (id de usuario), `jti` (único), `iat`, `exp` y `ver` (versión de
+  sesión, AUTH-004). **Sin email, nombre ni rol**: el backend recarga usuario y authorities desde
+  la base en cada request.
 - Cookies: `CLASEYA_SESSION` (`HttpOnly`, `Secure` configurable, `SameSite` configurable) y
   `XSRF-TOKEN` (`HttpOnly`) para el doble submit. Variables `COOKIE_SECURE` /
   `COOKIE_SAME_SITE`; ver ADR-020. En producción el SPA y el API se sirven bajo el mismo origen

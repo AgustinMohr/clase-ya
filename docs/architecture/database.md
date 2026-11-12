@@ -126,7 +126,8 @@ resuelve ambos caminos.
   opcional el bloque académico del estudiante y agrega `level`/`city` (PROFILE-003) · `V20` permite
   que `teacher_subjects` apunte a una materia directa sin carrera (PROFILE-004) · `V21` agrega
   `password_reset_tokens` y el evento `PASSWORD_RESET` del outbox (AUTH-003) · `V22` activa
-  `reports` y agrega `user_blocks` para reportes/bloqueo (REPORT-001).
+  `reports` y agrega `user_blocks` para reportes/bloqueo (REPORT-001) · `V23` agrega
+  `users.session_version` para revocar sesiones en logout/reset (AUTH-004).
 
 ## Borrado y normalización
 

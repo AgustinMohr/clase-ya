@@ -14,11 +14,14 @@ import com.claseya.auth.dto.SessionUserResponse;
 import com.claseya.auth.service.AuthService;
 import com.claseya.auth.service.MessageLinkAuthService;
 import com.claseya.auth.service.PasswordResetService;
+import com.claseya.auth.service.SessionService;
+import com.claseya.security.AppUserDetails;
 import com.claseya.security.AuthCookieFactory;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -33,15 +36,18 @@ public class AuthController {
     private final AuthService authService;
     private final MessageLinkAuthService messageLinkAuthService;
     private final PasswordResetService passwordResetService;
+    private final SessionService sessionService;
     private final AuthCookieFactory cookieFactory;
 
     public AuthController(AuthService authService,
                           MessageLinkAuthService messageLinkAuthService,
                           PasswordResetService passwordResetService,
+                          SessionService sessionService,
                           AuthCookieFactory cookieFactory) {
         this.authService = authService;
         this.messageLinkAuthService = messageLinkAuthService;
         this.passwordResetService = passwordResetService;
+        this.sessionService = sessionService;
         this.cookieFactory = cookieFactory;
     }
 
@@ -97,7 +103,11 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<Void> logout(HttpServletResponse response) {
+    public ResponseEntity<Void> logout(Authentication authentication, HttpServletResponse response) {
+        // AUTH-004: logout is not just "delete the cookie"; older tokens stop working too.
+        if (authentication != null && authentication.getPrincipal() instanceof AppUserDetails user) {
+            sessionService.invalidateAllSessions(user.getId());
+        }
         response.addHeader(HttpHeaders.SET_COOKIE, cookieFactory.clearedSession().toString());
         return ResponseEntity.noContent().build();
     }

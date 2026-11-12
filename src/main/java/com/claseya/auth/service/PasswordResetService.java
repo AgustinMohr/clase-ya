@@ -41,6 +41,7 @@ public class PasswordResetService {
     private final PasswordEncoder passwordEncoder;
     private final NotificationOutboxService outbox;
     private final EmailSender emailSender;
+    private final SessionService sessionService;
     private final Duration tokenTtl;
 
     public PasswordResetService(PasswordResetTokenRepository tokenRepository,
@@ -48,12 +49,14 @@ public class PasswordResetService {
                                 PasswordEncoder passwordEncoder,
                                 NotificationOutboxService outbox,
                                 EmailSender emailSender,
+                                SessionService sessionService,
                                 @Value("${app.auth.password-reset.token-ttl:PT30M}") Duration tokenTtl) {
         this.tokenRepository = tokenRepository;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.outbox = outbox;
         this.emailSender = emailSender;
+        this.sessionService = sessionService;
         this.tokenTtl = tokenTtl;
     }
 
@@ -96,6 +99,8 @@ public class PasswordResetService {
         }
         user.setPasswordHash(passwordEncoder.encode(newPassword));
         userRepository.save(user);
+        // AUTH-004: any session opened with the old password must stop working.
+        sessionService.invalidateAllSessions(user.getId());
     }
 
     private void issue(User user) {

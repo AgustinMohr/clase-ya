@@ -85,7 +85,8 @@ propuestas (aún no aplicadas).
   `userId`/`studentId`/`senderId`/`participantIds` del cliente para decidir *quién* actúa.
 - Contraseñas: solo BCrypt; nunca guardes ni loguees texto plano. Nunca expongas `passwordHash`.
 - JWT sin estado (`jwt.secret`, `jwt.expiration`); las cuentas **PENDING/INACTIVE/SUSPENDED no
-  pueden autenticarse** (solo `ACTIVE`). La visibilidad pública de un profesor exige
+  pueden autenticarse** (solo `ACTIVE`). Logout y reset de contraseña invalidan los JWT anteriores
+  vía `users.session_version` (AUTH-004). La visibilidad pública de un profesor exige
   `user.status = ACTIVE` **y** un anuncio publicado (nombre, bio, ≥1 materia activa, ≥1 modalidad y
   ≥1 disponibilidad). `verificationStatus = VERIFIED` es un plus de confianza y un filtro opcional
   (`onlyVerified`), no un requisito de existencia; profesores ocultos → 404.
