@@ -101,6 +101,21 @@ DONE
 9. Si una implementación excede el scope, detenerse.
 10. Si existe una ambigüedad arquitectónica importante, reportarla (no adivinarla).
 
+## Ramas
+
+Modelo de dos ramas permanentes:
+
+| Rama | Uso | Reglas |
+|---|---|---|
+| `main` | Producción | Protegida; solo llega por PR desde `dev`; deploy/release se dispara desde acá |
+| `dev` | Integración y pruebas | Recibe features, fixes y PRs de Dependabot; CI corre en cada push |
+
+- Las ramas de trabajo (`feat/...`, `fix/...`, `chore/...`) son cortas: salen de `dev`, se integran
+  por PR y se borran al mergear.
+- No se commitea directo a `main`. Un release es un PR `dev → main` con la verificación completa.
+- Dependabot apunta a `dev`; las actualizaciones se prueban ahí antes del release.
+- Las ramas temporales no se acumulan: si un PR se cierra sin mergear, se borra su rama.
+
 ## Verificación determinista
 
 ```powershell

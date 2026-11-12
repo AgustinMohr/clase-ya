@@ -13,6 +13,8 @@ protegido y mensajería interna, pensado para evitar exponer datos personales.
 
 - **Estado:** en desarrollo activo. El backend, el frontend y las suites de tests funcionan; algunas
   capacidades del producto todavía no están implementadas (ver [Estado y próximos pasos](#10-estado-y-próximos-pasos)).
+- **Ramas:** `main` = producción (protegida); `dev` = integración y pruebas. Las ramas de trabajo
+  (`feat/...`, `fix/...`) son cortas y se borran al integrarse a `dev`.
 - **Repositorio:** https://github.com/AgustinMohr/clase-ya
 
 ---
