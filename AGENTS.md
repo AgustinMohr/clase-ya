@@ -214,6 +214,9 @@ Ver `docs/development-workflow.md`: el ciclo completo (SPEC → REVIEW → PLAN 
 VERIFY → REVIEW → DONE) es exigible a features de producto (**Nivel 2**); los **Niveles 0 y 1**
 tienen ciclos cortos. Las ambigüedades con impacto arquitectónico se reportan, no se adivinan.
 
+Ramas: `main` es producción (protegida, solo release desde `dev`); `dev` es integración/pruebas.
+Las ramas de trabajo salen de `dev`, se mergean por PR y se borran al integrarse.
+
 ## Agent Skills
 
 Before starting a task, inspect the available installed skills and use the relevant ones when applicable.
