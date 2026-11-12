@@ -17,6 +17,7 @@ test.describe('Registro y activación de cuenta', () => {
       await page.getByLabel('Email').fill(email);
       await page.getByLabel('Contraseña', { exact: true }).fill('Password123');
       await page.getByLabel('Repetir contraseña').fill('Password123');
+      await page.getByRole('checkbox').check();
       await page.getByRole('button', { name: 'Crear cuenta' }).click();
 
       await expect(page.getByRole('heading', { name: 'Revisá tu email' })).toBeVisible();
@@ -34,6 +35,7 @@ test.describe('Registro y activación de cuenta', () => {
       await page.getByLabel('Email').fill(`e2e-mismatch-${Date.now()}@example.com`);
       await page.getByLabel('Contraseña', { exact: true }).fill('Password123');
       await page.getByLabel('Repetir contraseña').fill('Password124');
+      await page.getByRole('checkbox').check();
       await page.getByRole('button', { name: 'Crear cuenta' }).click();
 
       await expect(page.getByText('Las contraseñas no coinciden.')).toBeVisible();
