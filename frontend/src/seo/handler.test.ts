@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import handler from '../../api/seo';
+import handler, { buildHomeSeo, injectSeo } from '../../api/seo';
 
 const ORIGIN = 'https://claseya.test';
 const BACKEND = 'https://api.claseya.test';
@@ -88,6 +88,21 @@ afterEach(() => {
 });
 
 describe('Vercel SEO handler', () => {
+  it('replaces a multiline base description instead of duplicating it', async () => {
+    const html = `<!doctype html><html lang="es"><head><title>ClaseYa</title>
+<meta
+  name="description"
+  content="old"
+/>
+</head><body><div id="root"></div></body></html>`;
+
+    const output = await injectSeo(html, buildHomeSeo([], ORIGIN));
+    const descriptions = output.match(/<meta\s+name="description"/gi) ?? [];
+
+    expect(descriptions).toHaveLength(1);
+    expect(output).not.toContain('content="old"');
+  });
+
   it('renders a visible profile with metadata, JSON-LD and a cacheable response', async () => {
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
