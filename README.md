@@ -13,6 +13,8 @@ protegido y mensajería interna, pensado para evitar exponer datos personales.
 
 - **Estado:** en desarrollo activo. El backend, el frontend y las suites de tests funcionan; algunas
   capacidades del producto todavía no están implementadas (ver [Estado y próximos pasos](#10-estado-y-próximos-pasos)).
+- **Ramas:** `main` = producción (protegida); `dev` = integración y pruebas. Las ramas de trabajo
+  (`feat/...`, `fix/...`) son cortas y se borran al integrarse a `dev`.
 - **Repositorio:** https://github.com/AgustinMohr/clase-ya
 
 ---
@@ -67,7 +69,7 @@ terminada. El repositorio (código, specs, ADRs y docs) es la única fuente de v
 
 Hoy conviven piezas **ya implementadas** (autenticación, perfiles, búsqueda, favoritos, mensajería,
 verificación documental y opiniones/rating) con piezas **en desarrollo o no implementadas**
-(notificaciones in-app, recuperación de contraseña, MFA y refresh tokens). No es un producto
+(notificaciones in-app, MFA y refresh tokens). No es un producto
 terminado.
 
 ---
@@ -86,10 +88,12 @@ terminado.
 
 **Cuenta y acceso**
 - Registro e inicio de sesión con **email + contraseña** (BCrypt), con activación por enlace de un
-  solo uso enviado por email. La contraseña exige mínimo 10 caracteres, letras y números; el
+  solo uso enviado por email y **recuperación de contraseña** por enlace de un solo uso. La
+  contraseña exige mínimo 10 caracteres, letras y números; el
   registro responde siempre `202` para no revelar si el email existe.
 - Inicio de sesión con **Google OAuth** (validación de `id_token` en el backend).
-- Perfil de estudiante: universidad, carrera, año y descripción.
+- Perfil de estudiante: nombre, nivel, ciudad (opcional) y descripción; universidad, carrera y año
+  quedan como datos académicos opcionales.
 
 **Para estudiantes**
 - Guardar y quitar profesores de **Mis favoritos**.
@@ -102,7 +106,8 @@ terminado.
 
 **Para profesores**
 - Área **Mi anuncio**: nombre, bio, precio, ciudad, foto y nota de disponibilidad.
-- Materias que enseña, modalidades (Online / Presencial) y formación declarada.
+- Materias que enseña (buscadas directamente en el catálogo, sin exigir universidad/carrera),
+  modalidades (Online / Presencial) y formación declarada.
 - **Disponibilidad semanal** por franja (mañana/tarde/noche), sin solapamientos por día.
 - Indicador de completitud del anuncio (**INCOMPLETE / PUBLISHED**): un anuncio se publica cuando
   tiene nombre, bio, al menos una materia, una modalidad y una disponibilidad.
@@ -119,9 +124,9 @@ terminado.
 
 ### En desarrollo o no implementadas (no las uses como si existieran)
 
-- **Notificaciones in-app** (tabla `notifications` conservada para futuro), **contraseña olvidada**,
-  **MFA** y **refresh tokens**: no implementados. (La activación de cuentas, el aviso de contacto
-  por email y las opiniones sí están implementados.)
+- **Notificaciones in-app** (tabla `notifications` conservada para futuro), **MFA** y
+  **refresh tokens**: no implementados. (La activación de cuentas, la recuperación de contraseña, el
+  aviso de contacto por email y las opiniones sí están implementados.)
 - **Chat en tiempo real (WebSockets)**: no implementado (los servicios están preparados para
   reutilizarse).
 - **Reservas / agenda / pagos / Calendly**: **fuera del rumbo del producto** (ver sección 10).
@@ -154,7 +159,7 @@ terminado.
 - **Lombok** (opcional) y `spring-boot-devtools` (solo desarrollo, no entra en el JAR).
 
 ### Persistencia
-- **PostgreSQL** como única base. El schema es propiedad de **Flyway** (migraciones `V1..V18`).
+- **PostgreSQL** como única base. El schema es propiedad de **Flyway** (migraciones `V1..V21`).
 - Hibernate corre con `ddl-auto=validate`: la app **no** genera ni modifica el schema.
 - **Testcontainers (postgres:16)** para los tests de integración.
 
@@ -355,14 +360,15 @@ sequenceDiagram
   mensajes y subida de evidencia; respuesta `429` con `Retry-After`. Es **por instancia** (sin Redis)
   y las claves se guardan hasheadas, nunca como IP/email crudos. Ver `docs/architecture/security.md`.
 - **Health check**: `GET /actuator/health` es público y devuelve solo el estado (`{"status":"UP"}`);
-  no expone detalles ni métricas. `GET /actuator/metrics` requiere rol **ADMIN**. Es la sonda que usa
-  el despliegue.
+  no expone detalles ni métricas. Si el outbox tiene filas `DEAD`, reporta `DEGRADED` (HTTP 200)
+  para que el monitoreo alerta sin reiniciar la app. `GET /actuator/metrics` requiere rol **ADMIN**.
+  Es la sonda que usa el despliegue.
 - Errores estandarizados como `ApiError`, sin trazas ni SQL.
 
 ### Limitaciones y pendientes (no resueltas en el código)
 - **Rate limiting distribuido**: el limitador es en memoria; con varias instancias el límite efectivo
   se multiplica. Migrar a Redis requiere una spec/ADR futura.
-- Sin **refresh tokens**, recuperación de contraseña ni cambio de email.
+- Sin **refresh tokens** ni cambio de email.
 - Sin MFA ni otros proveedores sociales.
 
 ---
@@ -415,7 +421,7 @@ desarrollo**:
 | `DB_URL` | `jdbc:postgresql://localhost:5432/claseya` | Conexión JDBC |
 | `DB_USERNAME` / `DB_PASSWORD` | `claseya` / `claseya` | Credenciales de la base |
 | `JWT_SECRET` | placeholder de dev | Clave de firma JWT. **Obligatoria** y ≥32 bytes fuera de `local` |
-| `JWT_EXPIRATION` | `3600` | Vida del token (segundos) |
+| `JWT_EXPIRATION` | `43200` | Vida del token (segundos; 12 h) |
 | `COOKIE_SECURE` | `true` | Flag `Secure` de las cookies de sesión/CSRF. `false` **solo** para HTTP local |
 | `COOKIE_SAME_SITE` | `Lax` | `Lax` para SPA/API same-site; `None` (+ `Secure`) si el API está en otro sitio |
 | `FRONTEND_URL` | `http://localhost:3000,http://localhost:5173` | Orígenes permitidos por CORS (lista separada por comas) |
@@ -465,10 +471,14 @@ hosting no permite un escáner (Render Free no puede), `SCAN_ENABLED=false` +
 `ALLOW_UNSCANNED_EVIDENCE=true` mantiene el sistema operativo **declarando** que la evidencia no se
 escaneó; ver `STOR-002` y `ADR-031`.
 
-**Guard de arranque (CFG-01):** fuera de los perfiles `local` y `test`, la aplicación **no arranca**
-si `CAPTCHA_ENABLED` no es `true`, si `DEMO_SEED` es `true`, o si `SCAN_ENABLED` es `false` sin
-`ALLOW_UNSCANNED_EVIDENCE=true` (`ProductionConfigValidator`). Es a propósito: un deploy que olvide
-una variable falla fuerte en vez de servir evidencia sin escanear sin que nadie lo haya decidido.
+**Guard de arranque (CFG-01 / OPS-004):** fuera de los perfiles `local` y `test`, la aplicación
+**no arranca** si `CAPTCHA_ENABLED` no es `true`, si `DEMO_SEED` es `true`, o si `SCAN_ENABLED` es
+`false` sin `ALLOW_UNSCANNED_EVIDENCE=true`. Tampoco arranca si `APP_BASE_URL` o `FRONTEND_URL` no
+son orígenes HTTPS públicos, si `COOKIE_SECURE` es `false`, si `COOKIE_SAME_SITE` es inválido o
+`None` sin Secure, o si el transporte de email no está configurado (`smtp` + `MAIL_HOST`, o
+`brevo` + `EMAIL_API_KEY`). Todos los problemas se reportan juntos (`ProductionConfigValidator`). Es
+a propósito: un deploy que olvide una variable falla fuerte en vez de servir un registro roto,
+enlaces a `localhost` o evidencia sin escanear sin que nadie lo haya decidido.
 
 ### Base de datos local (Docker)
 
@@ -486,6 +496,20 @@ docker start claseya-pg
 ```
 
 No mezcles ambos: el compose usa el mismo nombre de contenedor y un volumen propio.
+
+### Datos demo en producción (OPS-003)
+
+El dominio `@claseya.dev` es exclusivo del dataset demo y su contraseña (`Password123`) está
+documentada en este repositorio. Fuera de los perfiles `local` y `test`, el backend **neutraliza
+esas cuentas al arrancar**: las pasa a `SUSPENDED` y reemplaza su hash de contraseña por uno
+aleatorio. Un JWT demo vigente deja de autenticar y un perfil demo deja de ser visible (la
+visibilidad pública exige `user.status = ACTIVE`).
+
+El guard es idempotente y **no borra filas**. La eliminación definitiva de conversaciones, mensajes,
+reviews y documentos demo es una tarea operativa separada sobre la base. Si el log muestra
+`SECURITY: quarantined N demo account(s)`, programá esa limpieza antes de abrir tráfico real.
+
+Nunca ejecutes `scripts/seed-demo.ps1` ni `DEMO_SEED=true` contra una base de producción.
 
 Las migraciones de Flyway se aplican automáticamente al levantar el backend.
 
@@ -695,7 +719,7 @@ clase-ya/
 │  ├─ bootstrap/            DemoDataSeeder (solo desarrollo)
 ├─ src/main/resources/
 │  ├─ application.yml        Configuración (defaults solo de desarrollo)
-│  ├─ db/migration/          Migraciones Flyway V1..V18 (schema)
+│  ├─ db/migration/          Migraciones Flyway V1..V21 (schema)
 │  └─ db/seed/demo-data.sql  Dataset demo (idempotente, solo desarrollo)
 ├─ src/test/java/com/claseya/  Tests unitarios e integración (Testcontainers)
 ├─ frontend/                 SPA React + TypeScript + Vite

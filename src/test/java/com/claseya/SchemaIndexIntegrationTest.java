@@ -26,6 +26,7 @@ class SchemaIndexIntegrationTest extends AbstractPostgresTest {
                 "select indexname from pg_indexes where schemaname = 'public'", String.class);
 
         assertThat(indexes)
-                .contains("idx_messages_unread", "idx_subjects_active_name");
+                .contains("idx_messages_unread", "idx_subjects_active_name",
+                        "idx_messages_conversation_created_id");
     }
 }

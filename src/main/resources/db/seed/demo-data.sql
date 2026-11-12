@@ -338,9 +338,11 @@ ON CONFLICT (user_id) DO NOTHING;
 --   * current_year 1 (alumno01) y 12 (alumno02) -> extremos del CHECK.
 --   * bio NULL en 1 de cada 4, bio muy corta y bio larga.
 --   * carreras repartidas entre las tres universidades (UNL/UTN/UNR).
-INSERT INTO student_profiles (user_id, university_id, career_id, current_year, bio, created_at, updated_at)
+INSERT INTO student_profiles (user_id, university_id, career_id, current_year, level, city, bio, created_at, updated_at)
 SELECT u.id, uni.id, car.id,
        CASE WHEN i = 1 THEN 1 WHEN i = 2 THEN 12 ELSE 1 + (i % 5) END,
+       'UNIVERSIDAD',
+       CASE WHEN i % 2 = 0 THEN 'Santa Fe' ELSE 'Rosario' END,
        CASE
          WHEN i % 4 = 0 THEN NULL
          WHEN i % 7 = 0 THEN 'Estudiante.'
@@ -707,8 +709,8 @@ WHERE NOT EXISTS (
     WHERE w.teacher_id = tp.id AND w.day_of_week = v.day
 );
 
-INSERT INTO student_profiles (user_id, university_id, career_id, current_year, bio, created_at, updated_at)
-SELECT u.id, uni.id, c.id, 2, 'Estudiante demo', now(), now()
+INSERT INTO student_profiles (user_id, university_id, career_id, current_year, level, city, bio, created_at, updated_at)
+SELECT u.id, uni.id, c.id, 2, 'UNIVERSIDAD', 'Santa Fe', 'Estudiante demo', now(), now()
 FROM users u
 JOIN universities uni ON uni.slug = 'unl-demo'
 JOIN careers c ON c.slug = 'ingenieria-informatica-demo'

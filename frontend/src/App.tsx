@@ -22,9 +22,13 @@ const AdminPage = lazy(() => import('./pages/AdminPage'));
 const AdminUsersPage = lazy(() => import('./pages/AdminUsersPage'));
 const AdminVerificationsPage = lazy(() => import('./pages/AdminVerificationsPage'));
 const AdminReviewsPage = lazy(() => import('./pages/AdminReviewsPage'));
+const AdminReportsPage = lazy(() => import('./pages/AdminReportsPage'));
+const LegalPage = lazy(() => import('./pages/LegalPage'));
 const FavoritesPage = lazy(() => import('./pages/FavoritesPage'));
 const RegisterPage = lazy(() => import('./pages/RegisterPage'));
 const ActivateAccountPage = lazy(() => import('./pages/ActivateAccountPage'));
+const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'));
+const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 
 function RouteFallback() {
@@ -140,7 +144,12 @@ export default function App() {
     window.scrollTo({ top: 0, left: 0 });
   }, [location.pathname]);
 
-  const needsProfile = Boolean(user && user.role === 'STUDENT' && profileChecked && !profile);
+  const needsProfile = Boolean(
+    user &&
+      user.role === 'STUDENT' &&
+      profileChecked &&
+      (!profile || !profile.name?.trim() || !profile.level),
+  );
   const isAdminSection =
     location.pathname === ROUTES.admin || location.pathname.startsWith(`${ROUTES.admin}/`);
 
@@ -312,6 +321,13 @@ export default function App() {
 
             <Route path={ROUTES.activate} element={<ActivateAccountPage onLogin={requireLogin} />} />
 
+            <Route path={ROUTES.forgotPassword} element={<ForgotPasswordPage />} />
+
+            <Route
+              path={ROUTES.resetPassword}
+              element={<ResetPasswordPage onLogin={requireLogin} />}
+            />
+
             <Route
               path={ROUTES.admin}
               element={
@@ -347,6 +363,19 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
+
+            <Route
+              path={ROUTES.adminReports}
+              element={
+                <ProtectedRoute role="ADMIN" onRequireLogin={requireLogin}>
+                  <AdminReportsPage />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route path={ROUTES.terms} element={<LegalPage kind="terms" />} />
+            <Route path={ROUTES.privacy} element={<LegalPage kind="privacy" />} />
+            <Route path={ROUTES.help} element={<LegalPage kind="help" />} />
 
             <Route path="*" element={<NotFoundPage />} />
           </Routes>

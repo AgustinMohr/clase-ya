@@ -108,22 +108,30 @@ export interface Career {
   code?: string | null;
 }
 
+export type StudentLevel = 'PRIMARIA' | 'SECUNDARIA' | 'TERCIARIO' | 'UNIVERSIDAD' | 'ADULTO';
+
 export interface StudentProfile {
   id: string;
   userId: string;
-  universityId: string;
-  universityName: string;
-  academicUnitId: string;
-  careerId: string;
-  careerName: string;
-  currentYear: number;
+  name?: string | null;
+  level?: StudentLevel | null;
+  city?: string | null;
+  universityId?: string | null;
+  universityName?: string | null;
+  academicUnitId?: string | null;
+  careerId?: string | null;
+  careerName?: string | null;
+  currentYear?: number | null;
   bio?: string | null;
 }
 
 export interface StudentProfileInput {
-  universityId: string;
-  careerId: string;
-  currentYear: number;
+  name: string;
+  level: StudentLevel;
+  city?: string;
+  universityId?: string;
+  careerId?: string;
+  currentYear?: number;
   bio?: string;
 }
 
@@ -170,7 +178,8 @@ export interface AnnouncementStatus {
 
 export interface OwnSubject {
   id: string;
-  careerSubjectId: string;
+  careerSubjectId?: string;
+  subjectId?: string;
   careerName?: string;
   subjectName?: string;
   year?: number;
@@ -307,6 +316,32 @@ export interface Message {
   content: string;
   createdAt: string;
   readAt?: string;
+}
+
+export type ReportReason = 'HARASSMENT' | 'SPAM' | 'FAKE_PROFILE' | 'INAPPROPRIATE' | 'OTHER';
+export type ReportStatus = 'OPEN' | 'REVIEWING' | 'RESOLVED' | 'REJECTED';
+
+export interface Report {
+  id: string;
+  status: ReportStatus;
+  reason: ReportReason;
+  createdAt: string;
+}
+
+export interface AdminReport {
+  id: string;
+  reporterDisplayName?: string | null;
+  reportedDisplayName?: string | null;
+  reason: ReportReason;
+  description?: string | null;
+  status: ReportStatus;
+  createdAt: string;
+  resolvedAt?: string | null;
+}
+
+export interface BlockedUser {
+  userId: string;
+  displayName?: string | null;
 }
 
 export interface Page<T> {
@@ -615,6 +650,7 @@ export const api = {
     ),
   teachers: (params: {
     subjectId?: string;
+    city?: string;
     modality?: string;
     minRating?: number;
     minPrice?: number;
@@ -624,6 +660,7 @@ export const api = {
   } = {}) => {
     const query = new URLSearchParams({ page: String(params.page ?? 0), size: '24' });
     if (params.subjectId) query.set('subjectId', params.subjectId);
+    if (params.city?.trim()) query.set('city', params.city.trim());
     if (params.modality) query.set('modality', params.modality);
     if (params.minRating) query.set('minRating', String(params.minRating));
     if (params.minPrice != null) query.set('minPrice', String(params.minPrice));
@@ -656,12 +693,17 @@ export const api = {
   exchangeMessageLink: (token: string) =>
     request<LoginResponse>('POST', '/api/auth/message-link', { token }),
   /** AUTH-001/SEC-04: always 202; the account stays PENDING until the emailed link is opened. */
-  register: (email: string, password: string, role: 'STUDENT' | 'TEACHER', captchaToken?: string) =>
+  register: (email: string, password: string, role: 'STUDENT' | 'TEACHER', name: string, captchaToken?: string) =>
     request<void>('POST', '/api/auth/register',
-      captchaToken ? { email, password, role, captchaToken } : { email, password, role }),
+      captchaToken ? { email, password, role, name, captchaToken } : { email, password, role, name }),
   activate: (token: string) => request<void>('POST', '/api/auth/activate', { token }),
   /** Always 202: the backend never reveals whether the email is registered. */
   resendActivation: (email: string) => request<void>('POST', '/api/auth/resend-activation', { email }),
+  /** AUTH-003: always 202; only an active account receives the single-use link. */
+  forgotPassword: (email: string) =>
+    request<void>('POST', '/api/auth/forgot-password', { email }),
+  resetPassword: (token: string, newPassword: string) =>
+    request<void>('POST', '/api/auth/reset-password', { token, newPassword }),
   me: () => request<SessionUser>('GET', '/api/auth/me'),
   logout: () => request<void>('POST', '/api/auth/logout', undefined, true),
 
@@ -710,6 +752,23 @@ export const api = {
   markConversationRead: (conversationId: string) =>
     request<void>('PATCH', `/api/conversations/${conversationId}/read`, undefined, true),
 
+  // --- Safety (REPORT-001) ---------------------------------------------------
+  reportUser: (reportedUserId: string, reason: ReportReason, description?: string) =>
+    request<Report>('POST', '/api/reports', { reportedUserId, reason, description }, true),
+  blockedUsers: () => request<BlockedUser[]>('GET', '/api/blocks', undefined, true),
+  blockUser: (userId: string) => request<void>('POST', `/api/blocks/${userId}`, undefined, true),
+  unblockUser: (userId: string) => request<void>('DELETE', `/api/blocks/${userId}`, undefined, true),
+  adminReports: (params: { status?: ReportStatus; page?: number; size?: number } = {}) => {
+    const query = new URLSearchParams({
+      page: String(params.page ?? 0),
+      size: String(params.size ?? 20),
+    });
+    if (params.status) query.set('status', params.status);
+    return request<Page<AdminReport>>('GET', `/api/admin/reports?${query.toString()}`, undefined, true);
+  },
+  resolveReport: (reportId: string, status: 'RESOLVED' | 'REJECTED') =>
+    request<void>('PATCH', `/api/admin/reports/${reportId}/resolution`, { status }, true),
+
   // --- Teacher own listing ("Mi anuncio", TEACHER-001) ------------------------
   announcement: () => request<AnnouncementStatus>('GET', '/api/teachers/me/announcement', undefined, true),
   myProfile: () => request<TeacherProfile>('GET', '/api/teachers/me', undefined, true),
@@ -721,8 +780,10 @@ export const api = {
   mySubjects: () => request<OwnSubject[]>('GET', '/api/teachers/me/subjects', undefined, true),
   addSubject: (careerSubjectId: string) =>
     request<OwnSubject>('POST', '/api/teachers/me/subjects', { careerSubjectId }, true),
-  removeSubject: (careerSubjectId: string) =>
-    request<void>('DELETE', `/api/teachers/me/subjects/${careerSubjectId}`, undefined, true),
+  addSubjectBySubject: (subjectId: string) =>
+    request<OwnSubject>('POST', '/api/teachers/me/subjects', { subjectId }, true),
+  removeSubject: (teacherSubjectId: string) =>
+    request<void>('DELETE', `/api/teachers/me/subjects/${teacherSubjectId}`, undefined, true),
   myModalities: () =>
     request<{ id: string; modality: string }[]>('GET', '/api/teachers/me/modalities', undefined, true),
   addModality: (modality: string) =>

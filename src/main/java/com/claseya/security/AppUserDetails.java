@@ -26,6 +26,7 @@ public class AppUserDetails implements UserDetails {
     private final String passwordHash;
     private final UserRole role;
     private final UserStatus status;
+    private final Integer sessionVersion;
 
     public AppUserDetails(User user) {
         this.id = user.getId();
@@ -34,6 +35,7 @@ public class AppUserDetails implements UserDetails {
         this.passwordHash = user.getPasswordHash();
         this.role = user.getRole();
         this.status = user.getStatus();
+        this.sessionVersion = user.getSessionVersion() == null ? 0 : user.getSessionVersion();
     }
 
     public UUID getId() {
@@ -50,6 +52,10 @@ public class AppUserDetails implements UserDetails {
 
     public UserRole getRole() {
         return role;
+    }
+
+    public Integer getSessionVersion() {
+        return sessionVersion;
     }
 
     @Override

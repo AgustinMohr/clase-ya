@@ -1,4 +1,4 @@
-import { LayoutDashboard, MessageSquare, ShieldCheck, Users, type LucideIcon } from 'lucide-react';
+import { Flag, LayoutDashboard, MessageSquare, ShieldCheck, Users, type LucideIcon } from 'lucide-react';
 import { NavLink } from 'react-router';
 import { buttonStyles } from '../ui/Button';
 import { cn } from '../../lib/cn';
@@ -31,6 +31,13 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     label: 'Opiniones',
     icon: MessageSquare,
     path: ROUTES.adminReviews,
+    enabled: true,
+  },
+  {
+    id: 'reports',
+    label: 'Reportes',
+    icon: Flag,
+    path: ROUTES.adminReports,
     enabled: true,
   },
 ];

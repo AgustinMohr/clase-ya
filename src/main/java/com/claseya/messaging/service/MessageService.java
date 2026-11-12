@@ -11,6 +11,7 @@ import com.claseya.model.Conversation;
 import com.claseya.model.Message;
 import com.claseya.model.User;
 import com.claseya.common.dto.SearchResultPage;
+import com.claseya.safety.service.UserBlockService;
 import com.claseya.user.UserRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -33,15 +34,18 @@ public class MessageService {
     private final ConversationRepository conversationRepository;
     private final ConversationParticipantRepository participantRepository;
     private final UserRepository userRepository;
+    private final UserBlockService userBlockService;
 
     public MessageService(MessageRepository messageRepository,
                           ConversationRepository conversationRepository,
                           ConversationParticipantRepository participantRepository,
-                          UserRepository userRepository) {
+                          UserRepository userRepository,
+                          UserBlockService userBlockService) {
         this.messageRepository = messageRepository;
         this.conversationRepository = conversationRepository;
         this.participantRepository = participantRepository;
         this.userRepository = userRepository;
+        this.userBlockService = userBlockService;
     }
 
     @Transactional(readOnly = true)
@@ -85,6 +89,15 @@ public class MessageService {
     public MessageResponse send(UUID userId, UUID conversationId, SendMessageRequest request) {
         String content = requireValidContent(request.content());
         requireAccessible(userId, conversationId);
+
+        // REPORT-001: a block in either direction makes the thread read-only for both sides.
+        UUID otherUserId = participantRepository.findOthers(List.of(conversationId), userId).stream()
+                .findFirst()
+                .map(participant -> participant.getUser().getId())
+                .orElseThrow(ResourceNotFoundException::new);
+        if (userBlockService.isBlockedEitherWay(userId, otherUserId)) {
+            throw new org.springframework.security.access.AccessDeniedException("Messaging is blocked");
+        }
 
         Conversation conversation = conversationRepository.findById(conversationId)
                 .orElseThrow(ResourceNotFoundException::new);

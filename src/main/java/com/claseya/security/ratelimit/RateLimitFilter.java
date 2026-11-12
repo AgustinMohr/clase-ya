@@ -31,6 +31,8 @@ public class RateLimitFilter extends OncePerRequestFilter {
     private static final Pattern MESSAGE_PATH = Pattern.compile("^/api/conversations/[^/]+/messages$");
     private static final Pattern UPLOAD_PATH =
             Pattern.compile("^/api/teachers/me/education/[^/]+/documents$");
+    // REPORT-001: block changes share the contact bucket; reports use it too.
+    private static final Pattern BLOCK_PATH = Pattern.compile("^/api/blocks/[^/]+$");
 
     private final RateLimitProperties properties;
     private final RateLimitService rateLimitService;
@@ -104,15 +106,21 @@ public class RateLimitFilter extends OncePerRequestFilter {
             // AUTH-001: activation/resend share the registration bucket (no new scope in this change).
             case "/api/auth/resend-activation" -> RateLimitScope.REGISTER_IP;
             case "/api/auth/activate" -> RateLimitScope.REGISTER_IP;
+            case "/api/auth/forgot-password" -> RateLimitScope.REGISTER_IP;
+            case "/api/auth/reset-password" -> RateLimitScope.REGISTER_IP;
             case "/api/auth/google" -> RateLimitScope.GOOGLE_IP;
 
             case "/api/conversations" -> RateLimitScope.CONTACT_USER;
+            case "/api/reports" -> RateLimitScope.CONTACT_USER;
             default -> {
                 if (MESSAGE_PATH.matcher(path).matches()) {
                     yield RateLimitScope.MESSAGE_USER;
                 }
                 if (UPLOAD_PATH.matcher(path).matches()) {
                     yield RateLimitScope.UPLOAD_USER;
+                }
+                if (BLOCK_PATH.matcher(path).matches()) {
+                    yield RateLimitScope.CONTACT_USER;
                 }
                 yield null;
             }

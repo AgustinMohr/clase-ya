@@ -531,11 +531,11 @@ export async function injectSeo(html: string, seo: SeoDocument): Promise<string>
 
   let output = html
     .replace(/<title>[^<]*<\/title>/i, `<title>${escapeHtml(seo.title)}</title>`)
-    .replace(/\s*<meta name="description"[^>]*>/gi, '')
-    .replace(/\s*<meta name="robots"[^>]*>/gi, '')
-    .replace(/\s*<meta property="og:[^"]*"[^>]*>/gi, '')
-    .replace(/\s*<meta name="twitter:[^"]*"[^>]*>/gi, '')
-    .replace(/\s*<link rel="canonical"[^>]*>/gi, '');
+    .replace(/\s*<meta\s+name="description"[^>]*>/gi, '')
+    .replace(/\s*<meta\s+name="robots"[^>]*>/gi, '')
+    .replace(/\s*<meta\s+property="og:[^"]*"[^>]*>/gi, '')
+    .replace(/\s*<meta\s+name="twitter:[^"]*"[^>]*>/gi, '')
+    .replace(/\s*<link\s+rel="canonical"[^>]*>/gi, '');
 
   if (hash) output = replaceCspHash(output, hash);
 

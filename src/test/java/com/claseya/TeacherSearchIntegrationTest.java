@@ -177,6 +177,15 @@ class TeacherSearchIntegrationTest extends AbstractWebIntegrationTest {
         return toJson(getJson("/api/teachers" + query, null, 200));
     }
 
+    private JsonNode searchWithCity(String city) throws Exception {
+        String body = mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .get("/api/teachers")
+                        .param("city", city))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        return toJson(body);
+    }
+
     private List<String> contentNames(JsonNode page) {
         List<String> names = new ArrayList<>();
         page.get("content").forEach(node -> names.add(node.get("displayName").asText()));
@@ -204,6 +213,52 @@ class TeacherSearchIntegrationTest extends AbstractWebIntegrationTest {
         JsonNode page = search("");
         assertThat(contentNames(page)).containsExactlyInAnyOrder("Ana Activa", "Pedro Pending", "Rosa Rejected");
         assertThat(page.get("totalElements").asLong()).isEqualTo(3);
+    }
+
+    @Test
+    void search_subjectFilterMatchesDirectSubjectWithoutCareer() throws Exception {
+        Catalog cat = seedCatalog();
+        TeacherProfile direct = seedTeacher("Profe Directo", UserStatus.ACTIVE,
+                VerificationStatus.VERIFIED, new BigDecimal("4.5"), 3, null, null,
+                List.of(), TeachingModality.ONLINE);
+
+        TeacherSubject link = new TeacherSubject();
+        link.setTeacher(direct);
+        link.setSubject(cat.subject1);
+        link.setActive(true);
+        teacherSubjectRepository.saveAndFlush(link);
+
+        assertThat(contentNames(search("?subjectId=" + cat.subject1.getId())))
+                .containsExactly("Profe Directo");
+        // Career/university filters cannot match a subject that has no career.
+        assertThat(contentNames(search("?careerId=" + cat.career1.getId())))
+                .doesNotContain("Profe Directo");
+    }
+
+    @Test
+    void search_filtersByCityCaseInsensitiveAndTrimmed() throws Exception {
+        Catalog cat = seedCatalog();
+        TeacherProfile ana = seedTeacher("Ana Santa Fe", UserStatus.ACTIVE, VerificationStatus.VERIFIED,
+                new BigDecimal("4.5"), 3, null, null, List.of(cat.csA), TeachingModality.ONLINE);
+        ana.setCity("Santa Fe");
+        teacherProfileRepository.saveAndFlush(ana);
+
+        TeacherProfile bruno = seedTeacher("Bruno Rosario", UserStatus.ACTIVE, VerificationStatus.VERIFIED,
+                new BigDecimal("4.5"), 3, null, null, List.of(cat.csA), TeachingModality.ONLINE);
+        bruno.setCity("Rosario");
+        teacherProfileRepository.saveAndFlush(bruno);
+
+        seedTeacher("Sin Ciudad", UserStatus.ACTIVE, VerificationStatus.VERIFIED,
+                new BigDecimal("4.5"), 3, null, null, List.of(cat.csA), TeachingModality.ONLINE);
+
+        assertThat(teacherProfileRepository.findById(ana.getId()).orElseThrow().getCity())
+                .isEqualTo("Santa Fe");
+        assertThat(contentNames(searchWithCity("Santa Fe"))).containsExactly("Ana Santa Fe");
+        assertThat(contentNames(searchWithCity(" santa fe "))).containsExactly("Ana Santa Fe");
+        assertThat(contentNames(searchWithCity("Rosario"))).containsExactly("Bruno Rosario");
+        assertThat(contentNames(searchWithCity(""))).hasSize(3);
+
+        getJson("/api/teachers?city=" + "x".repeat(101), null, 400);
     }
 
     @Test

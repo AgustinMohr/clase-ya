@@ -41,9 +41,9 @@ public class TeacherSubjectController {
                 .body(teacherSubjectService.add(currentUser.id(), request));
     }
 
-    @DeleteMapping("/{careerSubjectId}")
-    public ResponseEntity<Void> remove(@PathVariable UUID careerSubjectId) {
-        teacherSubjectService.remove(currentUser.id(), careerSubjectId);
+    @DeleteMapping("/{teacherSubjectId}")
+    public ResponseEntity<Void> remove(@PathVariable UUID teacherSubjectId) {
+        teacherSubjectService.remove(currentUser.id(), teacherSubjectId);
         return ResponseEntity.noContent().build();
     }
 }

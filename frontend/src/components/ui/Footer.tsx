@@ -1,4 +1,6 @@
 import { GraduationCap } from 'lucide-react';
+import { Link } from 'react-router';
+import { ROUTES } from '../../routes';
 
 const COLUMNS = [
   {
@@ -48,8 +50,20 @@ export function Footer({ onNavigate }: { onNavigate?: () => void }) {
       </div>
       <div className="border-t border-border">
         <div className="container-page flex flex-col items-center justify-between gap-2 py-5 text-xs text-content-muted sm:flex-row">
-          <p>© {new Date().getFullYear()} ClaseYa · Santa Fe, Argentina</p>
-          <p>Términos · Privacidad · Ayuda</p>
+          <p>Ac {new Date().getFullYear()} ClaseYa A� Santa Fe, Argentina</p>
+          <p className="flex flex-wrap items-center gap-2">
+            <Link to={ROUTES.terms} className="transition-colors hover:text-primary-600">
+              TAcrminos
+            </Link>
+            <span aria-hidden="true">A�</span>
+            <Link to={ROUTES.privacy} className="transition-colors hover:text-primary-600">
+              Privacidad
+            </Link>
+            <span aria-hidden="true">A�</span>
+            <Link to={ROUTES.help} className="transition-colors hover:text-primary-600">
+              Ayuda
+            </Link>
+          </p>
         </div>
       </div>
     </footer>

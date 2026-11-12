@@ -103,10 +103,19 @@ public class TeacherSearchService {
         if (criteria.onlyVerified()) {
             parts.add(TeacherSpecifications.verifiedOnly());
         }
-        Specification<TeacherProfile> academic = TeacherSpecifications.teachesAcademicCombination(
-                criteria.subjectId(), criteria.careerId(), criteria.universityId());
-        if (academic != null) {
-            parts.add(academic);
+        if (criteria.subjectId() != null
+                && criteria.careerId() == null
+                && criteria.universityId() == null) {
+            parts.add(TeacherSpecifications.teachesSubjectEither(criteria.subjectId()));
+        } else {
+            Specification<TeacherProfile> academic = TeacherSpecifications.teachesAcademicCombination(
+                    criteria.subjectId(), criteria.careerId(), criteria.universityId());
+            if (academic != null) {
+                parts.add(academic);
+            }
+        }
+        if (criteria.city() != null && !criteria.city().isBlank()) {
+            parts.add(TeacherSpecifications.inCity(criteria.city()));
         }
         if (criteria.modality() != null) {
             parts.add(TeacherSpecifications.hasModality(criteria.modality()));
@@ -134,6 +143,9 @@ public class TeacherSearchService {
         }
         if (c.size() < 1 || c.size() > MAX_SIZE) {
             throw new BadRequestException("size must be between 1 and " + MAX_SIZE);
+        }
+        if (c.city() != null && c.city().trim().length() > 100) {
+            throw new BadRequestException("city must be at most 100 characters");
         }
         if (c.minRating() != null && (c.minRating() < 0 || c.minRating() > 5)) {
             throw new BadRequestException("minRating must be between 0 and 5");

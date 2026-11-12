@@ -29,8 +29,9 @@ requiere un ADR.
 | `teacher` | Perfil/educación/materias/modalidades del profesor, anuncio, búsqueda y detalle públicos, visibilidad D1, `TeacherSummaryAssembler`, puertos y sitemap público | model, common, academic(repos/service), security, user |
 | `availability` | Disponibilidad declarada semanal | model, teacher(repos/visibilidad) |
 | `favorite` | Favoritos de estudiantes | model, common, student(repo), teacher(repos/assembler/dto) |
-| `messaging` | Conversaciones, participantes, mensajes, estado de lectura y contacto inicial | model, common (incl. `common.dto.SearchResultPage`), user, student(repo), teacher(repo), notification |
+| `messaging` | Conversaciones, participantes, mensajes, estado de lectura y contacto inicial | model, common (incl. `common.dto.SearchResultPage`), user, student(repo), teacher(repo), notification, safety |
 | `review` | Opiniones 1..5, respuesta del profesor, moderación admin y agregados de rating | model, common, student(repo), teacher(repo/service), messaging(repos), user |
+| `safety` | Reportes de usuarios, cola admin y bloqueo bidireccional de contacto/mensajes | model, common, user, security |
 | `notification` | Outbox transaccional, worker, SMTP/Brevo y links de contacto de un solo uso | model, user |
 | `verification` | Evidencia documental, validación PDF, escaneo, storage y decisiones de verificación | model, teacher, user, common |
 | `bootstrap` | `DemoDataSeeder` (solo perfil local) | Spring JDBC |
@@ -39,10 +40,11 @@ Notas sobre reuso real entre módulos: `favorite` y `messaging` reutilizan
 `common.dto.SearchResultPage` (forma genérica de página) y `favorite` reutiliza
 `teacher.service.TeacherSummaryAssembler` para las tarjetas públicas de profesor. Es intencional y
 se mantiene a nivel service/DTO; los repositories no se alcanzan cruzando controllers.
-
 Módulos incorporados después de la primera versión: `oauth` (Google ID token), `verification`
-(evidencia y decisiones), `review` (opiniones y rating), `notification` (outbox SMTP/Brevo) y
-`bootstrap` (seed demo). El detalle de endpoints, seguridad y flujos está en `guia-proyecto.md`.
+(evidencia y decisiones), `review` (opiniones y rating), `notification` (outbox SMTP/Brevo),
+`safety` (reportes y bloqueo) y
+`bootstrap` (seed demo). El detalle de endpoints, seguridad y flujos está en
+`guia-proyecto.md`.
 
 ## Capa de SEO (SEO-001)
 

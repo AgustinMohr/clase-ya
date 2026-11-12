@@ -1,11 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { validateRegistration } from './validation';
+import { validatePasswordReset, validateRegistration } from './validation';
 
-const valid = { email: 'alumno@example.com', password: 'Password123', confirmation: 'Password123' };
+const valid = { name: 'Ana Estudiante', email: 'alumno@example.com', password: 'Password123', confirmation: 'Password123' };
 
 describe('validateRegistration', () => {
   it('accepts a valid form', () => {
     expect(validateRegistration(valid)).toEqual({});
+  });
+
+  it('requires a visible name', () => {
+    expect(validateRegistration({ ...valid, name: '   ' })).toEqual({
+      name: 'Ingresá tu nombre y apellido.',
+    });
   });
 
   it('requires an email', () => {
@@ -31,6 +37,24 @@ describe('validateRegistration', () => {
 
   it('requires the confirmation to match', () => {
     expect(validateRegistration({ ...valid, confirmation: 'Password124' })).toEqual({
+      confirmation: 'Las contraseñas no coinciden.',
+    });
+  });
+});
+
+describe('validatePasswordReset', () => {
+  it('accepts a valid reset form', () => {
+    expect(validatePasswordReset({ password: 'Password123', confirmation: 'Password123' })).toEqual({});
+  });
+
+  it('requires the password policy', () => {
+    expect(validatePasswordReset({ password: 'short', confirmation: 'short' })).toEqual({
+      password: 'Usá al menos 10 caracteres, con letras y números.',
+    });
+  });
+
+  it('requires matching confirmation', () => {
+    expect(validatePasswordReset({ password: 'Password123', confirmation: 'Password124' })).toEqual({
       confirmation: 'Las contraseñas no coinciden.',
     });
   });

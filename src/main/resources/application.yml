@@ -63,7 +63,8 @@ spring:
 # value below is a development-only placeholder and must never be used in prod.
 jwt:
   secret: ${JWT_SECRET:dev-only-change-me-9f8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d0e9f8a}
-  expiration: ${JWT_EXPIRATION:3600}
+  # AUTH-004: 12 h. Logout/reset also revoke older tokens through users.session_version.
+  expiration: ${JWT_EXPIRATION:43200}
 
 # SEC-002: the JWT lives in an HttpOnly cookie. Secure must stay true outside local HTTP dev;
 # SameSite=Lax works for a same-site SPA/API, use None (+Secure) for a cross-site API.
@@ -181,6 +182,8 @@ app:
       # link) to the application log. Use SMTP in any real environment.
       log-links: ${AUTH_LOG_ACTIVATION_LINKS:false}
       from: ${MAIL_FROM:no-reply@claseya.app}
+    password-reset:
+      token-ttl: ${AUTH_PASSWORD_RESET_TTL:PT30M}
     captcha:
       # SEC-04: Cloudflare Turnstile on registration. Off locally/tests; on in production
       # together with TURNSTILE_SECRET and the SPA's VITE_TURNSTILE_SITE_KEY.

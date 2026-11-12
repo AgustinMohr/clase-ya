@@ -1,7 +1,10 @@
 package com.claseya.model;
 
 import jakarta.persistence.Column;
+import com.claseya.model.enums.StudentLevel;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -35,16 +38,25 @@ public class StudentProfile {
     @JoinColumn(name = "user_id", unique = true, nullable = false)
     private User user;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "university_id", nullable = false)
+    /** Optional academic data (legacy/tertiary profiles). */
+    @ManyToOne(fetch = FetchType.LAZY, optional = true)
+    @JoinColumn(name = "university_id")
     private University university;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "career_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY, optional = true)
+    @JoinColumn(name = "career_id")
     private Career career;
 
-    @Column(name = "current_year", nullable = false)
+    @Column(name = "current_year")
     private Integer currentYear;
+
+    /** Primary onboarding attribute: PRIMARIA, SECUNDARIA, TERCIARIO, UNIVERSIDAD or ADULTO. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "level", length = 20)
+    private StudentLevel level;
+
+    @Column(name = "city", length = 100)
+    private String city;
 
     @Column(name = "bio", columnDefinition = "text")
     private String bio;

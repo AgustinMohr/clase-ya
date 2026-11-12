@@ -6,10 +6,10 @@ import {
   type AvailabilityWindow,
   type OwnEducation,
   type OwnSubject,
+  type Subject,
   type TeacherProfile,
   type TeacherProfileInput,
   type TeacherVerification,
-  type University,
 } from '../api';
 import { useToast } from '../components/ui/Toast';
 import { toProfileInput } from '../lib/teacherProfile';
@@ -54,7 +54,6 @@ export function useTeacherListing() {
   const [education, setEducation] = useState<OwnEducation[]>([]);
   const [availability, setAvailability] = useState<AvailabilityWindow[]>([]);
   const [availabilityTotal, setAvailabilityTotal] = useState(0);
-  const [universities, setUniversities] = useState<University[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [form, setForm] = useState<TeacherProfileInput>(toProfileInput(null));
@@ -90,8 +89,7 @@ export function useTeacherListing() {
       api.myModalities().then((list) => list.map((m) => m.modality)).catch(() => []),
       api.myEducation().catch(() => []),
       api.myAvailability().catch(() => null),
-      api.universities().catch(() => []),
-    ]).then(([ann, ver, subs, mods, edu, avail, unis]) => {
+    ]).then(([ann, ver, subs, mods, edu, avail]) => {
       if (!active) return;
       setAnnouncement(ann);
       setVerification(ver);
@@ -100,7 +98,6 @@ export function useTeacherListing() {
       setEducation(edu);
       setAvailability(avail?.content ?? []);
       setAvailabilityTotal(avail?.totalElements ?? 0);
-      setUniversities(unis);
       setLoading(false);
     });
     return () => {
@@ -134,11 +131,16 @@ export function useTeacherListing() {
     }
   }
 
-  async function addSubject(careerSubjectId: string): Promise<boolean> {
-    if (!careerSubjectId) return false;
+  const searchSubjects = async (term: string): Promise<Subject[]> => {
+    const page = await api.subjectSearch(term, 10);
+    return page.content;
+  };
+
+  async function addSubjectBySubject(subjectId: string): Promise<boolean> {
+    if (!subjectId) return false;
     setAddingSubject(true);
     try {
-      await api.addSubject(careerSubjectId);
+      await api.addSubjectBySubject(subjectId);
       setSubjects(await api.mySubjects());
       reloadAnnouncement();
       notify('Materia agregada');
@@ -151,18 +153,21 @@ export function useTeacherListing() {
     }
   }
 
-  /** Removing a subject is fully reversible: the undo re-adds the same careerSubjectId. */
+  /** Removing a subject is fully reversible: the undo re-adds the same target. */
   async function removeSubject(subject: OwnSubject) {
+    const restore = subject.subjectId
+      ? () => api.addSubjectBySubject(subject.subjectId!)
+      : () => api.addSubject(subject.careerSubjectId!);
     try {
-      await api.removeSubject(subject.careerSubjectId);
-      setSubjects((prev) => prev.filter((s) => s.careerSubjectId !== subject.careerSubjectId));
+      await api.removeSubject(subject.id);
+      setSubjects((prev) => prev.filter((s) => s.id !== subject.id));
       reloadAnnouncement();
       notify(`${subject.subjectName ?? 'Materia'} quitada`, {
         action: {
           label: 'Deshacer',
           onClick: async () => {
             try {
-              await api.addSubject(subject.careerSubjectId);
+              await restore();
               setSubjects(await api.mySubjects());
               reloadAnnouncement();
               notify('Materia restaurada');
@@ -291,7 +296,6 @@ export function useTeacherListing() {
     education,
     availability,
     availabilityTotal,
-    universities,
     form,
     setForm,
     savingProfile,
@@ -299,7 +303,8 @@ export function useTeacherListing() {
     saveProfile,
     reloadVerification,
     addingSubject,
-    addSubject,
+    searchSubjects,
+    addSubjectBySubject,
     removeSubject,
     toggleModality,
     eduForm,

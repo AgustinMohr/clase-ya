@@ -33,9 +33,14 @@ public class TeacherSubject {
     @JoinColumn(name = "teacher_id", nullable = false)
     private TeacherProfile teacher;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "career_subject_id", nullable = false)
+    /** Exactly one of careerSubject/subject is set (migration V20 CHECK). */
+    @ManyToOne(fetch = FetchType.LAZY, optional = true)
+    @JoinColumn(name = "career_subject_id")
     private CareerSubject careerSubject;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = true)
+    @JoinColumn(name = "subject_id")
+    private Subject subject;
 
     @Column(name = "description", columnDefinition = "text")
     private String description;

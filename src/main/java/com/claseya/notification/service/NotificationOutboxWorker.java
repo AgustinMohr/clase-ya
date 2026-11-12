@@ -33,11 +33,23 @@ public class NotificationOutboxWorker {
     private static final Logger log = LoggerFactory.getLogger(NotificationOutboxWorker.class);
     private static final long[] BACKOFF_MINUTES = {1, 5, 15, 60, 240};
     private static final int MAX_ERROR_LENGTH = 500;
+    private static final String PASSWORD_RESET_SUBJECT = "Restablecé tu contraseña de ClaseYa";
+    private static final String PASSWORD_RESET_BODY = """
+            Hola,
+
+            Para elegir una nueva contraseña de ClaseYa abrí este enlace:
+
+            %s
+
+            El enlace vence en 30 minutos y se puede usar una sola vez.
+            Si no lo pediste, podés ignorar este mensaje.
+            """;
 
     private final NotificationOutboxRepository repository;
     private final MessageLinkTokenService linkTokens;
     private final ContactNotificationSender contactSender;
     private final ActivationLinkSender activationSender;
+    private final EmailSender emailSender;
     private final UserRepository userRepository;
     private final TransactionTemplate transactionTemplate;
     private final MeterRegistry metrics;
@@ -50,6 +62,7 @@ public class NotificationOutboxWorker {
                                     MessageLinkTokenService linkTokens,
                                     ContactNotificationSender contactSender,
                                     ActivationLinkSender activationSender,
+                                    EmailSender emailSender,
                                     UserRepository userRepository,
                                     TransactionTemplate transactionTemplate,
                                     MeterRegistry metrics,
@@ -63,6 +76,7 @@ public class NotificationOutboxWorker {
         this.linkTokens = linkTokens;
         this.contactSender = contactSender;
         this.activationSender = activationSender;
+        this.emailSender = emailSender;
         this.userRepository = userRepository;
         this.transactionTemplate = transactionTemplate;
         this.metrics = metrics;
@@ -105,6 +119,7 @@ public class NotificationOutboxWorker {
             switch (item.eventType()) {
                 case CONTACT_REQUEST -> deliverContact(item);
                 case ACTIVATION -> deliverActivation(item);
+                case PASSWORD_RESET -> deliverPasswordReset(item);
             }
             transactionTemplate.executeWithoutResult(status -> repository.markSent(item.id()));
             metrics.counter("claseya.notification.outbox.delivered",
@@ -154,6 +169,13 @@ public class NotificationOutboxWorker {
         String email = stringPayload(item, "email");
         String rawToken = stringPayload(item, "token");
         activationSender.send(email, trimTrailingSlash(activationBaseUrl) + "/activar?token=" + rawToken);
+    }
+
+    private void deliverPasswordReset(Claimed item) {
+        String email = stringPayload(item, "email");
+        String rawToken = stringPayload(item, "token");
+        String link = trimTrailingSlash(activationBaseUrl) + "/restablecer?token=" + rawToken;
+        emailSender.send(email, PASSWORD_RESET_SUBJECT, PASSWORD_RESET_BODY.formatted(link));
     }
 
     private static String stringPayload(Claimed item, String key) {

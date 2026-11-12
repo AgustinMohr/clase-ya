@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { ArrowLeft, MessageCircle, Send } from 'lucide-react';
+import { ArrowLeft, Ban, Flag, MessageCircle, Send } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router';
 import {
   api,
@@ -13,6 +13,10 @@ import { useAuth } from '../auth/AuthContext';
 import { usePageMeta } from '../hooks/usePageMeta';
 import { Button } from '../components/ui/Button';
 import { EmptyState, Skeleton } from '../components/ui/primitives';
+import Modal from '../components/ui/Modal';
+import { useToast } from '../components/ui/Toast';
+import ReportModal from '../components/ReportModal';
+import { mergeConversations, mergeMessages } from '../lib/messaging';
 import { ROUTES } from '../routes';
 
 interface Thread {
@@ -21,6 +25,11 @@ interface Thread {
   hasMore: boolean;
   nextBefore?: string;
 }
+
+/** AUDIT-1.7: a visible tab notices replies without a manual refresh. */
+const POLL_INTERVAL_MS = 20_000;
+const NEAR_BOTTOM_PX = 80;
+const CONVERSATION_PAGE_SIZE = 50;
 
 function formatWhen(value: string | undefined): string {
   if (!value) return '';
@@ -31,6 +40,7 @@ function formatWhen(value: string | undefined): string {
 /** Internal messaging view: conversation list + thread (CONTACT-001). */
 export default function MessagesPage() {
   const { user } = useAuth();
+  const { notify } = useToast();
   const navigate = useNavigate();
   const { conversationId: routeConversationId } = useParams();
   usePageMeta({
@@ -40,6 +50,9 @@ export default function MessagesPage() {
 
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [loadingList, setLoadingList] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [conversationPage, setConversationPage] = useState(0);
+  const [conversationTotalPages, setConversationTotalPages] = useState(0);
   const [listError, setListError] = useState('');
   const [openId, setOpenId] = useState<string | null>(null);
   const [other, setOther] = useState<Thread['other'] | null>(null);
@@ -51,6 +64,10 @@ export default function MessagesPage() {
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
+  const [blockedIds, setBlockedIds] = useState<Set<string>>(new Set());
+  const [blocking, setBlocking] = useState(false);
+  const [confirmBlockOpen, setConfirmBlockOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const draftRef = useRef<HTMLTextAreaElement | null>(null);
   // The scroll container keeps its reading position when older messages are prepended.
@@ -60,6 +77,8 @@ export default function MessagesPage() {
   const threadsRef = useRef(new Map<string, Thread>());
   // Guards against out-of-order responses when switching conversations quickly.
   const threadSeq = useRef(0);
+  // One poll at a time: a slow request must not stack behind the interval.
+  const pollingRef = useRef(false);
 
   /** `silent` refreshes (after opening or sending) must not put the list back into skeletons. */
   const loadConversations = useCallback(async (silent = false) => {
@@ -67,8 +86,15 @@ export default function MessagesPage() {
       setLoadingList(true);
     }
     try {
-      const page = await api.conversations(0, 50);
-      setConversations(page.content);
+      const page = await api.conversations(0, CONVERSATION_PAGE_SIZE);
+      // Polling refreshes page 0; keep older pages the user already loaded.
+      setConversations((previous) =>
+        silent ? mergeConversations(page.content, previous) : page.content,
+      );
+      if (!silent) {
+        setConversationPage(0);
+      }
+      setConversationTotalPages(page.totalPages);
       setListError('');
     } catch {
       if (!silent) {
@@ -81,9 +107,39 @@ export default function MessagesPage() {
     }
   }, []);
 
+  async function loadMoreConversations() {
+    if (loadingMore || conversationPage + 1 >= conversationTotalPages) return;
+    setLoadingMore(true);
+    try {
+      const page = await api.conversations(conversationPage + 1, CONVERSATION_PAGE_SIZE);
+      setConversations((previous) => mergeConversations(previous, page.content));
+      setConversationPage((previous) => previous + 1);
+      setConversationTotalPages(page.totalPages);
+    } catch {
+      notify('No pudimos cargar más conversaciones.', 'error');
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+
   useEffect(() => {
     void loadConversations();
   }, [loadConversations]);
+
+  useEffect(() => {
+    if (!user) {
+      setBlockedIds(new Set());
+      return;
+    }
+    let active = true;
+    api
+      .blockedUsers()
+      .then((users) => active && setBlockedIds(new Set(users.map((blocked) => blocked.userId))))
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [user]);
 
   const openConversation = useCallback(
     async (conversationId: string) => {
@@ -153,6 +209,53 @@ export default function MessagesPage() {
     }
     void openConversation(routeConversationId);
   }, [routeConversationId, openConversation]);
+
+  // AUDIT-1.7: poll the visible tab so replies and unread badges show up without a refresh.
+  // Hidden tabs skip the request; the thread is merged, never replaced, to keep loaded history.
+  useEffect(() => {
+    if (!user) return;
+
+    const poll = async () => {
+      if (document.visibilityState === 'hidden' || pollingRef.current) return;
+      pollingRef.current = true;
+      const seq = threadSeq.current;
+      try {
+        if (openId) {
+          const page = await api.conversationThread(openId);
+          if (seq !== threadSeq.current) return;
+          const cached = threadsRef.current.get(openId);
+          const current = cached?.messages ?? [];
+          const merged = mergeMessages(current, page.messages);
+          if (merged.length !== current.length) {
+            const body = bodyRef.current;
+            const nearBottom =
+              !body || body.scrollHeight - body.scrollTop - body.clientHeight < NEAR_BOTTOM_PX;
+            const next: Thread = {
+              other: page.otherParticipant,
+              messages: merged,
+              hasMore: cached?.hasMore ?? page.hasMore,
+              nextBefore: cached?.nextBefore ?? page.nextBefore,
+            };
+            threadsRef.current.set(openId, next);
+            setOther(next.other);
+            setMessages(merged);
+            if (nearBottom) {
+              scrollToBottomRef.current = true;
+              await api.markConversationRead(openId);
+            }
+          }
+        }
+        await loadConversations(true);
+      } catch {
+        // Best effort: keep the current view and retry on the next tick.
+      } finally {
+        pollingRef.current = false;
+      }
+    };
+
+    const timer = window.setInterval(() => void poll(), POLL_INTERVAL_MS);
+    return () => window.clearInterval(timer);
+  }, [openId, user, loadConversations]);
 
   // Older messages are inserted above: keep the reading position instead of jumping to the end.
   const loadOlder = useCallback(async () => {
@@ -240,14 +343,45 @@ export default function MessagesPage() {
       });
       setDraft('');
       void loadConversations(true);
-    } catch {
-      setThreadError('No pudimos enviar el mensaje.');
+    } catch (caught) {
+      setThreadError(
+        caught instanceof ApiError && caught.status === 403
+          ? 'No podés enviar mensajes en esta conversación.'
+          : 'No pudimos enviar el mensaje.',
+      );
     } finally {
       setSending(false);
       // Keep the caret where the user is writing (the send button may have taken the focus).
       draftRef.current?.focus();
     }
   }, [draft, openId, sending, loadConversations]);
+
+  async function toggleBlock() {
+    if (!other || blocking) return;
+    setBlocking(true);
+    try {
+      if (blockedIds.has(other.id)) {
+        await api.unblockUser(other.id);
+        setBlockedIds((previous) => {
+          const next = new Set(previous);
+          next.delete(other.id);
+          return next;
+        });
+        notify('Usuario desbloqueado');
+      } else {
+        await api.blockUser(other.id);
+        setBlockedIds((previous) => new Set(previous).add(other.id));
+        setConfirmBlockOpen(false);
+        notify('Usuario bloqueado');
+      }
+    } catch {
+      notify('No pudimos actualizar el bloqueo.', 'error');
+    } finally {
+      setBlocking(false);
+    }
+  }
+
+  const blockedByMe = other !== null && blockedIds.has(other.id);
 
   function onComposerKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
     // Enter sends; Shift+Enter inserts a newline (standard chat behaviour).
@@ -291,34 +425,48 @@ export default function MessagesPage() {
               }
             />
           ) : (
-            <ul className="space-y-2">
-              {conversations.map((conversation) => (
-                <li key={conversation.id}>
-                  <button
-                    type="button"
-                    onClick={() => navigate(ROUTES.conversation(conversation.id))}
-                    className={`w-full rounded-2xl border p-4 text-left transition-colors ${
-                      openId === conversation.id
-                        ? 'border-primary-300 bg-primary-50/60 dark:border-primary-800 dark:bg-primary-900/20'
-                        : 'border-border bg-surface hover:bg-surface-muted'
-                    }`}
+            <>
+              <ul className="space-y-2">
+                {conversations.map((conversation) => (
+                  <li key={conversation.id}>
+                    <button
+                      type="button"
+                      onClick={() => navigate(ROUTES.conversation(conversation.id))}
+                      className={`w-full rounded-2xl border p-4 text-left transition-colors ${
+                        openId === conversation.id
+                          ? 'border-primary-300 bg-primary-50/60 dark:border-primary-800 dark:bg-primary-900/20'
+                          : 'border-border bg-surface hover:bg-surface-muted'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-semibold">{conversation.otherParticipant.displayName || 'Sin nombre'}</span>
+                        {conversation.unreadCount > 0 && (
+                          <span className="rounded-full bg-primary-600 px-2 py-0.5 text-xs font-bold text-white">
+                            {conversation.unreadCount}
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-1 truncate text-sm text-content-muted">
+                        {conversation.lastMessage?.content ?? 'Sin mensajes todavía'}
+                      </p>
+                      <p className="mt-1 text-[11px] text-content-muted">{formatWhen(conversation.updatedAt)}</p>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              {conversationPage + 1 < conversationTotalPages && (
+                <div className="mt-3 flex justify-center">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    loading={loadingMore}
+                    onClick={() => void loadMoreConversations()}
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-semibold">{conversation.otherParticipant.displayName || 'Sin nombre'}</span>
-                      {conversation.unreadCount > 0 && (
-                        <span className="rounded-full bg-primary-600 px-2 py-0.5 text-xs font-bold text-white">
-                          {conversation.unreadCount}
-                        </span>
-                      )}
-                    </div>
-                    <p className="mt-1 truncate text-sm text-content-muted">
-                      {conversation.lastMessage?.content ?? 'Sin mensajes todavía'}
-                    </p>
-                    <p className="mt-1 text-[11px] text-content-muted">{formatWhen(conversation.updatedAt)}</p>
-                  </button>
-                </li>
-              ))}
-            </ul>
+                    Cargar más conversaciones
+                  </Button>
+                </div>
+              )}
+            </>
           )}
         </section>
 
@@ -331,16 +479,37 @@ export default function MessagesPage() {
           ) : (
             // Fixed-height shell: switching conversations or loading never moves the page.
             <div data-testid="thread-shell" className="flex h-[70vh] flex-col rounded-2xl border border-border bg-surface">
-              <header className="flex items-center justify-between gap-3 border-b border-border p-4">
+              <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-4">
                 <div>
                   <p className="font-semibold">{other?.displayName || 'Conversación'}</p>
                   <p className="text-xs text-content-muted">
                     {other ? (other.role === 'TEACHER' ? 'Profesor' : 'Estudiante') : ''}
                   </p>
                 </div>
-                <Button variant="ghost" size="sm" className="lg:hidden" onClick={() => navigate(ROUTES.messages)}>
-                  Volver
-                </Button>
+                <div className="flex flex-wrap items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={!other}
+                    onClick={() => setReportOpen(true)}
+                  >
+                    <Flag className="h-4 w-4" aria-hidden="true" />
+                    Reportar
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    loading={blocking}
+                    disabled={!other}
+                    onClick={() => (blockedByMe ? void toggleBlock() : setConfirmBlockOpen(true))}
+                  >
+                    <Ban className="h-4 w-4" aria-hidden="true" />
+                    {blockedByMe ? 'Desbloquear' : 'Bloquear'}
+                  </Button>
+                  <Button variant="ghost" size="sm" className="lg:hidden" onClick={() => navigate(ROUTES.messages)}>
+                    Volver
+                  </Button>
+                </div>
               </header>
 
               <div ref={bodyRef} className="flex-1 overflow-y-auto overflow-x-hidden p-4" aria-busy={loadingThread} data-testid="thread-body">
@@ -401,44 +570,87 @@ export default function MessagesPage() {
                 )}
               </div>
 
-              <form
-                className="flex items-end gap-2 border-t border-border p-3"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  void send();
-                }}
-              >
-                <label className="sr-only" htmlFor="message-draft">
-                  Escribí un mensaje
-                </label>
-                <textarea
-                  id="message-draft"
-                  data-testid="composer"
-                  ref={draftRef}
-                  rows={1}
-                  maxLength={MAX_MESSAGE_LENGTH}
-                  value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
-                  onKeyDown={onComposerKeyDown}
-                  placeholder="Escribí un mensaje… (Enter para enviar)"
-                  className="composer max-h-[200px] w-full resize-none rounded-xl border border-border bg-surface px-3 py-2 text-sm text-content placeholder:text-content-muted/70 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-ring/40"
-                />
-                <span
-                  data-testid="composer-counter"
-                  className="shrink-0 pb-2 text-[11px] tabular-nums text-content-muted"
-                  aria-hidden="true"
+              {blockedByMe ? (
+                <div className="space-y-2 border-t border-border p-3 text-sm text-content-muted">
+                  <p>Bloqueaste a este usuario. No pueden enviarse mensajes.</p>
+                  <Button variant="outline" size="sm" loading={blocking} onClick={() => void toggleBlock()}>
+                    Desbloquear
+                  </Button>
+                </div>
+              ) : (
+                <form
+                  className="flex items-end gap-2 border-t border-border p-3"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void send();
+                  }}
                 >
-                  {draft.length}/{MAX_MESSAGE_LENGTH}
-                </span>
-                <Button type="submit" loading={sending} disabled={!draft.trim()}>
-                  <Send className="h-4 w-4" aria-hidden="true" />
-                  <span className="hidden sm:inline">Enviar</span>
-                </Button>
-              </form>
+                  <label className="sr-only" htmlFor="message-draft">
+                    Escribí un mensaje
+                  </label>
+                  <textarea
+                    id="message-draft"
+                    data-testid="composer"
+                    ref={draftRef}
+                    rows={1}
+                    maxLength={MAX_MESSAGE_LENGTH}
+                    value={draft}
+                    onChange={(e) => setDraft(e.target.value)}
+                    onKeyDown={onComposerKeyDown}
+                    placeholder="Escribí un mensaje… (Enter para enviar)"
+                    className="composer max-h-[200px] w-full resize-none rounded-xl border border-border bg-surface px-3 py-2 text-sm text-content placeholder:text-content-muted/70 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-ring/40"
+                  />
+                  <span
+                    data-testid="composer-counter"
+                    className="shrink-0 pb-2 text-[11px] tabular-nums text-content-muted"
+                    aria-hidden="true"
+                  >
+                    {draft.length}/{MAX_MESSAGE_LENGTH}
+                  </span>
+                  <Button type="submit" loading={sending} disabled={!draft.trim()}>
+                    <Send className="h-4 w-4" aria-hidden="true" />
+                    <span className="hidden sm:inline">Enviar</span>
+                  </Button>
+                </form>
+              )}
             </div>
           )}
         </section>
       </div>
+
+      <ReportModal
+        open={reportOpen && other !== null}
+        reportedUserId={other?.id ?? ''}
+        reportedName={other?.displayName}
+        onClose={() => setReportOpen(false)}
+        onReported={() => {
+          setReportOpen(false);
+          notify('Reporte enviado. Administración lo va a revisar.');
+        }}
+      />
+
+      <Modal
+        open={confirmBlockOpen}
+        onClose={() => setConfirmBlockOpen(false)}
+        title="Bloquear usuario"
+        size="sm"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-content-muted">
+            Vas a bloquear a <strong className="text-content">{other?.displayName || 'este usuario'}</strong>.
+            No van a poder iniciar conversaciones ni enviarse mensajes. El historial existente se
+            conserva.
+          </p>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button block loading={blocking} onClick={() => void toggleBlock()}>
+              Bloquear
+            </Button>
+            <Button type="button" variant="outline" block onClick={() => setConfirmBlockOpen(false)}>
+              Cancelar
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

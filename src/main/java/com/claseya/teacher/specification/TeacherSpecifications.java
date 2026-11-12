@@ -115,6 +115,7 @@ public final class TeacherSpecifications {
             List<Predicate> predicates = new ArrayList<>();
             predicates.add(cb.equal(ts.get("teacher"), root));
             predicates.add(cb.isTrue(ts.get("active")));
+            predicates.add(cb.isNotNull(ts.get("careerSubject")));
             predicates.add(cb.isTrue(ts.get("careerSubject").get("active")));
             if (subjectId != null) {
                 predicates.add(cb.equal(ts.get("careerSubject").get("subject").get("id"), subjectId));
@@ -129,6 +130,45 @@ public final class TeacherSpecifications {
             subquery.where(cb.and(predicates.toArray(Predicate[]::new)));
             return cb.exists(subquery);
         };
+    }
+
+    /**
+     * PROFILE-004: a subject-only filter matches both the academic link (CareerSubject) and the
+     * direct link (Subject). Each path is a separate EXISTS so the direct subject join cannot
+     * filter the career rows.
+     */
+    public static Specification<TeacherProfile> teachesSubjectEither(UUID subjectId) {
+        return (root, query, cb) -> {
+            Subquery<TeacherSubject> career = query.subquery(TeacherSubject.class);
+            Root<TeacherSubject> cts = career.from(TeacherSubject.class);
+            career.select(cts);
+            career.where(cb.and(
+                    cb.equal(cts.get("teacher"), root),
+                    cb.isTrue(cts.get("active")),
+                    cb.isNotNull(cts.get("careerSubject")),
+                    cb.isTrue(cts.get("careerSubject").get("active")),
+                    cb.equal(cts.get("careerSubject").get("subject").get("id"), subjectId)));
+
+            Subquery<TeacherSubject> direct = query.subquery(TeacherSubject.class);
+            Root<TeacherSubject> dts = direct.from(TeacherSubject.class);
+            direct.select(dts);
+            direct.where(cb.and(
+                    cb.equal(dts.get("teacher"), root),
+                    cb.isTrue(dts.get("active")),
+                    cb.isNotNull(dts.get("subject")),
+                    cb.isTrue(dts.get("subject").get("active")),
+                    cb.equal(dts.get("subject").get("id"), subjectId)));
+
+            return cb.or(cb.exists(career), cb.exists(direct));
+        };
+    }
+
+    /** Case-insensitive, trimmed exact match on the public city/zone. */
+    public static Specification<TeacherProfile> inCity(String city) {
+        String normalized = city == null ? "" : city.trim().toLowerCase(java.util.Locale.ROOT);
+        return (root, query, cb) -> cb.equal(
+                cb.lower(cb.trim(root.<String>get("city"))),
+                normalized);
     }
 
     /** Teachers offering the given modality. */

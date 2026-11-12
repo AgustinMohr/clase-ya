@@ -1,5 +1,6 @@
 package com.claseya.security;
 
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -46,10 +47,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         if (token != null) {
             try {
-                String userId = jwtService.extractUserId(token);
+                Claims claims = jwtService.parseToken(token);
+                String userId = claims.getSubject();
                 AppUserDetails user = userDetailsService.loadUserById(UUID.fromString(userId));
+                Object versionClaim = claims.get("ver");
+                int tokenVersion = versionClaim instanceof Number number ? number.intValue() : -1;
 
-                if (user.isEnabled() && SecurityContextHolder.getContext().getAuthentication() == null) {
+                if (user.isEnabled()
+                        && tokenVersion == user.getSessionVersion()
+                        && SecurityContextHolder.getContext().getAuthentication() == null) {
                     UsernamePasswordAuthenticationToken authentication =
                             new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());
                     authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));

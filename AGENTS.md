@@ -66,6 +66,7 @@ Monolito modular bajo `com.claseya`. Módulos:
 | `favorite` | Favoritos. |
 | `messaging` | Conversaciones/mensajes/estado de lectura y contacto inicial. |
 | `review` | Opiniones 1..5, respuesta del profesor, moderación admin y agregados de rating. |
+| `safety` | Reportes de usuarios, cola de moderación admin y bloqueo bidireccional de contacto/mensajes. |
 | `notification` | Outbox transaccional, worker, transportes SMTP/Brevo y links de contacto de un solo uso. |
 | `verification` | Evidencia documental, validación PDF, escaneo, storage y decisiones de verificación. |
 | `bootstrap` | `DemoDataSeeder` (solo perfil local). |
@@ -84,7 +85,8 @@ propuestas (aún no aplicadas).
   `userId`/`studentId`/`senderId`/`participantIds` del cliente para decidir *quién* actúa.
 - Contraseñas: solo BCrypt; nunca guardes ni loguees texto plano. Nunca expongas `passwordHash`.
 - JWT sin estado (`jwt.secret`, `jwt.expiration`); las cuentas **PENDING/INACTIVE/SUSPENDED no
-  pueden autenticarse** (solo `ACTIVE`). La visibilidad pública de un profesor exige
+  pueden autenticarse** (solo `ACTIVE`). Logout y reset de contraseña invalidan los JWT anteriores
+  vía `users.session_version` (AUTH-004). La visibilidad pública de un profesor exige
   `user.status = ACTIVE` **y** un anuncio publicado (nombre, bio, ≥1 materia activa, ≥1 modalidad y
   ≥1 disponibilidad). `verificationStatus = VERIFIED` es un plus de confianza y un filtro opcional
   (`onlyVerified`), no un requisito de existencia; profesores ocultos → 404.
@@ -211,6 +213,9 @@ modificación de seguridad, modificación del schema, dependencia nueva o cambio
 Ver `docs/development-workflow.md`: el ciclo completo (SPEC → REVIEW → PLAN → IMPLEMENT → TEST →
 VERIFY → REVIEW → DONE) es exigible a features de producto (**Nivel 2**); los **Niveles 0 y 1**
 tienen ciclos cortos. Las ambigüedades con impacto arquitectónico se reportan, no se adivinan.
+
+Ramas: `main` es producción (protegida, solo release desde `dev`); `dev` es integración/pruebas.
+Las ramas de trabajo salen de `dev`, se mergean por PR y se borran al integrarse.
 
 ## Agent Skills
 

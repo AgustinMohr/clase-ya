@@ -34,6 +34,7 @@ public class TeacherSearchController {
             @RequestParam(required = false) UUID subjectId,
             @RequestParam(required = false) UUID careerId,
             @RequestParam(required = false) UUID universityId,
+            @RequestParam(required = false) String city,
             @RequestParam(required = false) TeachingModality modality,
             @RequestParam(required = false) Double minRating,
             @RequestParam(required = false) BigDecimal minPrice,
@@ -47,7 +48,7 @@ public class TeacherSearchController {
             @RequestParam(defaultValue = "false") boolean onlyVerified) {
 
         TeacherSearchCriteria criteria = new TeacherSearchCriteria(
-                subjectId, careerId, universityId, modality, minRating, minPrice, maxPrice,
+                subjectId, careerId, universityId, city, modality, minRating, minPrice, maxPrice,
                 latitude, longitude, radius, page, size, sort, onlyVerified);
         return teacherSearchService.search(criteria);
     }

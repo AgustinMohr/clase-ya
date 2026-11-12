@@ -5,6 +5,7 @@ import com.claseya.model.User;
 import com.claseya.model.enums.UserRole;
 import com.claseya.model.enums.UserStatus;
 import com.claseya.notification.service.ActivationLinkSender;
+import com.claseya.notification.service.EmailSender;
 import com.claseya.security.AppUserDetails;
 import com.claseya.security.JwtService;
 import com.claseya.user.UserRepository;
@@ -59,6 +60,10 @@ public abstract class AbstractWebIntegrationTest extends AbstractPostgresTest {
     @MockitoBean
     protected ActivationLinkSender activationLinkSender;
 
+    /** AUTH-003: password reset checks the transport before enqueueing the email. */
+    @MockitoBean
+    protected EmailSender emailSender;
+
     /** SEC-04: integration tests never contact Turnstile. */
     @MockitoBean
     protected CaptchaVerifier captchaVerifier;
@@ -70,6 +75,7 @@ public abstract class AbstractWebIntegrationTest extends AbstractPostgresTest {
     @BeforeEach
     void assumeActivationTransportIsConfigured() {
         org.mockito.Mockito.when(activationLinkSender.isConfigured()).thenReturn(true);
+        org.mockito.Mockito.when(emailSender.isConfigured()).thenReturn(true);
     }
 
     private static final String APPLICATION_JSON_UTF8 = MediaType.APPLICATION_JSON_VALUE + ";charset=UTF-8";

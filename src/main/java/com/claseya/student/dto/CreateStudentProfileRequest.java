@@ -1,5 +1,6 @@
 package com.claseya.student.dto;
 
+import com.claseya.model.enums.StudentLevel;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
@@ -8,13 +9,20 @@ import jakarta.validation.constraints.Size;
 import java.util.UUID;
 
 public record CreateStudentProfileRequest(
-        @NotNull(message = "universityId is required")
+        @Size(max = 255, message = "Name is too long")
+        String name,
+
+        @NotNull(message = "level is required")
+        StudentLevel level,
+
+        @Size(max = 100, message = "City is too long")
+        String city,
+
+        /** Optional academic data; when present, universityId and careerId go together. */
         UUID universityId,
 
-        @NotNull(message = "careerId is required")
         UUID careerId,
 
-        @NotNull(message = "currentYear is required")
         @Min(value = 1, message = "currentYear must be between 1 and 12")
         @Max(value = 12, message = "currentYear must be between 1 and 12")
         Integer currentYear,

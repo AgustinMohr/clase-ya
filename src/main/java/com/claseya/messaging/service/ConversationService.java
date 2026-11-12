@@ -22,6 +22,7 @@ import com.claseya.model.TeacherProfile;
 import com.claseya.model.User;
 import com.claseya.model.enums.UserStatus;
 import com.claseya.notification.service.NotificationOutboxService;
+import com.claseya.safety.service.UserBlockService;
 import com.claseya.student.repository.StudentProfileRepository;
 import com.claseya.common.dto.SearchResultPage;
 import com.claseya.teacher.repository.TeacherProfileRepository;
@@ -56,6 +57,7 @@ public class ConversationService {
     private final MessageService messageService;
     private final TeacherVisibilityService teacherVisibilityService;
     private final NotificationOutboxService notificationOutboxService;
+    private final UserBlockService userBlockService;
 
     public ConversationService(ConversationRepository conversationRepository,
                                ConversationParticipantRepository participantRepository,
@@ -65,7 +67,8 @@ public class ConversationService {
                                TeacherProfileRepository teacherProfileRepository,
                                MessageService messageService,
                                TeacherVisibilityService teacherVisibilityService,
-                               NotificationOutboxService notificationOutboxService) {
+                               NotificationOutboxService notificationOutboxService,
+                               UserBlockService userBlockService) {
         this.conversationRepository = conversationRepository;
         this.participantRepository = participantRepository;
         this.conversationPairRepository = conversationPairRepository;
@@ -75,6 +78,7 @@ public class ConversationService {
         this.messageService = messageService;
         this.teacherVisibilityService = teacherVisibilityService;
         this.notificationOutboxService = notificationOutboxService;
+        this.userBlockService = userBlockService;
     }
 
     public record ConversationCreated(ConversationResponse conversation, boolean created) {
@@ -84,10 +88,19 @@ public class ConversationService {
     public ConversationCreated start(UUID studentUserId, UUID teacherId, String message) {
         // The caller can only be contacted when publicly visible (D1: ACTIVE + published).
         TeacherProfile teacher = teacherVisibilityService.requireVisible(teacherId);
+        UUID teacherUserId = teacher.getUser().getId();
+        // REPORT-001: a block in either direction cuts new contacts and new messages.
+        if (userBlockService.isBlockedEitherWay(studentUserId, teacherUserId)) {
+            throw new org.springframework.security.access.AccessDeniedException("Contact is blocked");
+        }
 
         StudentProfile student = studentProfileRepository.findByUser_Id(studentUserId)
                 .orElseThrow(() -> new ConflictException(
                         "Student profile must be completed before starting a conversation"));
+        if (student.getUser().getName() == null || student.getUser().getName().isBlank()) {
+            throw new ConflictException(
+                    "Student profile must include a visible name before starting a conversation");
+        }
 
         // Validate the optional first message before touching anything: an invalid
         // contact must not leave an empty conversation behind (CONTACT-001).
@@ -96,7 +109,6 @@ public class ConversationService {
         }
 
         // One conversation per student<->teacher pair for V1: reuse the existing one.
-        UUID teacherUserId = teacher.getUser().getId();
         List<Conversation> existing = conversationRepository.findBetween(studentUserId, teacherUserId);
         if (!existing.isEmpty()) {
             Conversation conversation = existing.get(0);

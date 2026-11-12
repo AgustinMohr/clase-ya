@@ -8,7 +8,6 @@ import EducationSection from '../components/teacher/listing/EducationSection';
 import ModalitiesSection from '../components/teacher/listing/ModalitiesSection';
 import ProfileSection from '../components/teacher/listing/ProfileSection';
 import SubjectsSection from '../components/teacher/listing/SubjectsSection';
-import { useAcademicCascade } from '../hooks/useAcademicCascade';
 import { usePageMeta } from '../hooks/usePageMeta';
 import { useTeacherListing } from '../hooks/useTeacherListing';
 
@@ -29,7 +28,6 @@ export default function MyListingPage({
   });
 
   const listing = useTeacherListing();
-  const cascade = useAcademicCascade();
 
   if (listing.loading) {
     return (
@@ -85,20 +83,9 @@ export default function MyListingPage({
 
         <SubjectsSection
           subjects={listing.subjects}
-          universities={listing.universities}
-          units={cascade.units}
-          careers={cascade.careers}
-          careerSubjects={cascade.careerSubjects}
-          selUniversity={cascade.selUniversity}
-          selUnit={cascade.selUnit}
-          selCareer={cascade.selCareer}
-          selCareerSubject={cascade.selCareerSubject}
-          setSelCareerSubject={cascade.setSelCareerSubject}
-          onPickUnit={cascade.pickUnit}
-          onPickCareer={cascade.pickCareer}
-          onPickCareerSubject={cascade.pickCareerSubject}
           addingSubject={listing.addingSubject}
-          onAddSubject={listing.addSubject}
+          searchSubjects={listing.searchSubjects}
+          onAddSubjectById={listing.addSubjectBySubject}
           onRemoveSubject={listing.removeSubject}
         />
 

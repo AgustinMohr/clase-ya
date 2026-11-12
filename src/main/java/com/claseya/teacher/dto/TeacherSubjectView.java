@@ -1,12 +1,14 @@
 package com.claseya.teacher.dto;
 
+import com.claseya.model.CareerSubject;
+import com.claseya.model.Subject;
 import com.claseya.model.TeacherSubject;
 
 import java.util.UUID;
 
 /**
- * A subject taught by a teacher, resolved through CareerSubject into its
- * conceptual Subject, Career and University (privacy-safe; no exact location).
+ * A subject taught by a teacher. Legacy rows come from CareerSubject; direct rows point to
+ * Subject only (PROFILE-004). Privacy-safe: no exact location.
  */
 public record TeacherSubjectView(
         UUID careerSubjectId,
@@ -19,10 +21,19 @@ public record TeacherSubjectView(
 ) {
 
     public static TeacherSubjectView from(TeacherSubject teacherSubject) {
-        var careerSubject = teacherSubject.getCareerSubject();
-        var subject = careerSubject.getSubject();
-        var career = careerSubject.getCareer();
-        var university = career.getAcademicUnit().getUniversity();
+        CareerSubject careerSubject = teacherSubject.getCareerSubject();
+        if (careerSubject == null) {
+            Subject subject = teacherSubject.getSubject();
+            return new TeacherSubjectView(
+                    null,
+                    subject.getId(),
+                    subject.getName(),
+                    null,
+                    null,
+                    null,
+                    null);
+        }
+        Subject subject = careerSubject.getSubject();
         String displayName = careerSubject.getNameOverride() != null
                 ? careerSubject.getNameOverride()
                 : subject.getName();
@@ -30,9 +41,9 @@ public record TeacherSubjectView(
                 careerSubject.getId(),
                 subject.getId(),
                 displayName,
-                career.getId(),
-                career.getName(),
-                university.getId(),
-                university.getName());
+                careerSubject.getCareer().getId(),
+                careerSubject.getCareer().getName(),
+                careerSubject.getCareer().getAcademicUnit().getUniversity().getId(),
+                careerSubject.getCareer().getAcademicUnit().getUniversity().getName());
     }
 }

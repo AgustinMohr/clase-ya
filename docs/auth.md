@@ -31,13 +31,15 @@ suite/tooling may still send `Authorization: Bearer <jwt>`. The SPA never sees t
 
 ```
 POST /api/auth/register
-{ "email": "student@example.com", "password": "Password123", "role": "STUDENT" }
+{ "email": "student@example.com", "name": "Ana Estudiante", "password": "Password123", "role": "STUDENT" }
 
 202 Accepted
 (no body)
 ```
 
 - Email is normalized to lowercase before save and lookup.
+- `name` is the visible display name (trimmed, max 255). The SPA requires it; the API keeps it
+  optional for older clients. It is persisted in `users.name`.
 - **Password policy (AUTH-002 / SEC-04):** at least 10 characters, at least one letter and one
   digit, and at most **72 UTF-8 bytes** (BCrypt silently truncates beyond that). Violations →
   **400** with `fieldErrors.password`.
@@ -71,6 +73,21 @@ POST /api/auth/register
 - Both endpoints share the registration rate-limit bucket by IP (`429` + `Retry-After`).
 - ADMIN escape hatch: `POST /api/admin/users/{userId}/activate` → `204`. It sets `ACTIVE` but does
   **not** set `email_verified_at`.
+
+## Password reset (AUTH-003)
+
+| Endpoint | Request | Response |
+|---|---|---|
+| `POST /api/auth/forgot-password` | `{ "email": "<string>" }` | `202` always; `503` without email transport |
+| `POST /api/auth/reset-password` | `{ "token": "<string>", "newPassword": "<string>" }` | `204`; `400` invalid/expired/used/weak password |
+
+- Only a SHA-256 digest is stored (`password_reset_tokens`), with 30 min TTL and `used_at`.
+- A new request invalidates outstanding tokens for that account.
+- Only an `ACTIVE` account receives a link; the request never reveals whether the email exists.
+- The email is enqueued in `notification_outbox` as `PASSWORD_RESET`; the link points to
+  `${APP_BASE_URL}/restablecer?token=...`.
+- Both endpoints share the registration rate-limit bucket by IP (`429` + `Retry-After`).
+- A successful reset invalidates the token; existing JWT sessions still expire on their own.
 
 ## Login
 

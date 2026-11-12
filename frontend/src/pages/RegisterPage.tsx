@@ -24,18 +24,20 @@ function fieldErrorsOf(error: unknown): Record<string, string> {
 export default function RegisterPage({ onLogin }: Props) {
   const { register } = useAuth();
   const navigate = useNavigate();
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
   const [captchaToken, setCaptchaToken] = useState('');
   const [role, setRole] = useState<AccountRole>('STUDENT');
+  const [accepted, setAccepted] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState('');
   const [loading, setLoading] = useState(false);
   const [sentTo, setSentTo] = useState<string | null>(null);
 
   function validate(): boolean {
-    const next = validateRegistration({ email, password, confirmation });
+    const next = validateRegistration({ name, email, password, confirmation });
     setErrors(next);
     return Object.keys(next).length === 0;
   }
@@ -43,10 +45,14 @@ export default function RegisterPage({ onLogin }: Props) {
   async function submit(ev: React.FormEvent) {
     ev.preventDefault();
     setFormError('');
+    if (!accepted) {
+      setFormError('Tenés que declarar que sos mayor de 18 años o tutor legal y aceptar los términos.');
+      return;
+    }
     if (!validate()) return;
     setLoading(true);
     try {
-      await register(email.trim(), password, role, captchaToken || undefined);
+      await register(email.trim(), password, role, name.trim(), captchaToken || undefined);
       setSentTo(email.trim());
     } catch (error) {
       if (error instanceof ApiError && error.status === 400) {
@@ -124,6 +130,20 @@ export default function RegisterPage({ onLogin }: Props) {
             </button>
           </div>
 
+          <Field label="Nombre y apellido" error={errors.name}>
+            {(props) => (
+              <Input
+                {...props}
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                autoComplete="name"
+                maxLength={255}
+                required
+              />
+            )}
+          </Field>
+
           <Field label="Email" error={errors.email}>
             {(props) => (
               <Input
@@ -172,6 +192,26 @@ export default function RegisterPage({ onLogin }: Props) {
               {formError}
             </p>
           )}
+
+          <label className="flex items-start gap-2 text-sm text-content-muted">
+            <input
+              type="checkbox"
+              className="mt-0.5 h-4 w-4 shrink-0 rounded border-border text-primary-600 focus:ring-ring"
+              checked={accepted}
+              onChange={(event) => setAccepted(event.target.checked)}
+            />
+            <span>
+              Declaro ser mayor de 18 años o tutor legal y acepto los{' '}
+              <Link to={ROUTES.terms} className="font-semibold text-primary-700 underline dark:text-primary-200">
+                Términos
+              </Link>{' '}
+              y la{' '}
+              <Link to={ROUTES.privacy} className="font-semibold text-primary-700 underline dark:text-primary-200">
+                Política de Privacidad
+              </Link>
+              . Los menores operan su cuenta a través de un adulto responsable.
+            </span>
+          </label>
 
           <TurnstileWidget onToken={setCaptchaToken} onError={setFormError} />
 

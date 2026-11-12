@@ -28,7 +28,7 @@ const STEPS = [
 ];
 
 const BENEFITS = [
-  { icon: ShieldCheck, title: 'Profes verificados', text: 'Docentes con identidad y formación validadas por ClaseYa.' },
+  { icon: ShieldCheck, title: 'Verificación opcional', text: 'El docente puede validar identidad y formación; no es obligatorio para publicar.' },
   { icon: Compass, title: 'Sin vueltas', text: 'Encontrá y contactá en pocos clics. Sin reservas ni pagos dentro de la app.' },
   { icon: Sparkles, title: 'Precios claros', text: 'Compará precio por hora, modalidad y disponibilidad real.' },
 ];
@@ -88,7 +88,7 @@ export default function LandingPage({
             Encontrá tu profesor particular
           </h1>
           <p className="mt-4 max-w-2xl text-lg text-primary-50/90">
-            Buscá por materia, compará profes verificados y contactalos gratis. Vos coordinás la clase.
+            Buscá por materia, compará profes y contactalos gratis. Vos coordinás la clase.
           </p>
 
           <div className="mt-8 max-w-3xl">
@@ -164,7 +164,7 @@ export default function LandingPage({
       {/* PROFESORES DESTACADOS */}
       <Section
         title="Profesores destacados"
-        subtitle="Perfiles verificados, con precio por hora y disponibilidad."
+        subtitle="Perfiles con precio por hora, disponibilidad y verificación opcional."
       >
         {loading ? (
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
