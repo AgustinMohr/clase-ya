@@ -22,6 +22,8 @@ const AdminPage = lazy(() => import('./pages/AdminPage'));
 const AdminUsersPage = lazy(() => import('./pages/AdminUsersPage'));
 const AdminVerificationsPage = lazy(() => import('./pages/AdminVerificationsPage'));
 const AdminReviewsPage = lazy(() => import('./pages/AdminReviewsPage'));
+const AdminReportsPage = lazy(() => import('./pages/AdminReportsPage'));
+const LegalPage = lazy(() => import('./pages/LegalPage'));
 const FavoritesPage = lazy(() => import('./pages/FavoritesPage'));
 const RegisterPage = lazy(() => import('./pages/RegisterPage'));
 const ActivateAccountPage = lazy(() => import('./pages/ActivateAccountPage'));
@@ -361,6 +363,19 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
+
+            <Route
+              path={ROUTES.adminReports}
+              element={
+                <ProtectedRoute role="ADMIN" onRequireLogin={requireLogin}>
+                  <AdminReportsPage />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route path={ROUTES.terms} element={<LegalPage kind="terms" />} />
+            <Route path={ROUTES.privacy} element={<LegalPage kind="privacy" />} />
+            <Route path={ROUTES.help} element={<LegalPage kind="help" />} />
 
             <Route path="*" element={<NotFoundPage />} />
           </Routes>

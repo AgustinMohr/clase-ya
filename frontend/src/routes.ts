@@ -8,10 +8,14 @@ export const ROUTES = {
   myListing: '/mi-anuncio',
   admin: '/admin',
   adminReviews: '/admin/opiniones',
+  adminReports: '/admin/reportes',
   register: '/registro',
   activate: '/activar',
   forgotPassword: '/recuperar',
   resetPassword: '/restablecer',
+  terms: '/terminos',
+  privacy: '/privacidad',
+  help: '/ayuda',
 };
 
 /** Search URL with only the free-text term, used by the landing and category cards. */

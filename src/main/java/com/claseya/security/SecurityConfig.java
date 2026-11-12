@@ -92,6 +92,9 @@ public class SecurityConfig {
                         // Messaging: students start conversations; participants read/send.
                         .requestMatchers(HttpMethod.POST, "/api/conversations").hasRole("STUDENT")
                         .requestMatchers("/api/conversations/**").hasAnyRole("STUDENT", "TEACHER")
+                        // REPORT-001: reports and blocks belong to the interacting users, not admins.
+                        .requestMatchers("/api/reports", "/api/blocks/**")
+                        .hasAnyRole("STUDENT", "TEACHER")
                         // Own-profile teacher routes stay role-protected even though
                         // public discovery (GET /api/teachers, GET /api/teachers/{id})
                         // is open. Matcher order matters: /me routes come first.

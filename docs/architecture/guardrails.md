@@ -37,7 +37,9 @@ Paquete base: `com.claseya`.
 ## Dependencias cruzadas actuales (unidireccionales)
 
 - `favorite` → `teacher.dto` y `teacher.service` (assembler) — reuso intencional.
-- `messaging` → `common.dto.SearchResultPage`, `student.repository`, `teacher.repository`.
+- `messaging` → `common.dto.SearchResultPage`, `student.repository`, `teacher.repository`,
+  `safety.service` (bloqueo bidireccional de contacto/mensajes).
+- `safety` → `user` y `common`; no depende de `messaging` (relación unidireccional).
 - `availability` → `teacher.service`/`teacher.repository` (visibilidad y perfil).
 - `verification` → `teacher.service`/`teacher.repository` (perfil y educación).
 - `review` → `teacher`, `student` y `messaging` (perfil, elegibilidad y respuesta), todo unidireccional.

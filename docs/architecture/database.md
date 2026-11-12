@@ -40,7 +40,9 @@ notification_outbox (dedupe_key único, status/attempts/locked_until)  (V13/V14)
 message_link_tokens (user_id, conversation_id, token_hash único, expires_at/used_at)  (V13)
 reviews                            (activa desde V18; una por par estudiante↔profesor)
 review_moderation_events           (auditoría append-only de ocultar/restaurar)
-reports/notifications              (reservadas para futuro; sin entidades JPA)
+reports                            (activa desde V22; reportes de usuarios y cola admin)
+user_blocks                        (V22; bloqueo bidireccional de contacto/mensajes)
+notifications                      (reservada para futuro; sin entidad JPA)
 bookings/calendly_integrations     (eliminadas en V17; ver ADR-032)
 ```
 
@@ -64,7 +66,8 @@ resuelve ambos caminos.
 - `favorites (student_id, teacher_id)`; `conversation_participants (conversation_id, user_id)`;
   `conversation_pairs (student_user_id, teacher_user_id)` con `conversation_id` único (V12, RACE-01).
   `reviews` está activa desde `V18` (una por par, estado PUBLISHED/HIDDEN, respuesta y moderación);
-  `reports`/`notifications` siguen reservadas para futuro sin entidades JPA. `reviews.booking_id` se
+  `reports` está activa desde `V22` (un reporte abierto por par reporter/reported) y `user_blocks`
+  guarda el bloqueo; `notifications` sigue reservada para futuro sin entidad JPA. `reviews.booking_id` se
   eliminó en V17 y `bookings`/`calendly_integrations` ya no existen (ver `ADR-032`).
 - CHECK de rangos (rating 1-5, lat/lng, `current_year`, `duration_minutes`, años, semestre),
   CHECK de enums y `reporter_id <> reported_user_id`.
@@ -104,6 +107,9 @@ resuelve ambos caminos.
   credenciales con `join fetch` para evitar N+1.
 - Reviews (V18): `reviews(teacher_id, status, created_at DESC)` para el listado público y
   `review_moderation_events(review_id, created_at DESC)` para la auditoría.
+- Safety (V22): `user_blocks` UNIQUE `(blocker_id, blocked_id)` + índice por `blocked_id`;
+  `reports` con índice parcial único `(reporter_id, reported_user_id) WHERE status IN
+  ('OPEN','REVIEWING')` y `(status, created_at DESC)` para la cola admin.
 
 ## Reglas de migraciones
 
@@ -119,14 +125,15 @@ resuelve ambos caminos.
   (OPINION-001): estado, respuesta, moderación, UNIQUE por par e índice de listado · `V19` hace
   opcional el bloque académico del estudiante y agrega `level`/`city` (PROFILE-003) · `V20` permite
   que `teacher_subjects` apunte a una materia directa sin carrera (PROFILE-004) · `V21` agrega
-  `password_reset_tokens` y el evento `PASSWORD_RESET` del outbox (AUTH-003).
+  `password_reset_tokens` y el evento `PASSWORD_RESET` del outbox (AUTH-003) · `V22` activa
+  `reports` y agrega `user_blocks` para reportes/bloqueo (REPORT-001).
 
 ## Borrado y normalización
 
 - **Soft delete** en catálogo (`active=false`) y en cuentas (`status`); borrado físico casi no
-  existe. FKs `RESTRICT` protegen datos históricos (mensajes, participantes, reviews y, cuando se
-  implementen, reports/notifications); `CASCADE` solo en datos de propiedad efímera (education,
-  teacher_subjects, modalities).
+  existe. FKs `RESTRICT` protegen datos históricos (mensajes, participantes, reviews y reports);
+  `CASCADE` solo en datos de propiedad efímera (education, teacher_subjects, modalities,
+  user_blocks).
 - Normalización ~3NF: nombres de universidad/carrera/materia nunca duplicados; referencias por FK.
   Excepciones justificadas: `teacher_profiles.rating_average/count` (agregados cacheados para
   ordenar/buscar; los recalcula `ReviewService` desde las reviews PUBLISHED) y

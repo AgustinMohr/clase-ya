@@ -171,6 +171,11 @@ Authorization: Bearer <student>                   # 204
   scope.
 - SUSPENDED semantics follow the global auth rule (non-ACTIVE ⇒ unauthenticated, 401), keeping
   history intact.
+- REPORT-001: a block in either direction makes `POST /api/conversations` and
+  `POST /api/conversations/{id}/messages` return 403 for both sides. The existing conversation
+  stays readable; only new contacts and messages are cut.
+- The Messages page polls every 20 s while the tab is visible (list badges + open thread), so a
+  reply shows up without a manual refresh.
 
 ## Prepared for WebSockets (future)
 

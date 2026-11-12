@@ -318,6 +318,32 @@ export interface Message {
   readAt?: string;
 }
 
+export type ReportReason = 'HARASSMENT' | 'SPAM' | 'FAKE_PROFILE' | 'INAPPROPRIATE' | 'OTHER';
+export type ReportStatus = 'OPEN' | 'REVIEWING' | 'RESOLVED' | 'REJECTED';
+
+export interface Report {
+  id: string;
+  status: ReportStatus;
+  reason: ReportReason;
+  createdAt: string;
+}
+
+export interface AdminReport {
+  id: string;
+  reporterDisplayName?: string | null;
+  reportedDisplayName?: string | null;
+  reason: ReportReason;
+  description?: string | null;
+  status: ReportStatus;
+  createdAt: string;
+  resolvedAt?: string | null;
+}
+
+export interface BlockedUser {
+  userId: string;
+  displayName?: string | null;
+}
+
 export interface Page<T> {
   content: T[];
   page: number;
@@ -725,6 +751,23 @@ export const api = {
     request<Message>('POST', `/api/conversations/${conversationId}/messages`, { content }, true),
   markConversationRead: (conversationId: string) =>
     request<void>('PATCH', `/api/conversations/${conversationId}/read`, undefined, true),
+
+  // --- Safety (REPORT-001) ---------------------------------------------------
+  reportUser: (reportedUserId: string, reason: ReportReason, description?: string) =>
+    request<Report>('POST', '/api/reports', { reportedUserId, reason, description }, true),
+  blockedUsers: () => request<BlockedUser[]>('GET', '/api/blocks', undefined, true),
+  blockUser: (userId: string) => request<void>('POST', `/api/blocks/${userId}`, undefined, true),
+  unblockUser: (userId: string) => request<void>('DELETE', `/api/blocks/${userId}`, undefined, true),
+  adminReports: (params: { status?: ReportStatus; page?: number; size?: number } = {}) => {
+    const query = new URLSearchParams({
+      page: String(params.page ?? 0),
+      size: String(params.size ?? 20),
+    });
+    if (params.status) query.set('status', params.status);
+    return request<Page<AdminReport>>('GET', `/api/admin/reports?${query.toString()}`, undefined, true);
+  },
+  resolveReport: (reportId: string, status: 'RESOLVED' | 'REJECTED') =>
+    request<void>('PATCH', `/api/admin/reports/${reportId}/resolution`, { status }, true),
 
   // --- Teacher own listing ("Mi anuncio", TEACHER-001) ------------------------
   announcement: () => request<AnnouncementStatus>('GET', '/api/teachers/me/announcement', undefined, true),

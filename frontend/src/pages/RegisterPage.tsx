@@ -30,6 +30,7 @@ export default function RegisterPage({ onLogin }: Props) {
   const [confirmation, setConfirmation] = useState('');
   const [captchaToken, setCaptchaToken] = useState('');
   const [role, setRole] = useState<AccountRole>('STUDENT');
+  const [accepted, setAccepted] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -44,6 +45,10 @@ export default function RegisterPage({ onLogin }: Props) {
   async function submit(ev: React.FormEvent) {
     ev.preventDefault();
     setFormError('');
+    if (!accepted) {
+      setFormError('Tenés que declarar que sos mayor de 18 años o tutor legal y aceptar los términos.');
+      return;
+    }
     if (!validate()) return;
     setLoading(true);
     try {
@@ -187,6 +192,26 @@ export default function RegisterPage({ onLogin }: Props) {
               {formError}
             </p>
           )}
+
+          <label className="flex items-start gap-2 text-sm text-content-muted">
+            <input
+              type="checkbox"
+              className="mt-0.5 h-4 w-4 shrink-0 rounded border-border text-primary-600 focus:ring-ring"
+              checked={accepted}
+              onChange={(event) => setAccepted(event.target.checked)}
+            />
+            <span>
+              Declaro ser mayor de 18 años o tutor legal y acepto los{' '}
+              <Link to={ROUTES.terms} className="font-semibold text-primary-700 underline dark:text-primary-200">
+                Términos
+              </Link>{' '}
+              y la{' '}
+              <Link to={ROUTES.privacy} className="font-semibold text-primary-700 underline dark:text-primary-200">
+                Política de Privacidad
+              </Link>
+              . Los menores operan su cuenta a través de un adulto responsable.
+            </span>
+          </label>
 
           <TurnstileWidget onToken={setCaptchaToken} onError={setFormError} />
 

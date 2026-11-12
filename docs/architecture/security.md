@@ -97,10 +97,11 @@ Authorities: `ROLE_STUDENT`, `ROLE_TEACHER`, `ROLE_ADMIN` (mapeo único en `AppU
 | `/api/favorites/**` | `STUDENT` |
 | `POST /api/conversations` | `STUDENT` |
 | `/api/conversations/**` | `STUDENT` o `TEACHER` (validación de participante adentro) |
+| `POST /api/reports`, `/api/blocks/**` | `STUDENT` o `TEACHER` (actor desde la sesión) |
 | `GET /api/teachers/{id}/reviews` | pública (profesor visible) |
 | `GET /api/teachers/{id}/reviews/me`, `POST /api/teachers/{id}/reviews`, `PUT /api/reviews/{id}` | `STUDENT` |
 | `POST /api/reviews/{id}/response` | `TEACHER` (dueño del perfil reseñado) |
-| `/api/admin/reviews/**` | `ADMIN` |
+| `/api/admin/reviews/**`, `/api/admin/reports/**` | `ADMIN` |
 | cualquier otro `/api/**` | autenticado |
 
 Los matchers de seguridad se evalúan en orden (las rutas literales `/me` preceden al wildcard
@@ -156,6 +157,7 @@ en un filtro de Spring Security después del JWT y antes de la autorización:
 | Registro | IP | 20/h |
 | Google login | IP | 30/min |
 | Crear conversación | usuario | 10/h |
+| Crear reporte o bloqueo | usuario | 10/h (mismo bucket que contacto) |
 | Enviar mensaje | usuario | 60/min |
 | Subir evidencia | usuario | 20/h |
 
@@ -181,5 +183,5 @@ Restringido a `cors.allowed-origins` (`FRONTEND_URL`, default
 ## FUTURO (documentado, no implementado)
 
 Rate limiting **distribuido** (Redis); refresh tokens; revocación server-side de JWT (`jti`);
-password reset; MFA; panel de moderación de anuncios y reportes; transporte WebSockets (reutiliza
+MFA; panel de moderación de anuncios; transporte WebSockets (reutiliza
 los services existentes).

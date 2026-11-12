@@ -66,6 +66,7 @@ Monolito modular bajo `com.claseya`. Módulos:
 | `favorite` | Favoritos. |
 | `messaging` | Conversaciones/mensajes/estado de lectura y contacto inicial. |
 | `review` | Opiniones 1..5, respuesta del profesor, moderación admin y agregados de rating. |
+| `safety` | Reportes de usuarios, cola de moderación admin y bloqueo bidireccional de contacto/mensajes. |
 | `notification` | Outbox transaccional, worker, transportes SMTP/Brevo y links de contacto de un solo uso. |
 | `verification` | Evidencia documental, validación PDF, escaneo, storage y decisiones de verificación. |
 | `bootstrap` | `DemoDataSeeder` (solo perfil local). |
