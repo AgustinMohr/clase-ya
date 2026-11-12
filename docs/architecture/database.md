@@ -110,6 +110,8 @@ resuelve ambos caminos.
 - Safety (V22): `user_blocks` UNIQUE `(blocker_id, blocked_id)` + índice por `blocked_id`;
   `reports` con índice parcial único `(reporter_id, reported_user_id) WHERE status IN
   ('OPEN','REVIEWING')` y `(status, created_at DESC)` para la cola admin.
+- Mensajería (V24): `messages (conversation_id, created_at DESC, id DESC)` para el hilo keyset
+  (`REVIEW2-003`); `V4`/`V11` se conservan para otros caminos.
 
 ## Reglas de migraciones
 
@@ -127,7 +129,8 @@ resuelve ambos caminos.
   que `teacher_subjects` apunte a una materia directa sin carrera (PROFILE-004) · `V21` agrega
   `password_reset_tokens` y el evento `PASSWORD_RESET` del outbox (AUTH-003) · `V22` activa
   `reports` y agrega `user_blocks` para reportes/bloqueo (REPORT-001) · `V23` agrega
-  `users.session_version` para revocar sesiones en logout/reset (AUTH-004).
+  `users.session_version` para revocar sesiones en logout/reset (AUTH-004) · `V24` agrega el índice
+  del hilo de mensajes (PERF-001).
 
 ## Borrado y normalización
 
