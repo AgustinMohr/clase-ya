@@ -369,6 +369,11 @@ export interface LoginResponse {
   expiresIn: number;
 }
 
+export interface HumanStatus {
+  required: boolean;
+  verified: boolean;
+}
+
 interface CsrfResponse {
   token: string;
 }
@@ -687,6 +692,8 @@ export const api = {
     request<Review>('POST', `/api/reviews/${reviewId}/response`, { response }, true),
 
   login: (email: string, password: string) => request<LoginResponse>('POST', '/api/auth/login', { email, password }),
+  humanStatus: () => request<HumanStatus>('GET', '/api/human/status'),
+  humanVerify: (token: string) => request<void>('POST', '/api/human/verify', { token }),
   loginWithGoogle: (idToken: string, role?: 'STUDENT' | 'TEACHER') =>
     request<LoginResponse>('POST', '/api/auth/google', role ? { idToken, role } : { idToken }),
   /** REVIEW2-002: exchanges the single-use link from the contact email for a session cookie. */

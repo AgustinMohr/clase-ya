@@ -70,6 +70,7 @@ public class SecurityConfig {
                         // /me must be authenticated even though the rest of /api/auth is public.
                         .requestMatchers("/api/auth/me").authenticated()
                         .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/api/human/**").permitAll()
                         // OPS-001: health is public; metrics are ADMIN-only.
                         .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers("/actuator/**").hasRole("ADMIN")

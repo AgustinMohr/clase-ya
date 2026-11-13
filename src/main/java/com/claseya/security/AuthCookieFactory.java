@@ -4,6 +4,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseCookie;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
+
 /**
  * Builds the HttpOnly session cookie and exposes the shared cookie attributes used by the CSRF
  * cookie. The session token is never readable by JavaScript (SEC-002 / ADR-020).
@@ -16,6 +18,7 @@ import org.springframework.stereotype.Component;
 public class AuthCookieFactory {
 
     public static final String SESSION_COOKIE = "CLASEYA_SESSION";
+    public static final String HUMAN_COOKIE = "CLASEYA_HUMAN";
 
     private final boolean secure;
     private final String sameSite;
@@ -33,6 +36,10 @@ public class AuthCookieFactory {
 
     public ResponseCookie clearedSession() {
         return base(SESSION_COOKIE, "").maxAge(0).build();
+    }
+
+    public ResponseCookie humanCheck(String token, Duration ttl) {
+        return base(HUMAN_COOKIE, token).maxAge(ttl).build();
     }
 
     public boolean isSecure() {

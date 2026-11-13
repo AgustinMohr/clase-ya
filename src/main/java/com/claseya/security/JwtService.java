@@ -1,6 +1,7 @@
 package com.claseya.security;
 
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
@@ -8,6 +9,7 @@ import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
 import java.util.UUID;
@@ -45,6 +47,28 @@ public class JwtService {
                 .expiration(Date.from(now.plusSeconds(expirationSeconds)))
                 .signWith(key)
                 .compact();
+    }
+
+    public String generateHumanCheckToken(Duration ttl) {
+        Instant now = Instant.now();
+        return Jwts.builder()
+                .id(UUID.randomUUID().toString())
+                .subject("human-check")
+                .claim("scope", "human")
+                .issuedAt(Date.from(now))
+                .expiration(Date.from(now.plus(ttl)))
+                .signWith(key)
+                .compact();
+    }
+
+    public boolean isHumanCheckToken(String token) {
+        try {
+            Claims claims = parseToken(token);
+            return "human-check".equals(claims.getSubject())
+                    && "human".equals(claims.get("scope"));
+        } catch (JwtException | IllegalArgumentException ex) {
+            return false;
+        }
     }
 
     /**

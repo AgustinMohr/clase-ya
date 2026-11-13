@@ -10,6 +10,7 @@ import './index.css';
 import App from './App';
 import { AuthProvider, GOOGLE_CLIENT_ID } from './auth/AuthContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import HumanGate from './components/HumanGate';
 import { ThemeProvider } from './theme/ThemeProvider';
 import { ToastProvider } from './components/ui/Toast';
 
@@ -17,13 +18,15 @@ const tree = (
   <React.StrictMode>
     <BrowserRouter>
       <ThemeProvider>
-        <AuthProvider>
-          <ToastProvider>
-            <ErrorBoundary>
-              <App />
-            </ErrorBoundary>
-          </ToastProvider>
-        </AuthProvider>
+        <HumanGate>
+          <AuthProvider>
+            <ToastProvider>
+              <ErrorBoundary>
+                <App />
+              </ErrorBoundary>
+            </ToastProvider>
+          </AuthProvider>
+        </HumanGate>
       </ThemeProvider>
     </BrowserRouter>
   </React.StrictMode>

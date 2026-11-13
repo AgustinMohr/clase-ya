@@ -154,6 +154,9 @@ app:
   deployment:
     behind-trusted-proxy: ${BEHIND_TRUSTED_PROXY:false}
 
+  human-check:
+    ttl: ${HUMAN_CHECK_TTL:PT720H}
+
   # SEO-001: origin used in canonical URLs, sitemap locations and robots.txt.
   # In production it must match the public SPA origin (APP_BASE_URL).
   public-url: ${APP_BASE_URL:http://localhost:5173}

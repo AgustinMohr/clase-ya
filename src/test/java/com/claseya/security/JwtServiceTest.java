@@ -11,14 +11,17 @@ import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.Test;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class JwtServiceTest {
 
@@ -103,5 +106,16 @@ class JwtServiceTest {
                 .compact();
 
         assertNull(service().parseToken(token).getSubject());
+    }
+
+    @Test
+    void humanCheckToken_isScopedAndRecognized() {
+        JwtService service = service();
+        String token = service.generateHumanCheckToken(Duration.ofHours(1));
+
+        assertTrue(service.isHumanCheckToken(token));
+        assertFalse(service.isHumanCheckToken(service.generateToken(
+                user(UUID.randomUUID(), "a@example.com", UserRole.STUDENT))));
+        assertFalse(service.isHumanCheckToken("not-a-token"));
     }
 }
