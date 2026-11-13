@@ -26,6 +26,7 @@ export default function TeacherProfilePage({ teacherId, onContact, onToggleFavor
   const [windows, setWindows] = useState<AvailabilityWindow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [reloadKey, setReloadKey] = useState(0);
 
   usePageMeta({
     title: error
@@ -47,6 +48,8 @@ export default function TeacherProfilePage({ teacherId, onContact, onToggleFavor
   useEffect(() => {
     let active = true;
     setLoading(true);
+    // A previous profile's error must not survive navigating to another teacher.
+    setError('');
     Promise.all([api.teacher(teacherId), api.availabilityByTeacher(teacherId).catch(() => ({ content: [] }))])
       .then(([detail, availability]) => {
         if (!active) return;
@@ -58,7 +61,7 @@ export default function TeacherProfilePage({ teacherId, onContact, onToggleFavor
     return () => {
       active = false;
     };
-  }, [teacherId]);
+  }, [teacherId, reloadKey]);
 
   const availabilityByDay = useMemo(() => {
     const grouped = new Map<number, AvailabilityWindow[]>();
@@ -81,7 +84,16 @@ export default function TeacherProfilePage({ teacherId, onContact, onToggleFavor
   if (error || !teacher) {
     return (
       <div className="container-page py-10">
-        <EmptyState title="Perfil no disponible" description={error || 'No encontramos este profesor.'} action={<Button onClick={back}>Volver</Button>} />
+        <EmptyState
+          title="Perfil no disponible"
+          description={error || 'No encontramos este profesor.'}
+          action={
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button onClick={() => setReloadKey((value) => value + 1)}>Reintentar</Button>
+              <Button variant="outline" onClick={back}>Volver</Button>
+            </div>
+          }
+        />
       </div>
     );
   }
