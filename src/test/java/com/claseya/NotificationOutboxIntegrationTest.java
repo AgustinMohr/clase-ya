@@ -46,6 +46,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
@@ -113,8 +114,11 @@ class NotificationOutboxIntegrationTest {
     @BeforeEach
     void cleanOutbox() {
         // Tests share one container (the worker needs real commits); start each case empty.
+        reset(sender, activationLinkSender, emailSender);
         outboxRepository.deleteAll();
+        outboxRepository.flush();
         linkTokenRepository.deleteAll();
+        linkTokenRepository.flush();
     }
 
     @Test
