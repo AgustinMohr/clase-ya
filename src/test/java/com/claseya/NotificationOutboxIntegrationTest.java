@@ -16,6 +16,7 @@ import com.claseya.notification.repository.MessageLinkTokenRepository;
 import com.claseya.notification.repository.NotificationOutboxRepository;
 import com.claseya.notification.service.ActivationLinkSender;
 import com.claseya.notification.service.ContactNotificationSender;
+import com.claseya.notification.service.EmailContent;
 import com.claseya.notification.service.EmailSender;
 import com.claseya.notification.service.MessageLinkTokenService;
 import com.claseya.notification.service.NotificationOutboxService;
@@ -24,6 +25,7 @@ import com.claseya.notification.service.PermanentNotificationException;
 import com.claseya.user.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -193,8 +195,10 @@ class NotificationOutboxIntegrationTest {
 
         assertThat(worker.processDue()).isEqualTo(1);
 
-        verify(emailSender, times(1))
-                .send(eq(user.getEmail()), anyString(), contains("token=raw-reset"));
+        ArgumentCaptor<EmailContent> content = ArgumentCaptor.forClass(EmailContent.class);
+        verify(emailSender, times(1)).send(eq(user.getEmail()), content.capture());
+        assertThat(content.getValue().subject()).isEqualTo("Restablecé tu contraseña de ClaseYa");
+        assertThat(content.getValue().text()).contains("token=raw-reset");
         NotificationOutboxEntry row = passwordResetRows().get(0);
         assertThat(row.getStatus()).isEqualTo(OutboxStatus.SENT);
         assertThat(row.getPayload()).doesNotContainKey("token");
@@ -206,7 +210,7 @@ class NotificationOutboxIntegrationTest {
         User user = createTeacher();
         outboxService.enqueuePasswordReset(user.getId(), user.getEmail(), UUID.randomUUID(), "raw-reset");
         doThrow(new PermanentNotificationException("Email delivery is not configured"))
-                .when(emailSender).send(anyString(), anyString(), anyString());
+                .when(emailSender).send(anyString(), any(EmailContent.class));
 
         assertThat(worker.processDue()).isZero();
 

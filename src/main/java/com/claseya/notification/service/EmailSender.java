@@ -20,4 +20,12 @@ public interface EmailSender {
      * @throws NotificationDeliveryException   when the failure is transient
      */
     void send(String toEmail, String subject, String text);
+
+    /**
+     * Sends an email with an optional HTML alternative. The default keeps test doubles and
+     * custom transports working with the plain-text contract.
+     */
+    default void send(String toEmail, EmailContent content) {
+        send(toEmail, content.subject(), content.text());
+    }
 }

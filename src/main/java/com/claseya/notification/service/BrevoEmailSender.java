@@ -10,6 +10,7 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -55,11 +56,19 @@ public class BrevoEmailSender implements EmailSender {
 
     @Override
     public void send(String toEmail, String subject, String text) {
-        Map<String, Object> payload = Map.of(
-                "sender", Map.of("email", from, "name", SENDER_NAME),
-                "to", List.of(Map.of("email", toEmail)),
-                "subject", subject,
-                "textContent", text);
+        send(toEmail, new EmailContent(subject, text, null));
+    }
+
+    @Override
+    public void send(String toEmail, EmailContent content) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("sender", Map.of("email", from, "name", SENDER_NAME));
+        payload.put("to", List.of(Map.of("email", toEmail)));
+        payload.put("subject", content.subject());
+        payload.put("textContent", content.text());
+        if (content.html() != null) {
+            payload.put("htmlContent", content.html());
+        }
         try {
             restClient.post()
                     .uri(apiUrl)

@@ -22,19 +22,6 @@ public class ConfigurableActivationLinkSender implements ActivationLinkSender {
     private static final Logger log =
             LoggerFactory.getLogger(ConfigurableActivationLinkSender.class);
 
-    static final String SUBJECT = "Activá tu cuenta de ClaseYa";
-
-    static final String BODY = """
-            Hola,
-
-            Para activar tu cuenta de ClaseYa abrí este enlace:
-
-            %s
-
-            El enlace vence en 24 horas y se puede usar una sola vez.
-            Si no creaste esta cuenta, podés ignorar este mensaje.
-            """;
-
     private final EmailSender emailSender;
     private final boolean logLinks;
 
@@ -53,7 +40,7 @@ public class ConfigurableActivationLinkSender implements ActivationLinkSender {
     @Override
     public void send(String toEmail, String activationUrl) {
         if (emailSender.isConfigured()) {
-            emailSender.send(toEmail, SUBJECT, BODY.formatted(activationUrl));
+            emailSender.send(toEmail, EmailTemplates.activation(activationUrl));
             return;
         }
         if (logLinks) {

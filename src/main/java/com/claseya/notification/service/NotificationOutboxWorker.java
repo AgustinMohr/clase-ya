@@ -33,17 +33,6 @@ public class NotificationOutboxWorker {
     private static final Logger log = LoggerFactory.getLogger(NotificationOutboxWorker.class);
     private static final long[] BACKOFF_MINUTES = {1, 5, 15, 60, 240};
     private static final int MAX_ERROR_LENGTH = 500;
-    private static final String PASSWORD_RESET_SUBJECT = "Restablecé tu contraseña de ClaseYa";
-    private static final String PASSWORD_RESET_BODY = """
-            Hola,
-
-            Para elegir una nueva contraseña de ClaseYa abrí este enlace:
-
-            %s
-
-            El enlace vence en 30 minutos y se puede usar una sola vez.
-            Si no lo pediste, podés ignorar este mensaje.
-            """;
 
     private final NotificationOutboxRepository repository;
     private final MessageLinkTokenService linkTokens;
@@ -175,7 +164,7 @@ public class NotificationOutboxWorker {
         String email = stringPayload(item, "email");
         String rawToken = stringPayload(item, "token");
         String link = trimTrailingSlash(activationBaseUrl) + "/restablecer?token=" + rawToken;
-        emailSender.send(email, PASSWORD_RESET_SUBJECT, PASSWORD_RESET_BODY.formatted(link));
+        emailSender.send(email, EmailTemplates.passwordReset(link));
     }
 
     private static String stringPayload(Claimed item, String key) {

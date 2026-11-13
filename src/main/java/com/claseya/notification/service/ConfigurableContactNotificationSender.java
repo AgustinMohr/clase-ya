@@ -16,20 +16,6 @@ public class ConfigurableContactNotificationSender implements ContactNotificatio
     private static final Logger log =
             LoggerFactory.getLogger(ConfigurableContactNotificationSender.class);
 
-    static final String SUBJECT = "Tenés un nuevo contacto en ClaseYa";
-
-    static final String BODY = """
-            %s,
-
-            %s quiere contactarte para coordinar clases. Podés abrir la conversación con este
-            enlace:
-
-            %s
-
-            El enlace vence en 7 días y se puede usar una sola vez.
-            Para responder, entrá a ClaseYa. No compartas este correo.
-            """;
-
     private final EmailSender emailSender;
     private final boolean logLinks;
 
@@ -43,10 +29,7 @@ public class ConfigurableContactNotificationSender implements ContactNotificatio
     @Override
     public void send(String toEmail, String teacherName, String studentName, String link) {
         if (emailSender.isConfigured()) {
-            String greeting = teacherName == null || teacherName.isBlank()
-                    ? "Hola"
-                    : "Hola " + teacherName;
-            emailSender.send(toEmail, SUBJECT, BODY.formatted(greeting, studentName, link));
+            emailSender.send(toEmail, EmailTemplates.contact(teacherName, studentName, link));
             return;
         }
         if (logLinks) {

@@ -12,6 +12,10 @@ import org.springframework.mail.MailSendException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 
+import jakarta.mail.Session;
+import jakarta.mail.internet.MimeMessage;
+import java.util.Properties;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -62,6 +66,21 @@ class SmtpEmailSenderTest {
         assertThat(captor.getValue().getTo()).containsExactly("student@example.com");
         assertThat(captor.getValue().getSubject()).isEqualTo("Activá tu cuenta de ClaseYa");
         assertThat(captor.getValue().getText()).isEqualTo("cuerpo");
+    }
+
+    @Test
+    void sendsAnHtmlAlternativeWhenProvided() throws Exception {
+        when(provider.getIfAvailable()).thenReturn(mailSender);
+        MimeMessage message = new MimeMessage(Session.getInstance(new Properties()));
+        when(mailSender.createMimeMessage()).thenReturn(message);
+
+        new SmtpEmailSender(provider, "smtp.example.com", FROM)
+                .send("student@example.com", new EmailContent("Asunto", "texto", "<p>html</p>"));
+
+        verify(mailSender).send(message);
+        message.saveChanges();
+        assertThat(message.getSubject()).isEqualTo("Asunto");
+        assertThat(message.getContentType()).contains("multipart/");
     }
 
     @Test

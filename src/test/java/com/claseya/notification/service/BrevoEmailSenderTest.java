@@ -71,6 +71,26 @@ class BrevoEmailSenderTest {
     }
 
     @Test
+    void sendsTheHtmlAlternativeWhenProvided() {
+        server.expect(requestTo(URL))
+                .andExpect(content().json("""
+                        {
+                          "sender": {"email": "no-reply@claseya.app", "name": "ClaseYa"},
+                          "to": [{"email": "student@example.com"}],
+                          "subject": "Activá tu cuenta de ClaseYa",
+                          "textContent": "cuerpo del email",
+                          "htmlContent": "<p>cuerpo del email</p>"
+                        }
+                        """))
+                .andRespond(withStatus(HttpStatus.CREATED));
+
+        sender().send("student@example.com",
+                new EmailContent("Activá tu cuenta de ClaseYa", "cuerpo del email", "<p>cuerpo del email</p>"));
+
+        server.verify();
+    }
+
+    @Test
     void treatsARejectedRequestAsPermanent() {
         server.expect(requestTo(URL)).andRespond(withStatus(HttpStatus.UNAUTHORIZED));
 

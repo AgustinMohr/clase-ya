@@ -8,7 +8,11 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.mail.MailException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Component;
+
+import jakarta.mail.MessagingException;
+import jakarta.mail.internet.MimeMessage;
 
 /**
  * SMTP transport (NOTIF-001). This is the original behaviour extracted from the two senders: a
@@ -59,6 +63,31 @@ public class SmtpEmailSender implements EmailSender {
         try {
             sender.send(message);
         } catch (MailException ex) {
+            log.error("Email delivery failed ({})", ex.getClass().getSimpleName());
+            log.debug("Email delivery failure detail", ex);
+            throw new NotificationDeliveryException("Email delivery failed", ex);
+        }
+    }
+
+    @Override
+    public void send(String toEmail, EmailContent content) {
+        if (content.html() == null) {
+            send(toEmail, content.subject(), content.text());
+            return;
+        }
+        JavaMailSender sender = javaMailSender.getIfAvailable();
+        if (sender == null) {
+            throw new PermanentNotificationException("Email delivery is not configured");
+        }
+        try {
+            MimeMessage message = sender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setFrom(from);
+            helper.setTo(toEmail);
+            helper.setSubject(content.subject());
+            helper.setText(content.text(), content.html());
+            sender.send(message);
+        } catch (MessagingException | MailException ex) {
             log.error("Email delivery failed ({})", ex.getClass().getSimpleName());
             log.debug("Email delivery failure detail", ex);
             throw new NotificationDeliveryException("Email delivery failed", ex);
