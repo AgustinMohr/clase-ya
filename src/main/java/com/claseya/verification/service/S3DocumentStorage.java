@@ -3,6 +3,7 @@ package com.claseya.verification.service;
 import com.claseya.common.exception.ResourceNotFoundException;
 import com.claseya.common.exception.ServiceUnavailableException;
 import com.claseya.model.VerificationDocument;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
@@ -35,6 +36,7 @@ public class S3DocumentStorage implements DocumentStorage {
     private final S3Client s3;
     private final String bucket;
 
+    @Autowired
     public S3DocumentStorage(@Value("${app.storage.s3.endpoint:}") String endpoint,
                              @Value("${app.storage.s3.region:auto}") String region,
                              @Value("${app.storage.s3.bucket:}") String bucket,
@@ -60,14 +62,19 @@ public class S3DocumentStorage implements DocumentStorage {
                         .apiCallTimeout(apiCallTimeout)
                         .apiCallAttemptTimeout(apiAttemptTimeout)
                         .build())
-                .serviceConfiguration(S3Configuration.builder()
-                        .pathStyleAccessEnabled(pathStyle)
-                        .build());
+                .serviceConfiguration(serviceConfiguration(pathStyle));
         if (endpoint != null && !endpoint.isBlank()) {
             builder.endpointOverride(URI.create(endpoint));
         }
         this.s3 = builder.build();
         this.bucket = bucket;
+    }
+
+    static S3Configuration serviceConfiguration(boolean pathStyle) {
+        return S3Configuration.builder()
+                .pathStyleAccessEnabled(pathStyle)
+                .chunkedEncodingEnabled(false)
+                .build();
     }
 
     /** Test seam: inject a pre-built client (no container/network needed). */

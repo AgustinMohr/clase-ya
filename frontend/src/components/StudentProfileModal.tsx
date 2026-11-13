@@ -157,7 +157,15 @@ export default function StudentProfileModal({ open, onClose, onSaved, initial }:
       const saved = initial ? await api.updateStudentProfile(input) : await api.createStudentProfile(input);
       onSaved(saved);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'No pudimos guardar tu perfil.');
+      if (e instanceof ApiError && e.status === 400) {
+        setError('Revisá los datos del perfil.');
+      } else if (e instanceof ApiError && e.status === 409) {
+        setError('Ya tenés un perfil de estudiante.');
+      } else if (e instanceof ApiError && e.status === 429) {
+        setError('Demasiados intentos. Esperá unos minutos e intentá de nuevo.');
+      } else {
+        setError('No pudimos guardar tu perfil. Intentá de nuevo.');
+      }
     } finally {
       setLoading(false);
     }

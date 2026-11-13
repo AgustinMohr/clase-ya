@@ -35,36 +35,36 @@ export function Navbar({
           <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary-600 text-white">
             <GraduationCap className="h-5 w-5" aria-hidden="true" />
           </span>
-          <span className="font-display text-2xl leading-none text-primary-700 dark:text-primary-200">ClaseYa</span>
+          <span className="hidden font-display text-2xl leading-none text-primary-700 dark:text-primary-200 sm:inline">ClaseYa</span>
         </Link>
 
         <nav className="flex items-center gap-1.5" aria-label="Principal">
           {user && (
-            <Link to={ROUTES.messages} className={buttonStyles({ variant: 'ghost', size: 'sm' })}>
+            <Link to={ROUTES.messages} aria-label="Mensajes" className={buttonStyles({ variant: 'ghost', size: 'sm' })}>
               <MessageCircle className="h-4 w-4" aria-hidden="true" />
               <span className="hidden sm:inline">Mensajes</span>
             </Link>
           )}
           {isStudent && (
-            <Link to={ROUTES.favorites} className={buttonStyles({ variant: 'ghost', size: 'sm' })}>
+            <Link to={ROUTES.favorites} aria-label="Favoritos" className={buttonStyles({ variant: 'ghost', size: 'sm' })}>
               <Heart className="h-4 w-4" aria-hidden="true" />
               <span className="hidden sm:inline">Favoritos</span>
             </Link>
           )}
           {isStudent && (
-            <Button variant="ghost" size="sm" onClick={onProfile}>
+            <Button variant="ghost" size="sm" aria-label="Mi perfil" onClick={onProfile}>
               <User className="h-4 w-4" aria-hidden="true" />
               <span className="hidden sm:inline">Mi perfil</span>
             </Button>
           )}
           {isTeacher && (
-            <Link to={ROUTES.myListing} className={buttonStyles({ variant: 'ghost', size: 'sm' })}>
+            <Link to={ROUTES.myListing} aria-label="Mi anuncio" className={buttonStyles({ variant: 'ghost', size: 'sm' })}>
               <Megaphone className="h-4 w-4" aria-hidden="true" />
               <span className="hidden sm:inline">Mi anuncio</span>
             </Link>
           )}
           {isAdmin && (
-            <Link to={ROUTES.admin} className={buttonStyles({ variant: 'ghost', size: 'sm' })}>
+            <Link to={ROUTES.admin} aria-label="Admin" className={buttonStyles({ variant: 'ghost', size: 'sm' })}>
               <ShieldCheck className="h-4 w-4" aria-hidden="true" />
               <span className="hidden sm:inline">Admin</span>
             </Link>
@@ -84,7 +84,7 @@ export function Navbar({
                 <UserRound className="h-4 w-4" aria-hidden="true" />
                 {ROLE_LABELS[user.role] ?? 'Mi cuenta'}
               </span>
-              <Button variant="outline" size="sm" onClick={logout}>
+              <Button variant="outline" size="sm" aria-label="Salir" onClick={logout}>
                 <LogOut className="h-4 w-4" aria-hidden="true" />
                 <span className="hidden sm:inline">Salir</span>
               </Button>

@@ -52,4 +52,15 @@ describe('Navbar admin entry', () => {
 
     expect(screen.queryByRole('link', { name: 'Admin' })).not.toBeInTheDocument();
   });
+
+  it('keeps accessible names for icon-only controls on mobile', () => {
+    mockedUseAuth.mockReturnValue(session({ id: '3', name: 'Ana', role: 'STUDENT' }));
+
+    renderNavbar();
+
+    expect(screen.getByRole('link', { name: 'Mensajes' })).toHaveAttribute('aria-label', 'Mensajes');
+    expect(screen.getByRole('link', { name: 'Favoritos' })).toHaveAttribute('aria-label', 'Favoritos');
+    expect(screen.getByRole('button', { name: 'Mi perfil' })).toHaveAttribute('aria-label', 'Mi perfil');
+    expect(screen.getByRole('button', { name: 'Salir' })).toHaveAttribute('aria-label', 'Salir');
+  });
 });
