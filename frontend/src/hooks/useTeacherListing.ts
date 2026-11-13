@@ -51,6 +51,7 @@ export function useTeacherListing() {
   const [verification, setVerification] = useState<TeacherVerification | null>(null);
   const [subjects, setSubjects] = useState<OwnSubject[]>([]);
   const [modalities, setModalities] = useState<string[]>([]);
+  const [pendingModalities, setPendingModalities] = useState<Set<string>>(new Set());
   const [education, setEducation] = useState<OwnEducation[]>([]);
   const [availability, setAvailability] = useState<AvailabilityWindow[]>([]);
   const [availabilityTotal, setAvailabilityTotal] = useState(0);
@@ -183,18 +184,32 @@ export function useTeacherListing() {
   }
 
   async function toggleModality(modality: string) {
+    if (pendingModalities.has(modality)) return;
     const present = modalities.includes(modality);
+    setPendingModalities((prev) => new Set(prev).add(modality));
+    setModalities((prev) =>
+      present ? prev.filter((m) => m !== modality) : [...prev, modality],
+    );
     try {
       if (present) {
         await api.removeModality(modality);
-        setModalities((prev) => prev.filter((m) => m !== modality));
       } else {
         await api.addModality(modality);
-        setModalities((prev) => [...prev, modality]);
       }
       reloadAnnouncement();
     } catch {
+      setModalities((prev) =>
+        present
+          ? prev.includes(modality) ? prev : [...prev, modality]
+          : prev.filter((m) => m !== modality),
+      );
       notify('No pudimos actualizar las modalidades.', 'error');
+    } finally {
+      setPendingModalities((prev) => {
+        const next = new Set(prev);
+        next.delete(modality);
+        return next;
+      });
     }
   }
 
@@ -293,6 +308,7 @@ export function useTeacherListing() {
     verification,
     subjects,
     modalities,
+    pendingModalities,
     education,
     availability,
     availabilityTotal,

@@ -89,7 +89,11 @@ export default function MyListingPage({
           onRemoveSubject={listing.removeSubject}
         />
 
-        <ModalitiesSection modalities={listing.modalities} onToggle={listing.toggleModality} />
+        <ModalitiesSection
+          modalities={listing.modalities}
+          pendingModalities={listing.pendingModalities}
+          onToggle={listing.toggleModality}
+        />
 
         <EducationSection
           education={listing.education}
