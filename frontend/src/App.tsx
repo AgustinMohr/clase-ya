@@ -224,9 +224,15 @@ export default function App() {
 
   return (
     <div className="flex min-h-screen flex-col">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-xl focus:bg-surface focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-primary-700 focus:shadow-card-hover"
+      >
+        Saltar al contenido
+      </a>
       <Navbar onProfile={() => setProfileOpen(true)} onLogin={() => setLoginOpen(true)} />
 
-      <main className="flex-1">
+      <main id="main-content" className="flex-1">
         <Suspense fallback={<RouteFallback />}>
           <Routes>
             <Route
