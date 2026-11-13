@@ -13,12 +13,11 @@
 
 ### 1.1 Git y release
 
-- HEAD local: `fix/mvp-functional-ux`
-- El trabajo nuevo son **7 commits** sobre esa rama.
-- Los 7 commits ya fueron pusheados a `origin/fix/mvp-functional-ux`.
-- `main` no contiene esos commits.
-- Render está desplegando **`main`**, en el commit `651b3a9`.
-- Por eso Render todavía no tiene las correcciones de esta rama.
+- HEAD local: `main`
+- `main` está pusheado a `origin/main` en `c1cc4c0`.
+- Render está desplegando `main` y el backend arrancó correctamente.
+- La rama `fix/mvp-functional-ux` quedó como referencia histórica de los primeros 7 commits.
+- La rama `fix/production-hardening` aportó los commits `ff3bced` y `c1cc4c0`, ya integrados en `main`.
 
 ### 1.2 Commits realizados
 
@@ -31,6 +30,8 @@
 | `b45c06e` | Agrega `Cache-Control: no-store` a respuestas `/api/auth/**` | Hecho |
 | `9170cb6` | Selecciona explícitamente el constructor de `S3DocumentStorage` | Hecho |
 | `53d3ec8` | Desactiva `chunkedEncodingEnabled` para uploads a R2 | Hecho |
+| `ff3bced` | Opiniones públicas muestran solo el nombre de pila; admin conserva el nombre completo | Hecho |
+| `c1cc4c0` | `server.shutdown=graceful` y timeout de 30 s | Hecho |
 
 ### 1.3 Validación ejecutada
 
@@ -39,27 +40,26 @@
 - `AuthCacheControlFilterTest`: **2/2**.
 - `S3DocumentStorageStartupTest`: **1/1**.
 - `S3DocumentStorageTest`: **5/5**.
-- `NotificationOutboxIntegrationTest`: **no ejecutado**. Testcontainers no pudo conectarse a Docker (`tcp://127.0.0.1:2375` rechazó la conexión). Hay que levantar Docker y correrlo antes del deploy.
+- `ReviewResponseTest`: **4/4**.
+- `NotificationOutboxIntegrationTest`: **no ejecutado**. Testcontainers no pudo conectarse a Docker (`tcp://127.0.0.1:2375` rechazó la conexión). Hay que levantar Docker y correrlo antes de cerrar SEC-02.
 - No se ejecutó la suite completa.
+- Render arrancó el backend con la configuración actual.
 
 ### 1.4 Cambios operativos ya hechos
 
 - Credencial de Neon rotada por el usuario.
 - `.env.local` raíz eliminado.
+- Render arranca con `STORAGE_PROVIDER=s3`; falta probar upload/download contra R2.
+- Render desplegando `main`.
 - Persisten archivos locales no relacionados en el working tree; no se commitearon.
 
 ---
 
-## 2. Por qué el merge a `main` es necesario
+## 2. Estado del merge a `main`
 
-Render está configurado para construir la rama `main`. Un push a `fix/mvp-functional-ux` no cambia `main`, así que Render sigue desplegando `651b3a9` y el error de `S3DocumentStorage` persiste.
+**Resuelto.** `main` fue actualizado y pusheado a `origin/main`; Render redeployó y el backend arrancó. La regla sigue siendo: Render construye `main`, así que todo cambio futuro debe integrarse ahí, no solo a una rama de trabajo.
 
-Opciones:
-
-1. **Recomendada:** abrir PR `fix/mvp-functional-ux → dev` y luego `dev → main`, con CI verde. Render redeploya desde `main`.
-2. **Temporal:** cambiar la branch de deploy de Render a `fix/mvp-functional-ux`. No es recomendable para producción porque es una rama de trabajo.
-
-Antes del deploy hay que cargar `BEHIND_TRUSTED_PROXY=true` si `RATE_LIMIT_TRUST_FORWARDED_HEADERS=true`. Si no, el nuevo fail-fast bloquea el arranque.
+Antes del deploy se cargó `BEHIND_TRUSTED_PROXY=true`; sin eso el fail-fast bloquea el arranque cuando `RATE_LIMIT_TRUST_FORWARDED_HEADERS=true`.
 
 ---
 
@@ -70,17 +70,17 @@ Antes del deploy hay que cargar `BEHIND_TRUSTED_PROXY=true` si `RATE_LIMIT_TRUST
 | ID | Tarea | Estado | Tipo | Dependencia |
 |---|---|---|---|---|
 | SEC-01 | Rotar credencial de Neon, guardarla en secret manager y borrar `.env.local` | Hecho por el usuario | Manual | Acceso Neon |
-| CFG-01 | Fail-fast de log-links, CSRF, rate limit y proxy confiable | Hecho en `fix/mvp-functional-ux` | Código | Merge/deploy |
+| CFG-01 | Fail-fast de log-links, CSRF, rate limit y proxy confiable | Hecho y en `main` | Código | — |
 | SEC-02 | Quitar token de `PASSWORD_RESET` del outbox terminal | Hecho; falta correr test de integración | Código | Docker |
 | SEC-04 | Redactar PII en logs SMTP y `no-store` en auth | Parcial: quedan tokens en query strings y logs de acceso | Código/infra | Decisión de exchange de tokens |
-| INFRA-03 | Constructor S3 y compatibilidad R2 | Constructor y `chunkedEncodingEnabled` corregidos; bucket y variables pendientes | Código + manual | R2 |
-| REL-01 | Merge de la release a `main` y deploy | Pendiente | Manual/Git | CI verde, PR aprobado |
+| INFRA-03 | Constructor S3 y compatibilidad R2 | Código corregido; falta probar upload/download real | Código + manual | R2 |
+| REL-01 | Merge de la release a `main` y deploy | Hecho; Render arrancó | Manual/Git | — |
 | REL-02 | Verificar que no queden cuentas `@claseya.dev` activas y `DEMO_SEED=false` | Pendiente | Manual | Acceso Neon |
-| SAFE-01 | Persistir consentimiento parental y exigirlo en email/Google | Pendiente | Código + legal | Spec, migración, revisión legal |
-| SAFE-02 | Anonimizar el nombre público en opiniones | Pendiente de decisión de producto | Código | Política de nombre público |
-| INFRA-01 | Verificar SSL de Neon, `btree_gist`, upgrade de Flyway y versión PostgreSQL | Pendiente | Manual | Acceso Neon |
+| SAFE-01 | Persistir consentimiento parental y exigirlo en email/Google | Pendiente | Código + legal | Decisión de versión/alcance |
+| SAFE-02 | Anonimizar el nombre público en opiniones | Hecho y en `main`; admin conserva nombre completo | Código | — |
+| INFRA-01 | Verificar SSL de Neon, `btree_gist`, upgrade de Flyway y versión PostgreSQL | Parcial: SSL y Flyway V24 verificados en Render; PostgreSQL 18.7 excede el soporte declarado de Flyway 17 | Manual | Acceso Neon |
 | INFRA-02 | Verificar backups/PITR y hacer una restauración de prueba | Pendiente | Manual | Plan Neon |
-| OPS-01 | Completar variables, proveedores y dominio de producción | Pendiente | Manual | Paneles Render/Vercel/Neon/DNS |
+| OPS-01 | Completar variables, proveedores y dominio de producción | Parcial: Render arranca; falta verificar dominio, email, cookies y R2 | Manual | Paneles Render/Vercel/Neon/DNS |
 | PROD-01 | Cargar 10–20 profesores reales y borrar datos demo | Pendiente | Manual/negocio | Trabajo comercial |
 | LEGAL-01 | Revisión legal de términos, privacidad, menores, retención e incident response | Pendiente | Manual/legal | SAFE-01/02, PRIV-02 |
 
@@ -94,7 +94,7 @@ Antes del deploy hay que cargar `BEHIND_TRUSTED_PROXY=true` si `RATE_LIMIT_TRUST
 | PRIV-02 | Retención, borrado y exportación de datos | Pendiente | Código + legal | Política de retención |
 | RATE-01 | Límites de lectura pública, por destinatario y proxy confiable | Pendiente | Código/spec | ADR de abuso |
 | INFRA-03b | Configurar R2 y decidir ClamAV vs `ALLOW_UNSCANNED_EVIDENCE` | Pendiente | Manual | Bucket/credenciales |
-| OPS-02 | Verificar `curl` en la imagen, health, cold start y graceful shutdown | Pendiente | Código/infra | Render |
+| OPS-02 | Verificar `curl` en la imagen, health, cold start y graceful shutdown | Parcial: shutdown graceful hecho; health/cold start pendientes | Código/infra | Render |
 | OPS-03 | Uptime, alertas 5xx/logs y outbox `DEAD` | Pendiente | Manual | Proveedor de monitoreo |
 | COST-01 | Probar upload de 10 MB por Vercel y validar plan/costo | Pendiente | Manual | Vercel |
 | TEST-01 | Ejecutar plan de preproducción: activación completa, upgrade/restore, servicios reales | Pendiente | Pruebas | Staging y Docker |
