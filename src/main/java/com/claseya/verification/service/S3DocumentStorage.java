@@ -62,14 +62,19 @@ public class S3DocumentStorage implements DocumentStorage {
                         .apiCallTimeout(apiCallTimeout)
                         .apiCallAttemptTimeout(apiAttemptTimeout)
                         .build())
-                .serviceConfiguration(S3Configuration.builder()
-                        .pathStyleAccessEnabled(pathStyle)
-                        .build());
+                .serviceConfiguration(serviceConfiguration(pathStyle));
         if (endpoint != null && !endpoint.isBlank()) {
             builder.endpointOverride(URI.create(endpoint));
         }
         this.s3 = builder.build();
         this.bucket = bucket;
+    }
+
+    static S3Configuration serviceConfiguration(boolean pathStyle) {
+        return S3Configuration.builder()
+                .pathStyleAccessEnabled(pathStyle)
+                .chunkedEncodingEnabled(false)
+                .build();
     }
 
     /** Test seam: inject a pre-built client (no container/network needed). */

@@ -7,6 +7,7 @@ import org.mockito.ArgumentCaptor;
 import software.amazon.awssdk.core.ResponseBytes;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.S3Configuration;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
@@ -27,6 +28,14 @@ class S3DocumentStorageTest {
 
     private final S3Client s3 = mock(S3Client.class);
     private final S3DocumentStorage storage = new S3DocumentStorage(s3, "evidence");
+
+    @Test
+    void configuresPathStyleWithoutChunkedEncodingForR2() {
+        S3Configuration configuration = S3DocumentStorage.serviceConfiguration(true);
+
+        assertThat(configuration.pathStyleAccessEnabled()).isTrue();
+        assertThat(configuration.chunkedEncodingEnabled()).isFalse();
+    }
 
     @Test
     void storesWithAPrivateKeyAndContentType() {
