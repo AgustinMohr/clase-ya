@@ -1,6 +1,7 @@
-package com.claseya.security;
+package com.claseya.auth.human;
 
 import com.claseya.auth.captcha.CaptchaVerifier;
+import com.claseya.security.JwtService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 

@@ -1,5 +1,6 @@
-package com.claseya.security;
+package com.claseya.auth.human;
 
+import com.claseya.security.AuthCookieFactory;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpHeaders;

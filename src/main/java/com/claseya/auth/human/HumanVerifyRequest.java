@@ -1,4 +1,4 @@
-package com.claseya.security;
+package com.claseya.auth.human;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;

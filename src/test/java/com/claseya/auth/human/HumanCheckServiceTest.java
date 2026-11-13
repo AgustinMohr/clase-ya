@@ -1,6 +1,7 @@
-package com.claseya.security;
+package com.claseya.auth.human;
 
 import com.claseya.auth.captcha.CaptchaVerifier;
+import com.claseya.security.JwtService;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
