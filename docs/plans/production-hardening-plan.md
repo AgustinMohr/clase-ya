@@ -171,9 +171,30 @@ Antes del deploy se cargó `BEHIND_TRUSTED_PROXY=true`; sin eso el fail-fast blo
 
 ## 7. Notas y riesgos
 
-- `NotificationOutboxIntegrationTest` debe correr con Docker antes del merge.
+- `NotificationOutboxIntegrationTest` corre con Docker y pasó **9/9**.
 - PostgreSQL en Neon reporta **18.7**; Flyway soporta hasta 17. Es una desviación a corregir (fijar PostgreSQL 16/17 o actualizar Flyway).
-- El constructor S3 y `chunkedEncodingEnabled(false)` están corregidos, pero R2 real solo se valida con bucket y credenciales.
-- El deploy de `main` sin merge seguirá mostrando `S3DocumentStorage: No default constructor found`.
-- No se hizo merge ni push a `main`; el push fue solo a `fix/mvp-functional-ux`.
+- El constructor S3 y `chunkedEncodingEnabled(false)` están corregidos; R2 real se valida con upload/download en producción.
+- `main` ya fue actualizado y Render arrancó con las correcciones.
 - No se commiteó ningún archivo ajeno del working tree.
+
+---
+
+## 8. Mejoras de producto de `TODO.md` (implementadas)
+
+| Item | Estado | Commit |
+|---|---|---|
+| Modalidades sin delay: actualización optimista y estado pendiente | Hecho; test de hook | `88c1c5e` |
+| Favoritos ocultos para docentes y mensaje específico | Hecho; test de política y E2E | `f383258` |
+| Auto-upload de evidencia al elegir el PDF | Hecho; test de componente y E2E | `a78d1c7` |
+| Transición de tema con View Transitions y fallback | Hecho; tests de tema | `46af2eb`, `d8d7a60` |
+| Autocompletado de materias en “Mi anuncio” y mejoras al buscador | Hecho; tests de combobox | `8aa2e62` |
+| Correos HTML de activación, reset y contacto | Hecho; tests de plantillas, Brevo, SMTP y outbox | `859aa79` |
+| Verificador humano en la primera visita con cookie firmada | Hecho; tests de servicio, integración y gate | `b0bfbd5`, `c99289c` |
+
+**Validación de esta tanda**
+
+- Backend: **526 tests, 0 fallos** (`mvn -B test` con Docker).
+- Frontend: **126 tests, 0 fallos**; ESLint y build con CSP en verde.
+- El gate humano se apoya en `CAPTCHA_ENABLED`; en local/test queda desactivado.
+- La cookie `CLASEYA_HUMAN` es `HttpOnly`, `Secure`, `SameSite=Lax` y dura 30 días por defecto (`HUMAN_CHECK_TTL`).
+
