@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { FileText, Send, Trash2, Upload } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { FileText, Send, Trash2 } from 'lucide-react';
 import {
   api,
   type DocumentType,
@@ -56,8 +56,9 @@ function CredentialRow({
   const [docsOpen, setDocsOpen] = useState(false);
   const [loadingDocs, setLoadingDocs] = useState(false);
   const [type, setType] = useState<DocumentType>('DIPLOMA');
-  const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+  const fileInput = useRef<HTMLInputElement>(null);
   const [submitting, setSubmitting] = useState(false);
   const [confirm, setConfirm] = useState<ConfirmState>(null);
 
@@ -85,20 +86,26 @@ function CredentialRow({
     }
   }
 
-  async function upload() {
-    if (!file) return;
+  async function upload(selected: File) {
     setUploading(true);
+    setUploadError('');
     try {
-      await api.uploadDocument(credential.educationId, type, file);
-      setFile(null);
+      await api.uploadDocument(credential.educationId, type, selected);
       notify('Documento subido');
       onChanged();
       if (docsOpen) setDocuments(await api.myDocuments(credential.educationId));
     } catch {
+      setUploadError('No pudimos subir el documento. Solo PDF de hasta 10 MB.');
       notify('No pudimos subir el documento. Solo PDF de hasta 10 MB.', 'error');
     } finally {
       setUploading(false);
+      if (fileInput.current) fileInput.current.value = '';
     }
+  }
+
+  function selectFile(event: React.ChangeEvent<HTMLInputElement>) {
+    const selected = event.target.files?.[0];
+    if (selected) void upload(selected);
   }
 
   async function submit() {
@@ -170,16 +177,20 @@ function CredentialRow({
           {({ id }) => (
             <input
               id={id}
+              ref={fileInput}
               type="file"
               accept=".pdf,application/pdf"
-              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-              className="text-sm text-content-muted file:mr-3 file:rounded-lg file:border-0 file:bg-primary-600 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-primary-700"
+              onChange={selectFile}
+              disabled={uploading}
+              className="text-sm text-content-muted file:mr-3 file:rounded-lg file:border-0 file:bg-primary-600 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-primary-700 disabled:opacity-50"
             />
           )}
         </Field>
-        <Button variant="outline" size="sm" onClick={upload} loading={uploading} disabled={!file}>
-          <Upload className="h-4 w-4" aria-hidden="true" /> Subir
-        </Button>
+      </div>
+
+      <div className="mt-3" aria-live="polite">
+        {uploading && <p role="status" className="text-sm text-content-muted">Subiendo documento…</p>}
+        {uploadError && <p role="alert" className="text-sm font-semibold text-error-600">{uploadError}</p>}
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-3">

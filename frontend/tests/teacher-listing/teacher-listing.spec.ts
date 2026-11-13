@@ -55,7 +55,6 @@ test.describe('Mi anuncio (profesor)', () => {
         mimeType: 'application/pdf',
         buffer: Buffer.from('%PDF-1.4\ncontenido de prueba E2E\n'),
       });
-      await row.getByRole('button', { name: 'Subir' }).click();
       await expect(page.getByText('Documento subido')).toBeVisible();
 
       // Presentarla la deja en revisión (submit).
