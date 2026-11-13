@@ -476,9 +476,12 @@ escaneó; ver `STOR-002` y `ADR-031`.
 `false` sin `ALLOW_UNSCANNED_EVIDENCE=true`. Tampoco arranca si `APP_BASE_URL` o `FRONTEND_URL` no
 son orígenes HTTPS públicos, si `COOKIE_SECURE` es `false`, si `COOKIE_SAME_SITE` es inválido o
 `None` sin Secure, o si el transporte de email no está configurado (`smtp` + `MAIL_HOST`, o
-`brevo` + `EMAIL_API_KEY`). Todos los problemas se reportan juntos (`ProductionConfigValidator`). Es
-a propósito: un deploy que olvide una variable falla fuerte en vez de servir un registro roto,
-enlaces a `localhost` o evidencia sin escanear sin que nadie lo haya decidido.
+`brevo` + `EMAIL_API_KEY`). Además rechaza `AUTH_LOG_ACTIVATION_LINKS=true`,
+`MESSAGE_LINK_LOG=true`, `security.csrf.enabled=false` y `security.rate-limit.enabled=false`: son
+fallbacks de desarrollo que no pueden quedar activos en producción. Todos los problemas se reportan
+juntos (`ProductionConfigValidator`). Es a propósito: un deploy que olvide una variable falla fuerte
+en vez de servir un registro roto, enlaces a `localhost`, tokens en logs o controles de abuso
+apagados sin que nadie lo haya decidido.
 
 ### Base de datos local (Docker)
 

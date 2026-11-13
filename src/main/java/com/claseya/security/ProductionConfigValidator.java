@@ -42,6 +42,10 @@ public class ProductionConfigValidator {
     private static final String EMAIL_TRANSPORT = "app.notification.email.transport";
     private static final String MAIL_HOST = "spring.mail.host";
     private static final String EMAIL_API_KEY = "app.notification.email.api-key";
+    private static final String AUTH_LOG_LINKS = "app.auth.activation.log-links";
+    private static final String MESSAGE_LOG_LINKS = "app.notification.log-links";
+    private static final String CSRF_ENABLED = "security.csrf.enabled";
+    private static final String RATE_LIMIT_ENABLED = "security.rate-limit.enabled";
 
     public ProductionConfigValidator(Environment environment) {
         List<String> activeProfiles = Arrays.asList(environment.getActiveProfiles());
@@ -60,6 +64,12 @@ public class ProductionConfigValidator {
                 environment.getProperty(EMAIL_TRANSPORT, "smtp"),
                 environment.getProperty(MAIL_HOST, ""),
                 environment.getProperty(EMAIL_API_KEY, ""));
+        validateSecurityToggles(
+                activeProfiles,
+                environment.getProperty(AUTH_LOG_LINKS, Boolean.class, false),
+                environment.getProperty(MESSAGE_LOG_LINKS, Boolean.class, false),
+                environment.getProperty(CSRF_ENABLED, Boolean.class, true),
+                environment.getProperty(RATE_LIMIT_ENABLED, Boolean.class, true));
     }
 
     /**
@@ -85,6 +95,38 @@ public class ProductionConfigValidator {
         }
         if (demoSeedEnabled) {
             problems.add("app.demo-seed.enabled (DEMO_SEED) must be false");
+        }
+        failIfAny(problems);
+    }
+
+    /**
+     * Rejects the development-only fallbacks that would leak credentials or disable the
+     * browser-abuse controls promised for production.
+     */
+    static void validateSecurityToggles(Collection<String> activeProfiles,
+                                        boolean authLogLinks,
+                                        boolean messageLogLinks,
+                                        boolean csrfEnabled,
+                                        boolean rateLimitEnabled) {
+        if (isNonProduction(activeProfiles)) {
+            return;
+        }
+
+        List<String> problems = new ArrayList<>();
+        if (authLogLinks) {
+            problems.add("app.auth.activation.log-links (AUTH_LOG_ACTIVATION_LINKS) "
+                    + "must be false outside local/test");
+        }
+        if (messageLogLinks) {
+            problems.add("app.notification.log-links (MESSAGE_LINK_LOG) "
+                    + "must be false outside local/test");
+        }
+        if (!csrfEnabled) {
+            problems.add("security.csrf.enabled must be true outside local/test");
+        }
+        if (!rateLimitEnabled) {
+            problems.add("security.rate-limit.enabled (RATE_LIMIT_ENABLED) "
+                    + "must be true outside local/test");
         }
         failIfAny(problems);
     }
