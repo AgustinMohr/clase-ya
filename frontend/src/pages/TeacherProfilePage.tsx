@@ -228,7 +228,7 @@ export default function TeacherProfilePage({ teacherId, onContact, onToggleFavor
             ) : (
               <p className="rounded-xl bg-surface-muted px-3 py-2 text-sm text-content-muted">
                 Estás con una cuenta de profesor: podés ver los perfiles, pero los contactos los inician los
-                estudiantes. Tu bandeja está en Mensajes.
+                estudiantes y no podés guardar favoritos. Tu bandeja está en Mensajes.
               </p>
             )}
             {onToggleFavorite && (

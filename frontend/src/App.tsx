@@ -12,6 +12,7 @@ import LoginModal from './components/LoginModal';
 import ContactModal from './components/ContactModal';
 import StudentProfileModal from './components/StudentProfileModal';
 import { ROUTES, isPrivatePath, searchPath } from './routes';
+import { canFavorite } from './lib/favorites';
 
 const LandingPage = lazy(() => import('./pages/LandingPage'));
 const SearchPage = lazy(() => import('./pages/SearchPage'));
@@ -47,15 +48,14 @@ function TeacherProfileRoute({
 }: {
   favorites: Set<string>;
   onContact: (teacher: TeacherSummary) => void;
-  onToggleFavorite: (teacher: TeacherSummary) => void;
+  onToggleFavorite?: (teacher: TeacherSummary) => void;
 }) {
   const { teacherId = '' } = useParams();
-  const { user } = useAuth();
   return (
     <TeacherProfilePage
       teacherId={teacherId}
       onContact={onContact}
-      onToggleFavorite={user && user.role !== 'STUDENT' ? undefined : onToggleFavorite}
+      onToggleFavorite={onToggleFavorite}
       favorite={favorites.has(teacherId)}
     />
   );
@@ -63,6 +63,7 @@ function TeacherProfileRoute({
 
 export default function App() {
   const { user } = useAuth();
+  const favoritesEnabled = canFavorite(user?.role);
   const { notify } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
@@ -154,6 +155,10 @@ export default function App() {
     location.pathname === ROUTES.admin || location.pathname.startsWith(`${ROUTES.admin}/`);
 
   async function toggleFavorite(teacher: TeacherSummary) {
+    if (user && !canFavorite(user.role)) {
+      notify('Las cuentas de profesor no pueden guardar favoritos.', 'error');
+      return;
+    }
     if (!user) {
       setPendingContact(null);
       setLoginOpen(true);
@@ -246,7 +251,7 @@ export default function App() {
                   onRetrySubjects={catalog.reload}
                   onSearch={(term) => navigate(searchPath(term))}
                   onOpenTeacher={(id) => navigate(ROUTES.teacher(id))}
-                  onToggleFavorite={toggleFavorite}
+                  onToggleFavorite={favoritesEnabled ? toggleFavorite : undefined}
                   favorites={favorites}
                 />
               }
@@ -262,7 +267,7 @@ export default function App() {
                   onRetrySubjects={catalog.reload}
                   onBack={() => navigate(ROUTES.home)}
                   onOpenTeacher={(id) => navigate(ROUTES.teacher(id))}
-                  onToggleFavorite={toggleFavorite}
+                  onToggleFavorite={favoritesEnabled ? toggleFavorite : undefined}
                   favorites={favorites}
                 />
               }
@@ -274,7 +279,7 @@ export default function App() {
                 <TeacherProfileRoute
                   favorites={favorites}
                   onContact={contact}
-                  onToggleFavorite={toggleFavorite}
+                  onToggleFavorite={favoritesEnabled ? toggleFavorite : undefined}
                 />
               }
             />

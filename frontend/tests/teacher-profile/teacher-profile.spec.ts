@@ -33,6 +33,7 @@ test.describe('Perfil publico del profesor y contacto', () => {
 
       const profile = new TeacherProfilePage(page);
       await profile.gotoHome();
+      await expect(page.getByRole('button', { name: /Guardar a .* en favoritos/ })).toHaveCount(0);
       await profile.openFirstCard();
 
       expect(await profile.contactButtonIsVisible(), 'Contactar no debe existir para un profesor').toBe(false);
