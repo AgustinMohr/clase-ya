@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
-import { Search, TrendingUp, History } from 'lucide-react';
+import { Search, TrendingUp, History, X } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { Button } from './Button';
 
@@ -62,6 +62,7 @@ export default function SearchInput({
   const [highlighted, setHighlighted] = useState(-1);
   const [history, setHistory] = useState<string[]>(readHistory);
   const [remote, setRemote] = useState<SearchSuggestion[]>([]);
+  const [remoteLoading, setRemoteLoading] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
   // Debounced server lookup; a stale response never overwrites a newer one.
@@ -70,13 +71,16 @@ export default function SearchInput({
     const term = value.trim();
     if (term.length < MIN_SUGGESTION_CHARS) {
       setRemote([]);
+      setRemoteLoading(false);
       return;
     }
     let cancelled = false;
+    setRemoteLoading(true);
     const timer = setTimeout(() => {
       loadSuggestions(term)
         .then((list) => !cancelled && setRemote(list))
-        .catch(() => !cancelled && setRemote([]));
+        .catch(() => !cancelled && setRemote([]))
+        .finally(() => !cancelled && setRemoteLoading(false));
     }, SUGGESTION_DEBOUNCE_MS);
     return () => {
       cancelled = true;
@@ -150,7 +154,12 @@ export default function SearchInput({
     </li>
   );
 
-  const showPanel = open && (filtered.length > 0 || history.length > 0 || popular.length > 0);
+  const noResults =
+    Boolean(loadSuggestions) &&
+    value.trim().length >= MIN_SUGGESTION_CHARS &&
+    !remoteLoading &&
+    filtered.length === 0;
+  const showPanel = open && (filtered.length > 0 || remoteLoading || noResults || history.length > 0 || popular.length > 0);
 
   return (
     <div ref={rootRef} className="relative w-full">
@@ -186,6 +195,20 @@ export default function SearchInput({
           onFocus={() => setOpen(true)}
           onKeyDown={onKeyDown}
         />
+        {value && (
+          <button
+            type="button"
+            aria-label="Limpiar búsqueda"
+            onClick={() => {
+              onChange('');
+              setOpen(true);
+              setHighlighted(-1);
+            }}
+            className="rounded-full p-1.5 text-content-muted hover:text-content"
+          >
+            <X className="h-4 w-4" aria-hidden="true" />
+          </button>
+        )}
         <Button type="submit" size={size === 'lg' ? 'lg' : 'md'} loading={loading} className="shrink-0">
           Buscar
         </Button>
@@ -193,6 +216,14 @@ export default function SearchInput({
 
       {showPanel && (
         <div className="absolute z-30 mt-2 w-full overflow-hidden rounded-2xl border border-border bg-surface shadow-card-hover animate-fade-in">
+          {remoteLoading && (
+            <p role="status" className="px-4 py-3 text-sm text-content-muted">Buscando materias…</p>
+          )}
+          {noResults && !remoteLoading && (
+            <p role="status" className="px-4 py-3 text-sm text-content-muted">
+              No encontramos materias con ese nombre. Probá con otra palabra.
+            </p>
+          )}
           {filtered.length > 0 && (
             <ul id={listId} role="listbox" aria-label="Sugerencias" className="max-h-64 overflow-auto py-1">
               {filtered.map(renderOption)}
