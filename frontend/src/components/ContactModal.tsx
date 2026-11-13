@@ -73,11 +73,17 @@ export default function ContactModal({ open, teacher, onClose, onSent, onNeedsPr
         onNeedsProfile();
         return;
       }
-      setError(
-        e instanceof ApiError && e.status === 404
-          ? 'Este perfil ya no está disponible.'
-          : 'No pudimos enviar tu mensaje. Intentá de nuevo.',
-      );
+      if (e instanceof ApiError && e.status === 403) {
+        setError('No podés contactar a este usuario.');
+      } else if (e instanceof ApiError && e.status === 429) {
+        setError('Hiciste muchos contactos seguidos. Esperá unos minutos e intentá de nuevo.');
+      } else if (e instanceof ApiError && e.status === 404) {
+        setError('Este perfil ya no está disponible.');
+      } else if (e instanceof ApiError && e.status === 400) {
+        setError('Revisá el mensaje: hay un dato inválido.');
+      } else {
+        setError('No pudimos enviar tu mensaje. Intentá de nuevo.');
+      }
     } finally {
       setLoading(false);
     }
