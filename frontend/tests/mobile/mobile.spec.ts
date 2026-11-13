@@ -14,11 +14,15 @@ test.describe('Experiencia mobile', () => {
     async ({ page }) => {
       await page.goto('/');
       await expect(page.getByRole('heading', { level: 1 })).toContainText(/Encontr/i);
-      expect(
-        await page.evaluate(
-          () => document.documentElement.scrollWidth > window.innerWidth + 1,
-        ),
-      ).toBe(false);
+      await expect
+        .poll(() =>
+          page.evaluate(
+            () =>
+              document.documentElement.scrollWidth >
+              document.documentElement.clientWidth + 1,
+          ),
+        )
+        .toBe(false);
 
       await loginAs(page);
       await page.goto('/buscar');
@@ -26,11 +30,15 @@ test.describe('Experiencia mobile', () => {
       await expect(page.getByRole('button', { name: 'Aplicar filtros' })).toBeVisible();
       await expect(page.getByRole('link', { name: 'Mensajes' })).toBeVisible();
       await expect(page.getByRole('link', { name: 'Favoritos' })).toBeVisible();
-      expect(
-        await page.evaluate(
-          () => document.documentElement.scrollWidth > window.innerWidth + 1,
-        ),
-      ).toBe(false);
+      await expect
+        .poll(() =>
+          page.evaluate(
+            () =>
+              document.documentElement.scrollWidth >
+              document.documentElement.clientWidth + 1,
+          ),
+        )
+        .toBe(false);
     },
   );
 });
