@@ -49,5 +49,10 @@ node_modules/
 ### CodeGraph (local index, machine-specific) ###
 .codegraph/
 
+### OpenCode local config ###
+.opencode/
+
 .vercel
 .env*
+
+AGENTS.md
