@@ -1,6 +1,11 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { flushSync } from 'react-dom';
 
 type Theme = 'light' | 'dark';
+
+interface ViewTransitionDocument extends Document {
+  startViewTransition?: (callback: () => void) => { finished: Promise<void> };
+}
 
 interface ThemeContextValue {
   theme: Theme;
@@ -25,13 +30,15 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const root = document.documentElement;
-    // The transition class lives only while the theme changes: it animates the
-    // variable-driven colors (surfaces, text, borders, brand blue) without touching
-    // the timing of hover/state transitions elsewhere. First paint is unaffected
-    // because the anti-flash script in index.html already set the class pre-render.
-    root.classList.add(TRANSITION_CLASS);
     root.classList.toggle('dark', theme === 'dark');
     localStorage.setItem(STORAGE_KEY, theme);
+
+    if (prefersReducedMotion() || supportsViewTransitions()) {
+      root.classList.remove(TRANSITION_CLASS);
+      return;
+    }
+
+    root.classList.add(TRANSITION_CLASS);
     const timer = window.setTimeout(() => root.classList.remove(TRANSITION_CLASS), TRANSITION_MS);
     return () => {
       window.clearTimeout(timer);
@@ -39,11 +46,29 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     };
   }, [theme]);
 
-  const setTheme = useCallback((next: Theme) => setThemeState(next), []);
-  const toggle = useCallback(() => setThemeState((t) => (t === 'dark' ? 'light' : 'dark')), []);
+  const applyTheme = useCallback((next: Theme) => {
+    if (prefersReducedMotion() || !supportsViewTransitions()) {
+      setThemeState(next);
+      return;
+    }
+    (document as ViewTransitionDocument).startViewTransition?.(() => {
+      flushSync(() => setThemeState(next));
+    });
+  }, []);
+
+  const setTheme = useCallback((next: Theme) => applyTheme(next), [applyTheme]);
+  const toggle = useCallback(() => applyTheme(theme === 'dark' ? 'light' : 'dark'), [applyTheme, theme]);
 
   const value = useMemo(() => ({ theme, toggle, setTheme }), [theme, toggle, setTheme]);
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
+}
+
+function prefersReducedMotion(): boolean {
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+function supportsViewTransitions(): boolean {
+  return typeof (document as ViewTransitionDocument).startViewTransition === 'function';
 }
 
 export function useTheme(): ThemeContextValue {

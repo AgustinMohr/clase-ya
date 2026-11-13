@@ -89,7 +89,16 @@
     color 200ms ease,
     background-color 200ms ease,
     border-color 200ms ease,
+    fill 200ms ease,
+    stroke 200ms ease,
     box-shadow 200ms ease;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 220ms;
+  }
 }
 
 /*
