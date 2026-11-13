@@ -6,6 +6,7 @@ import { Button } from '../components/ui/Button';
 import { Field, Input } from '../components/ui/Field';
 import { Card } from '../components/ui/primitives';
 import TurnstileWidget from '../components/TurnstileWidget';
+import { useHumanCheckRequired } from '../components/HumanGate';
 import { validateRegistration } from '../lib/validation';
 import { ROUTES } from '../routes';
 
@@ -23,6 +24,7 @@ function fieldErrorsOf(error: unknown): Record<string, string> {
 
 export default function RegisterPage({ onLogin }: Props) {
   const { register } = useAuth();
+  const captchaRequired = useHumanCheckRequired();
   const navigate = useNavigate();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -213,9 +215,9 @@ export default function RegisterPage({ onLogin }: Props) {
             </span>
           </label>
 
-          <TurnstileWidget onToken={setCaptchaToken} onError={setFormError} />
+          {captchaRequired && <TurnstileWidget onToken={setCaptchaToken} onError={setFormError} />}
 
-          <Button type="submit" block loading={loading} disabled={Boolean(import.meta.env.VITE_TURNSTILE_SITE_KEY) && !captchaToken}>
+          <Button type="submit" block loading={loading} disabled={captchaRequired && !captchaToken}>
             Crear cuenta
           </Button>
         </form>

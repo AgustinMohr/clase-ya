@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { Loader2, ShieldCheck } from 'lucide-react';
 import { api } from '../api';
 import TurnstileWidget from './TurnstileWidget';
@@ -7,12 +7,19 @@ import { Card } from './ui/primitives';
 
 type GateState = 'checking' | 'required' | 'ready' | 'error';
 
+const HumanCheckContext = createContext(false);
+
+export function useHumanCheckRequired(): boolean {
+  return useContext(HumanCheckContext);
+}
+
 interface Props {
   children: React.ReactNode;
 }
 
 export default function HumanGate({ children }: Props) {
   const [state, setState] = useState<GateState>('checking');
+  const [required, setRequired] = useState(false);
   const [token, setToken] = useState('');
   const [verifying, setVerifying] = useState(false);
   const verifyingRef = useRef(false);
@@ -24,6 +31,7 @@ export default function HumanGate({ children }: Props) {
     setError('');
     try {
       const status = await api.humanStatus();
+      setRequired(status.required);
       setState(status.required && !status.verified ? 'required' : 'ready');
     } catch {
       setState('error');
@@ -66,7 +74,9 @@ export default function HumanGate({ children }: Props) {
     };
   }, [state, token]);
 
-  if (state === 'ready') return <>{children}</>;
+  if (state === 'ready') {
+    return <HumanCheckContext.Provider value={required}>{children}</HumanCheckContext.Provider>;
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-10">
