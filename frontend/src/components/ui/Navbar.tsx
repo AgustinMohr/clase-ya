@@ -35,7 +35,7 @@ export function Navbar({
           <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary-600 text-white">
             <GraduationCap className="h-5 w-5" aria-hidden="true" />
           </span>
-          <span className="font-display text-2xl leading-none text-primary-700 dark:text-primary-200">ClaseYa</span>
+          <span className="hidden font-display text-2xl leading-none text-primary-700 dark:text-primary-200 sm:inline">ClaseYa</span>
         </Link>
 
         <nav className="flex items-center gap-1.5" aria-label="Principal">
