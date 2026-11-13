@@ -3,10 +3,6 @@ import { flushSync } from 'react-dom';
 
 type Theme = 'light' | 'dark';
 
-interface ViewTransitionDocument extends Document {
-  startViewTransition?: (callback: () => void) => { finished: Promise<void> };
-}
-
 interface ThemeContextValue {
   theme: Theme;
   toggle: () => void;
@@ -51,7 +47,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       setThemeState(next);
       return;
     }
-    (document as ViewTransitionDocument).startViewTransition?.(() => {
+    document.startViewTransition(() => {
       flushSync(() => setThemeState(next));
     });
   }, []);
@@ -68,7 +64,7 @@ function prefersReducedMotion(): boolean {
 }
 
 function supportsViewTransitions(): boolean {
-  return typeof (document as ViewTransitionDocument).startViewTransition === 'function';
+  return typeof document.startViewTransition === 'function';
 }
 
 export function useTheme(): ThemeContextValue {
