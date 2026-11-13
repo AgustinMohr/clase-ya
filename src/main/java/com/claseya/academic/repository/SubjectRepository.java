@@ -25,6 +25,19 @@ public interface SubjectRepository extends JpaRepository<Subject, UUID> {
     /** REVIEW2-001 (RF-3): name search, paginated. */
     Page<Subject> findByActiveTrueAndNameContainingIgnoreCase(String query, Pageable pageable);
 
+    /** SEARCH-003: accent-insensitive name search for the autocomplete. */
+    @Query(value = """
+            select * from subjects s
+            where s.active = true
+              and unaccent(lower(s.name)) like '%' || unaccent(lower(:query)) || '%'
+            order by s.name asc, s.id asc
+            """, countQuery = """
+            select count(*) from subjects s
+            where s.active = true
+              and unaccent(lower(s.name)) like '%' || unaccent(lower(:query)) || '%'
+            """, nativeQuery = true)
+    Page<Subject> searchActiveByNameIgnoringAccents(@Param("query") String query, Pageable pageable);
+
     /**
      * REVIEW2-001 (RF-1): most used active subjects, i.e. those with at least one active
      * {@code teacher_subjects} link owned by an ACTIVE user. One aggregated query, no N+1; the

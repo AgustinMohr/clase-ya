@@ -76,6 +76,16 @@ class SubjectCatalogIntegrationTest extends AbstractWebIntegrationTest {
     }
 
     @Test
+    void catalog_searchIgnoresAccentsInTheQuery() throws Exception {
+        String suffix = UUID.randomUUID().toString().substring(0, 8);
+        subjectRepository.save(subject("Matemática " + suffix));
+
+        JsonNode page = toJson(getJson("/api/subjects?query=matema&size=10", null, 200));
+
+        assertThat(nameList(page)).anyMatch(name -> name.startsWith("Matemática " + suffix));
+    }
+
+    @Test
     void catalog_rejectsPageAndSizeOutOfRange() throws Exception {
         getJson("/api/subjects?size=0", null, 400);
         getJson("/api/subjects?size=101", null, 400);

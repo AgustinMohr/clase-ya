@@ -49,7 +49,8 @@ public class SubjectService {
         Pageable pageable = PageRequest.of(page, size,
                 Sort.by(Sort.Order.asc("name"), Sort.Order.asc("id")));
         Page<Subject> result = StringUtils.hasText(query)
-                ? subjectRepository.findByActiveTrueAndNameContainingIgnoreCase(query.trim(), pageable)
+                ? subjectRepository.searchActiveByNameIgnoringAccents(
+                        query.trim(), PageRequest.of(page, size))
                 : subjectRepository.findByActiveTrue(pageable);
         return SearchResultPage.of(result.getContent().stream().map(SubjectResponse::from).toList(),
                 result.getNumber(), result.getSize(), result.getTotalElements());
