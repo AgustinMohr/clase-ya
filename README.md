@@ -460,6 +460,7 @@ desarrollo**:
 | `CLAMAV_HOST` / `CLAMAV_PORT` | `localhost` / `3310` | ClamAV INSTREAM |
 | `CLAMAV_TIMEOUT_MS` | `5000` | Timeout del escaneo |
 | `RATE_LIMIT_TRUST_FORWARDED_HEADERS` | `false` | Confía en `X-Forwarded-For`/`Forwarded` solo detrás de un proxy confiable |
+| `BEHIND_TRUSTED_PROXY` | `false` | Declara que el backend está detrás de un proxy que sanea esos headers; obligatorio para habilitar `RATE_LIMIT_TRUST_FORWARDED_HEADERS` |
 | `LOGGING_STRUCTURED_FORMAT_CONSOLE` | *(vacío)* | `ecs` para logs JSON en producción; el `requestId` viaja en el MDC |
 
 Los límites de cada scope (`RATE_LIMIT_LOGIN_IP_LIMIT`, `RATE_LIMIT_LOGIN_ACCOUNT_LIMIT`,
@@ -478,10 +479,12 @@ son orígenes HTTPS públicos, si `COOKIE_SECURE` es `false`, si `COOKIE_SAME_SI
 `None` sin Secure, o si el transporte de email no está configurado (`smtp` + `MAIL_HOST`, o
 `brevo` + `EMAIL_API_KEY`). Además rechaza `AUTH_LOG_ACTIVATION_LINKS=true`,
 `MESSAGE_LINK_LOG=true`, `security.csrf.enabled=false` y `security.rate-limit.enabled=false`: son
-fallbacks de desarrollo que no pueden quedar activos en producción. Todos los problemas se reportan
-juntos (`ProductionConfigValidator`). Es a propósito: un deploy que olvide una variable falla fuerte
-en vez de servir un registro roto, enlaces a `localhost`, tokens en logs o controles de abuso
-apagados sin que nadie lo haya decidido.
+fallbacks de desarrollo que no pueden quedar activos en producción. También exige que
+`BEHIND_TRUSTED_PROXY` y `RATE_LIMIT_TRUST_FORWARDED_HEADERS` sean coherentes: no se confía en
+`X-Forwarded-For` sin un proxy declarado, ni se declara un proxy sin confiar en sus headers. Todos
+los problemas se reportan juntos (`ProductionConfigValidator`). Es a propósito: un deploy que olvide
+una variable falla fuerte en vez de servir un registro roto, enlaces a `localhost`, tokens en logs o
+controles de abuso apagados sin que nadie lo haya decidido.
 
 ### Base de datos local (Docker)
 
@@ -580,8 +583,9 @@ la cookie CSRF (`SameSite=Lax`) no viaja entre sitios y el login responde `403 A
 - Quitá `VITE_API_URL` del proyecto de Vercel (si queda, el SPA vuelve a llamar al backend
   cross-site) y redeployá: es una variable de build.
 - En el backend: `FRONTEND_URL=https://<proyecto>.vercel.app` (exacto, sin barra final ni espacios),
-  `COOKIE_SAME_SITE=Lax`, `COOKIE_SECURE=true` y `RATE_LIMIT_TRUST_FORWARDED_HEADERS=true` (Vercel
-  sobrescribe `X-Forwarded-For`; sin esto todos los usuarios comparten el bucket de rate limit).
+  `COOKIE_SAME_SITE=Lax`, `COOKIE_SECURE=true`, `BEHIND_TRUSTED_PROXY=true` y
+  `RATE_LIMIT_TRUST_FORWARDED_HEADERS=true` (Vercel sobrescribe `X-Forwarded-For`; sin esto todos
+  los usuarios comparten el bucket de rate limit).
 - Para SEO-001, el mismo origen canónico debe estar en `APP_BASE_URL` (backend: canonical, sitemap y
   activación), `PUBLIC_SITE_URL` (función de prerender) y `VITE_SITE_URL` (build: `robots.txt`).
   Los tres sin barra final. Si `PUBLIC_SITE_URL` falta, la función usa el origen del request en
