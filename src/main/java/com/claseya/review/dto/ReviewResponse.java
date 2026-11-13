@@ -28,7 +28,13 @@ public record ReviewResponse(
     }
 
     static String authorName(Review review) {
+        String name = fullAuthorName(review);
+        int firstSpace = name.indexOf(' ');
+        return firstSpace > 0 ? name.substring(0, firstSpace) : name;
+    }
+
+    static String fullAuthorName(Review review) {
         String name = review.getStudent().getUser().getName();
-        return name == null || name.isBlank() ? "Estudiante" : name;
+        return name == null || name.isBlank() ? "Estudiante" : name.trim();
     }
 }

@@ -33,7 +33,7 @@ public record AdminReviewResponse(
                 review.getId(),
                 review.getTeacher().getId(),
                 teacherName == null || teacherName.isBlank() ? "Profesor" : teacherName,
-                ReviewResponse.authorName(review),
+                ReviewResponse.fullAuthorName(review),
                 review.getRating(),
                 review.getComment(),
                 review.getStatus(),

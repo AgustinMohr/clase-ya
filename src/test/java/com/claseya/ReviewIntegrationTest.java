@@ -127,7 +127,7 @@ class ReviewIntegrationTest extends AbstractWebIntegrationTest {
         assertThat(body.get("totalElements").asInt()).isEqualTo(1);
         assertThat(body.get("content").get(0).get("id").asText()).isEqualTo(reviewId);
         assertThat(body.get("content").get(0).get("authorDisplayName").asText())
-                .isEqualTo("Student student@example.com");
+                .isEqualTo("Student");
 
         TeacherProfile reloaded = teacherProfileRepository.findById(teacher.getId()).orElseThrow();
         assertThat(reloaded.getRatingCount()).isEqualTo(1);
