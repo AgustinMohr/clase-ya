@@ -19,16 +19,17 @@ concurrency:
 jobs:
   dump:
     name: Dump, encrypt and upload
-    # Pinned: ubuntu-latest moved to 26.04, whose repositories no longer ship postgresql-client-16.
-    # 24.04 provides client 16 (matches the Neon server major) and the preinstalled AWS CLI.
+    # Pinned: ubuntu-latest moved to 26.04, whose repositories no longer ship the PostgreSQL clients we need.
+    # 24.04 + the PGDG repo provide postgresql-client-18 (Neon runs PostgreSQL 18; pg_dump must be >=
+    # the server major) and the preinstalled AWS CLI.
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
-      - name: Install PostgreSQL 16 client and age
+      - name: Install PostgreSQL 18 client and age
         run: |
           sudo apt-get update
-          sudo apt-get install -y postgresql-client-16 age
-          pg_dump --version
+          sudo apt-get install -y postgresql-client-18 age
+          /usr/lib/postgresql/18/bin/pg_dump --version
           aws --version
 
       - name: Dump, encrypt and upload
@@ -53,7 +54,7 @@ jobs:
 
           echo "[1/3] pg_dump (max 10 min)"
           # --verbose prints object names to stderr, never row data.
-          PGCONNECT_TIMEOUT=30 timeout 600 pg_dump --verbose --format=custom             --no-owner --no-privileges --file=dump.raw "$DATABASE_URL"
+          PGCONNECT_TIMEOUT=30 timeout 600 /usr/lib/postgresql/18/bin/pg_dump --verbose --format=custom             --no-owner --no-privileges --file=dump.raw "$DATABASE_URL"
           echo "Raw dump: $(stat -c%s dump.raw) bytes"
 
           echo "[2/3] encrypt"
