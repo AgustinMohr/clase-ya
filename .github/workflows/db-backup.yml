@@ -19,7 +19,9 @@ concurrency:
 jobs:
   dump:
     name: Dump, encrypt and upload
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest moved to 26.04, whose repositories no longer ship postgresql-client-16.
+    # 24.04 provides client 16 (matches the Neon server major) and the preinstalled AWS CLI.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - name: Install PostgreSQL 16 client and age
