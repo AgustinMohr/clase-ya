@@ -1,0 +1,62 @@
+name: DB backup
+
+# Daily encrypted pg_dump of the production database to a private R2 bucket (RT-04).
+# The dump contains personal data: it is encrypted with age BEFORE leaving this job, the database
+# role is read-only, and the bucket must stay private. Never print DATABASE_URL.
+# Restore procedure: docs/runbooks/rollback-and-recovery.md (section 7).
+on:
+  schedule:
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: db-backup
+  cancel-in-progress: false
+
+jobs:
+  dump:
+    name: Dump, encrypt and upload
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Install PostgreSQL 16 client and age
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-16 age
+          pg_dump --version
+          aws --version
+
+      - name: Dump, encrypt and upload
+        env:
+          DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+          AGE_PUBLIC_KEY: ${{ secrets.AGE_PUBLIC_KEY }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: |
+          set -euo pipefail
+          for name in DATABASE_URL AGE_PUBLIC_KEY AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY R2_ENDPOINT R2_BUCKET; do
+            if [ -z "${!name}" ]; then
+              echo "Missing secret for $name" >&2
+              exit 1
+            fi
+          done
+
+          FILE="claseya-$(date -u +%Y%m%dT%H%M%SZ).dump.age"
+          pg_dump --format=custom --no-owner --no-privileges "$DATABASE_URL" \
+            | age -r "$AGE_PUBLIC_KEY" > "$FILE"
+
+          # A near-empty file means the dump failed silently; do not upload it as a good backup.
+          SIZE=$(stat -c%s "$FILE")
+          if [ "$SIZE" -lt 1000 ]; then
+            echo "Backup file is suspiciously small ($SIZE bytes)" >&2
+            exit 1
+          fi
+
+          aws s3 cp "$FILE" "s3://$R2_BUCKET/$FILE" --endpoint-url "$R2_ENDPOINT"
+          echo "Uploaded $FILE ($SIZE bytes)"
