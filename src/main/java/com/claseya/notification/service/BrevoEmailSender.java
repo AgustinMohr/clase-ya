@@ -79,9 +79,17 @@ public class BrevoEmailSender implements EmailSender {
                     .toBodilessEntity();
         } catch (RestClientResponseException ex) {
             int status = ex.getStatusCode().value();
-            if (status == 400 || status == 401 || status == 403) {
+            if (status == 400) {
                 throw new PermanentNotificationException(
                         "Email provider rejected the request (" + status + ")");
+            }
+            if (status == 401 || status == 403) {
+                // Credential/IP problem on our side, fixable by the operator: keep retrying with
+                // backoff instead of dropping the activation token (B-01).
+                log.error("Email provider refused our credentials ({}). Check EMAIL_API_KEY and "
+                        + "the authorized IPs in Brevo.", status);
+                throw new NotificationDeliveryException(
+                        "Email provider refused the credentials (" + status + ")", ex);
             }
             log.warn("Email provider returned {}", status);
             throw new NotificationDeliveryException("Email provider failed (" + status + ")", ex);

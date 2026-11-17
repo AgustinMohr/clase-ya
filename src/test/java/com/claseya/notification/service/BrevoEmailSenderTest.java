@@ -91,11 +91,21 @@ class BrevoEmailSenderTest {
     }
 
     @Test
-    void treatsARejectedRequestAsPermanent() {
+    void retriesWhenTheProviderRefusesTheCredentials() {
         server.expect(requestTo(URL)).andRespond(withStatus(HttpStatus.UNAUTHORIZED));
 
         assertThatThrownBy(() -> sender().send("student@example.com", "asunto", "cuerpo"))
-                .isInstanceOf(PermanentNotificationException.class);
+                .isInstanceOf(NotificationDeliveryException.class)
+                .isNotInstanceOf(PermanentNotificationException.class);
+    }
+
+    @Test
+    void retriesWhenTheProviderForbidsTheRequest() {
+        server.expect(requestTo(URL)).andRespond(withStatus(HttpStatus.FORBIDDEN));
+
+        assertThatThrownBy(() -> sender().send("student@example.com", "asunto", "cuerpo"))
+                .isInstanceOf(NotificationDeliveryException.class)
+                .isNotInstanceOf(PermanentNotificationException.class);
     }
 
     @Test
