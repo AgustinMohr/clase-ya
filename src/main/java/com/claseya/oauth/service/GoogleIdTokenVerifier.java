@@ -2,9 +2,12 @@ package com.claseya.oauth.service;
 
 import com.claseya.common.exception.BadRequestException;
 import com.claseya.common.exception.InvalidCredentialsException;
+import com.claseya.common.exception.ServiceUnavailableException;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.oauth2.jwt.BadJwtException;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtDecoderInitializationException;
 import org.springframework.security.oauth2.jwt.JwtException;
 import org.springframework.stereotype.Component;
 
@@ -36,8 +39,11 @@ public class GoogleIdTokenVerifier {
         Jwt jwt;
         try {
             jwt = jwtDecoder.decode(idToken);
-        } catch (JwtException | IllegalArgumentException ex) {
+        } catch (BadJwtException | IllegalArgumentException ex) {
             throw new BadRequestException("Invalid Google token");
+        } catch (JwtDecoderInitializationException | JwtException ex) {
+            // Not a bad token: Google's keys or discovery document could not be fetched (B-06).
+            throw new ServiceUnavailableException("Google sign-in is unavailable");
         }
 
         if (issuer == null || !issuer.equals(jwt.getClaimAsString("iss"))) {
