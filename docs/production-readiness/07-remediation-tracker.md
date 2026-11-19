@@ -389,6 +389,18 @@ Incluso con todo el plan ejecutado:
 9. **Cobertura de pruebas** depende de lo que se añada: el E2E con estado compartido sigue siendo una fuente de flakiness hasta que se rediseñe (RT-35).
 10. **Incertidumbre de estimaciones:** los esfuerzos S/M/L son órdenes de magnitud sin base estadística; los ítems con decisión o acceso externo pueden demorarse por motivos ajenos al trabajo técnico.
 
+### Avance de remediación (2026-11-19) — evidencia
+
+- **RT-01:** el propietario informó haber revisado las variables de Render (sin capturas archivadas). Sigue OPEN hasta adjuntar la verificación (arranque sin perfil, ausencia de enlaces en logs tras un registro de prueba).
+- **RT-02 (parcial):** protección aplicada vía API de GitHub y verificada con la respuesta: `main` exige los checks `Backend (Maven + Testcontainers)`, `Frontend (typecheck + build + audit)` y `E2E (Playwright + demo seed)`, rama al día, 1 revisión, resolución de conversaciones y `enforce_admins=true`; `dev` exige PR y los mismos checks. Pendiente: `CODEOWNERS` y un PR de prueba que no se pueda fusionar con CI roja.
+- **RT-03:** PR #64 (auditoría bloqueante solo de dependencias de producción; la completa queda informativa). Evidencia: job `Frontend (typecheck + build + audit)` en success sobre `main` (f21e95a). El criterio original (`npm audit --audit-level=high` sobre todo el árbol) no se cumple; se acordó acotar a producción. Las vulnerabilidades de `picomatch` en dependencias de desarrollo siguen visibles en la auditoría informativa.
+- **RT-06 (parcial):** B-01 fusionado antes (401/403 reintentables, tests unitarios) y PR #65 con test de integración del outbox (falla de credenciales → FAILED reintentable → recupera con el token intacto). Suite: 529 tests, 0 fallos. Pendiente: entrega real de un correo con la API key vigente, remitente verificado, política tras agotar reintentos y filas `DEAD` en producción.
+- **RT-09:** PR #68 (pool de Hikari explícito, `connectTimeout`, `tcpKeepAlive`, `DataSourcePoolIntegrationTest`). Suite: 529 tests, 0 fallos. El propietario informa que Neon admite hasta 10000 conexiones, por lo que `DB_POOL_MAX_SIZE=10` no limita. Pendiente: validar en producción (arranque tras autosuspend); `statement_timeout` y `sslmode` no están incluidos.
+- **RT-14:** PR #67 (`/actuator/health/liveness` y `/readiness` públicos sin detalle; `HEALTHCHECK` de Docker en liveness; 3 tests nuevos). Suite: 531 tests, 0 fallos. El propietario informa haber actualizado Render; pendiente de captura.
+- **RT-28:** PR #66 (timeouts de 5 s en Turnstile y Google; caída de Google → 503; tests nuevos). Suite: 532 tests, 0 fallos. Residual: Turnstile sigue dentro de la transacción de `register()`.
+- Las suites se ejecutaron en local con `mvn -B clean verify` (JaCoCo en verde); CI de `main` en success tras las fusiones.
+- RT-06, RT-09, RT-14 y RT-28 permanecen OPEN hasta validar en producción.
+
 ### Notas sobre hallazgos con evidencia parcial (siguen OPEN)
 
 - **B-01 (RT-06):** el cambio de `BrevoEmailSender` (401/403 reintentables) está en el árbol de trabajo, sin commit, con 2 tests unitarios y la suite completa en verde (528). Sigue OPEN por los puntos de RT-06.
