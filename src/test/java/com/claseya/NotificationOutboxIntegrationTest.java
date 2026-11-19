@@ -19,6 +19,7 @@ import com.claseya.notification.service.ContactNotificationSender;
 import com.claseya.notification.service.EmailContent;
 import com.claseya.notification.service.EmailSender;
 import com.claseya.notification.service.MessageLinkTokenService;
+import com.claseya.notification.service.NotificationDeliveryException;
 import com.claseya.notification.service.NotificationOutboxService;
 import com.claseya.notification.service.NotificationOutboxWorker;
 import com.claseya.notification.service.PermanentNotificationException;
@@ -221,6 +222,41 @@ class NotificationOutboxIntegrationTest {
         NotificationOutboxEntry row = passwordResetRows().get(0);
         assertThat(row.getStatus()).isEqualTo(OutboxStatus.DEAD);
         assertThat(row.getPayload()).doesNotContainKey("token");
+    }
+
+    /**
+     * B-01: a provider that refuses our credentials (Brevo 401/403) is an operator problem, not a
+     * property of the message. The row must stay retryable with its activation token intact, and
+     * recover once the credentials are fixed.
+     */
+    @Test
+    void activationRejectedForCredentialsStaysRetryableAndRecoversWithTheTokenIntact() {
+        User teacher = createTeacher();
+        outboxService.enqueueActivation(teacher.getId(), teacher.getEmail(), UUID.randomUUID(), "raw-recovers");
+        doThrow(new NotificationDeliveryException("Email provider refused the credentials (401)"))
+                .when(activationLinkSender).send(anyString(), anyString());
+
+        assertThat(worker.processDue()).isZero();
+
+        NotificationOutboxEntry failed = activationRows().get(0);
+        assertThat(failed.getStatus()).isEqualTo(OutboxStatus.FAILED);
+        assertThat(failed.getAttempts()).isEqualTo(1);
+        assertThat(failed.getNextAttemptAt()).isAfter(Instant.now());
+        assertThat(failed.getPayload()).containsEntry("token", "raw-recovers");
+
+        // The operator fixes the API key: the same row is delivered on the next due attempt.
+        reset(activationLinkSender);
+        failed.setNextAttemptAt(Instant.now().minus(Duration.ofSeconds(1)));
+        outboxRepository.saveAndFlush(failed);
+
+        assertThat(worker.processDue()).isEqualTo(1);
+
+        verify(activationLinkSender, times(1))
+                .send(eq(teacher.getEmail()), contains("token=raw-recovers"));
+        NotificationOutboxEntry recovered = activationRows().get(0);
+        assertThat(recovered.getStatus()).isEqualTo(OutboxStatus.SENT);
+        assertThat(recovered.getAttempts()).isEqualTo(2);
+        assertThat(recovered.getPayload()).doesNotContainKey("token");
     }
 
     @Test
