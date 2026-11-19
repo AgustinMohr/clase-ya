@@ -14,6 +14,25 @@ spring:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/claseya}
     username: ${DB_USERNAME:claseya}
     password: ${DB_PASSWORD:claseya}
+    # RT-09: explicit pool for a serverless database (Neon suspends idle compute and closes its
+    # connections). Defaults are conservative and overridable per environment; size the pool below
+    # the connection limit of the Neon plan in use (instances x DB_POOL_MAX_SIZE).
+    hikari:
+      pool-name: claseya
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:10}
+      # Few idle connections: lets the database suspend and avoids holding connections for nothing.
+      minimum-idle: ${DB_POOL_MIN_IDLE:2}
+      idle-timeout: ${DB_POOL_IDLE_TIMEOUT_MS:120000}
+      # Shorter than Neon's idle cut-off so a pooled connection is retired before the server
+      # closes it underneath the application.
+      max-lifetime: ${DB_POOL_MAX_LIFETIME_MS:600000}
+      # Fail fast (503 through the error handler) instead of queueing a request for 30 s.
+      connection-timeout: ${DB_POOL_CONNECTION_TIMEOUT_MS:10000}
+      validation-timeout: ${DB_POOL_VALIDATION_TIMEOUT_MS:5000}
+      data-source-properties:
+        # JDBC connect timeout in seconds (the driver default is unbounded) and TCP keep-alive.
+        connectTimeout: ${DB_CONNECT_TIMEOUT_S:10}
+        tcpKeepAlive: true
 
   jpa:
     hibernate:
