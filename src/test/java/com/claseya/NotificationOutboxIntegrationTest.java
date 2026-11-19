@@ -16,6 +16,7 @@ import com.claseya.notification.repository.MessageLinkTokenRepository;
 import com.claseya.notification.repository.NotificationOutboxRepository;
 import com.claseya.notification.service.ActivationLinkSender;
 import com.claseya.notification.service.ContactNotificationSender;
+import com.claseya.notification.service.EmailSender;
 import com.claseya.notification.service.MessageLinkTokenService;
 import com.claseya.notification.service.NotificationOutboxService;
 import com.claseya.notification.service.NotificationOutboxWorker;
@@ -84,6 +85,9 @@ class NotificationOutboxIntegrationTest {
 
     @MockitoBean
     private ActivationLinkSender activationLinkSender;
+
+    @MockitoBean
+    private EmailSender emailSender;
 
     @Autowired
     private NotificationOutboxService outboxService;
@@ -183,6 +187,35 @@ class NotificationOutboxIntegrationTest {
     }
 
     @Test
+    void passwordResetEmailIsDeliveredAndTheRawTokenLeavesThePayload() {
+        User user = createTeacher();
+        outboxService.enqueuePasswordReset(user.getId(), user.getEmail(), UUID.randomUUID(), "raw-reset");
+
+        assertThat(worker.processDue()).isEqualTo(1);
+
+        verify(emailSender, times(1))
+                .send(eq(user.getEmail()), anyString(), contains("token=raw-reset"));
+        NotificationOutboxEntry row = passwordResetRows().get(0);
+        assertThat(row.getStatus()).isEqualTo(OutboxStatus.SENT);
+        assertThat(row.getPayload()).doesNotContainKey("token");
+        assertThat(row.getPayload()).containsEntry("email", user.getEmail());
+    }
+
+    @Test
+    void deadPasswordResetDropsTheRawToken() {
+        User user = createTeacher();
+        outboxService.enqueuePasswordReset(user.getId(), user.getEmail(), UUID.randomUUID(), "raw-reset");
+        doThrow(new PermanentNotificationException("Email delivery is not configured"))
+                .when(emailSender).send(anyString(), anyString(), anyString());
+
+        assertThat(worker.processDue()).isZero();
+
+        NotificationOutboxEntry row = passwordResetRows().get(0);
+        assertThat(row.getStatus()).isEqualTo(OutboxStatus.DEAD);
+        assertThat(row.getPayload()).doesNotContainKey("token");
+    }
+
+    @Test
     void activationEmailWithoutTransportBecomesDeadWithoutRetries() {
         User teacher = createTeacher();
         outboxService.enqueueActivation(teacher.getId(), teacher.getEmail(), UUID.randomUUID(), "raw");
@@ -250,6 +283,12 @@ class NotificationOutboxIntegrationTest {
     private java.util.List<NotificationOutboxEntry> activationRows() {
         return outboxRepository.findAll().stream()
                 .filter(row -> row.getEventType() == NotificationEventType.ACTIVATION)
+                .toList();
+    }
+
+    private java.util.List<NotificationOutboxEntry> passwordResetRows() {
+        return outboxRepository.findAll().stream()
+                .filter(row -> row.getEventType() == NotificationEventType.PASSWORD_RESET)
                 .toList();
     }
 }

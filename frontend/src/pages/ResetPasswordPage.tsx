@@ -34,11 +34,13 @@ export default function ResetPasswordPage({ onLogin }: Props) {
       await api.resetPassword(token, password);
       setDone(true);
     } catch (e) {
-      setError(
-        e instanceof ApiError
-          ? e.message
-          : 'No pudimos restablecer la contraseña. Intentá de nuevo.',
-      );
+      if (e instanceof ApiError && e.status === 400) {
+        setError('El enlace de recuperación es inválido o ya venció. Pedí uno nuevo.');
+      } else if (e instanceof ApiError && e.status === 429) {
+        setError('Demasiados intentos. Esperá unos minutos e intentá de nuevo.');
+      } else {
+        setError('No pudimos restablecer la contraseña. Intentá de nuevo.');
+      }
     } finally {
       setLoading(false);
     }

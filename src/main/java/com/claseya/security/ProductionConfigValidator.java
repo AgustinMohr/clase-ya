@@ -42,6 +42,12 @@ public class ProductionConfigValidator {
     private static final String EMAIL_TRANSPORT = "app.notification.email.transport";
     private static final String MAIL_HOST = "spring.mail.host";
     private static final String EMAIL_API_KEY = "app.notification.email.api-key";
+    private static final String AUTH_LOG_LINKS = "app.auth.activation.log-links";
+    private static final String MESSAGE_LOG_LINKS = "app.notification.log-links";
+    private static final String CSRF_ENABLED = "security.csrf.enabled";
+    private static final String RATE_LIMIT_ENABLED = "security.rate-limit.enabled";
+    private static final String BEHIND_TRUSTED_PROXY = "app.deployment.behind-trusted-proxy";
+    private static final String TRUST_FORWARDED_HEADERS = "security.rate-limit.trust-forwarded-headers";
 
     public ProductionConfigValidator(Environment environment) {
         List<String> activeProfiles = Arrays.asList(environment.getActiveProfiles());
@@ -60,6 +66,16 @@ public class ProductionConfigValidator {
                 environment.getProperty(EMAIL_TRANSPORT, "smtp"),
                 environment.getProperty(MAIL_HOST, ""),
                 environment.getProperty(EMAIL_API_KEY, ""));
+        validateSecurityToggles(
+                activeProfiles,
+                environment.getProperty(AUTH_LOG_LINKS, Boolean.class, false),
+                environment.getProperty(MESSAGE_LOG_LINKS, Boolean.class, false),
+                environment.getProperty(CSRF_ENABLED, Boolean.class, true),
+                environment.getProperty(RATE_LIMIT_ENABLED, Boolean.class, true));
+        validateTrustedProxy(
+                activeProfiles,
+                environment.getProperty(BEHIND_TRUSTED_PROXY, Boolean.class, false),
+                environment.getProperty(TRUST_FORWARDED_HEADERS, Boolean.class, false));
     }
 
     /**
@@ -85,6 +101,64 @@ public class ProductionConfigValidator {
         }
         if (demoSeedEnabled) {
             problems.add("app.demo-seed.enabled (DEMO_SEED) must be false");
+        }
+        failIfAny(problems);
+    }
+
+    /**
+     * Rejects the development-only fallbacks that would leak credentials or disable the
+     * browser-abuse controls promised for production.
+     */
+    static void validateSecurityToggles(Collection<String> activeProfiles,
+                                        boolean authLogLinks,
+                                        boolean messageLogLinks,
+                                        boolean csrfEnabled,
+                                        boolean rateLimitEnabled) {
+        if (isNonProduction(activeProfiles)) {
+            return;
+        }
+
+        List<String> problems = new ArrayList<>();
+        if (authLogLinks) {
+            problems.add("app.auth.activation.log-links (AUTH_LOG_ACTIVATION_LINKS) "
+                    + "must be false outside local/test");
+        }
+        if (messageLogLinks) {
+            problems.add("app.notification.log-links (MESSAGE_LINK_LOG) "
+                    + "must be false outside local/test");
+        }
+        if (!csrfEnabled) {
+            problems.add("security.csrf.enabled must be true outside local/test");
+        }
+        if (!rateLimitEnabled) {
+            problems.add("security.rate-limit.enabled (RATE_LIMIT_ENABLED) "
+                    + "must be true outside local/test");
+        }
+        failIfAny(problems);
+    }
+
+    /**
+     * Trusting {@code X-Forwarded-For}/{@code Forwarded} is only safe when a proxy sanitizes them.
+     * The two flags must agree: trusting headers without a trusted proxy lets clients spoof their
+     * IP, while declaring a proxy without trusting its headers collapses every user into one bucket.
+     */
+    static void validateTrustedProxy(Collection<String> activeProfiles,
+                                     boolean behindTrustedProxy,
+                                     boolean trustForwardedHeaders) {
+        if (isNonProduction(activeProfiles)) {
+            return;
+        }
+
+        List<String> problems = new ArrayList<>();
+        if (behindTrustedProxy && !trustForwardedHeaders) {
+            problems.add("security.rate-limit.trust-forwarded-headers "
+                    + "(RATE_LIMIT_TRUST_FORWARDED_HEADERS) must be true when "
+                    + "app.deployment.behind-trusted-proxy (BEHIND_TRUSTED_PROXY) is true");
+        }
+        if (!behindTrustedProxy && trustForwardedHeaders) {
+            problems.add("security.rate-limit.trust-forwarded-headers "
+                    + "(RATE_LIMIT_TRUST_FORWARDED_HEADERS) must be false unless "
+                    + "app.deployment.behind-trusted-proxy (BEHIND_TRUSTED_PROXY) is true");
         }
         failIfAny(problems);
     }

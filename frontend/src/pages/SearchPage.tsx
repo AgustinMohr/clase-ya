@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowLeft, FilterX, SearchX } from 'lucide-react';
 import { useSearchParams } from 'react-router';
-import { api, type Subject, type TeacherSummary } from '../api';
+import { api, ApiError, type Subject, type TeacherSummary } from '../api';
 import { usePageMeta } from '../hooks/usePageMeta';
 import { isIndexableSearch } from '../seo/metadata';
 import SearchInput from '../components/ui/SearchInput';
@@ -150,12 +150,8 @@ export default function SearchPage({
   const resolveSubject = useCallback(async (value: string) => {
     const name = value.trim();
     if (!name) return null;
-    try {
-      const page = await api.subjectSearch(name, 10);
-      return page.content.find((s) => s.name.toLowerCase() === name.toLowerCase())?.id ?? null;
-    } catch {
-      return null;
-    }
+    const page = await api.subjectSearch(name, 10);
+    return page.content.find((s) => s.name.toLowerCase() === name.toLowerCase())?.id ?? null;
   }, []);
 
   const runSearch = useCallback(
@@ -166,23 +162,25 @@ export default function SearchPage({
 
       const trimmed = value.trim();
       let subjectToUse = filters.subjectId;
-      if (trimmed && !subjectToUse) {
-        subjectToUse = await resolveSubject(trimmed);
-        if (seq !== requestSeq.current) return; // a newer search superseded this one
-        if (!subjectToUse) {
-          setUnmatchedTerm(trimmed);
-          setResults([]);
-          setTotal(0);
-          setTotalPages(0);
-          setLoading(false);
-          return;
-        }
-      }
-      setUnmatchedTerm('');
-      const effective: Filters = { ...filters, subjectId: subjectToUse };
-      setApplied(effective);
 
       try {
+        // Resolving the term can fail (catalog/network). That is not the same as "no match":
+        // keep the error state so the user can retry instead of being told the subject is absent.
+        if (trimmed && !subjectToUse) {
+          subjectToUse = await resolveSubject(trimmed);
+          if (seq !== requestSeq.current) return; // a newer search superseded this one
+          if (!subjectToUse) {
+            setUnmatchedTerm(trimmed);
+            setResults([]);
+            setTotal(0);
+            setTotalPages(0);
+            return;
+          }
+        }
+        setUnmatchedTerm('');
+        const effective: Filters = { ...filters, subjectId: subjectToUse };
+        setApplied(effective);
+
         const result = await api.teachers({
           subjectId: subjectToUse ?? undefined,
           city: effective.city || undefined,
@@ -199,9 +197,14 @@ export default function SearchPage({
         setTotalPages(result.totalPages);
         setPage(result.page);
         setHasSearched(true);
-      } catch {
+      } catch (caught) {
         if (seq !== requestSeq.current) return;
-        setError('No pudimos buscar profesores. Revisá tu conexión e intentá de nuevo.');
+        setUnmatchedTerm('');
+        setError(
+          caught instanceof ApiError && caught.status === 400
+            ? 'Revisá los filtros: hay un valor fuera de rango.'
+            : 'No pudimos buscar profesores. Revisá tu conexión e intentá de nuevo.',
+        );
         setResults([]);
         setTotal(0);
         setTotalPages(0);

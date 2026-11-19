@@ -36,11 +36,15 @@ export default function ActivateAccountPage({ onLogin }: Props) {
       .then(() => setState('done'))
       .catch((error) => {
         setState('error');
-        setMessage(
-          error instanceof ApiError
-            ? error.message
-            : 'No pudimos activar la cuenta. Revisá tu conexión e intentá de nuevo.',
-        );
+        if (error instanceof ApiError && error.status === 400) {
+          setMessage('El enlace de activación es inválido o ya venció. Pedí uno nuevo e intentá otra vez.');
+        } else if (error instanceof ApiError && error.status === 429) {
+          setMessage('Demasiados intentos. Esperá unos minutos e intentá de nuevo.');
+        } else if (error instanceof ApiError && error.status === 503) {
+          setMessage('No pudimos enviar el email de activación. Intentá de nuevo en unos minutos.');
+        } else {
+          setMessage('No pudimos activar la cuenta. Revisá tu conexión e intentá de nuevo.');
+        }
       });
   }, [token, activate]);
 

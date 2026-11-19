@@ -48,15 +48,16 @@ public interface NotificationOutboxRepository extends JpaRepository<Notification
     int markSending(@Param("id") UUID id);
 
     /**
-     * ADR-029: once the row is terminal the activation token is dropped from the payload
-     * ({@code payload - 'token'}). The credential is only needed until delivery; keeping it at rest
-     * afterwards adds no value. The contact payload is left untouched.
+     * ADR-029: once the row is terminal the activation or password-reset token is dropped from the
+     * payload ({@code payload - 'token'}). The credential is only needed until delivery; keeping it
+     * at rest afterwards adds no value. The contact payload is left untouched.
      */
     @Modifying
     @Query(value = """
             update notification_outbox
             set status = 'SENT', sent_at = now(), locked_until = null, last_error = null,
-                payload = case when event_type = 'ACTIVATION' then payload - 'token' else payload end
+                payload = case when event_type in ('ACTIVATION', 'PASSWORD_RESET')
+                               then payload - 'token' else payload end
             where id = :id
             """, nativeQuery = true)
     int markSent(@Param("id") UUID id);
@@ -73,7 +74,8 @@ public interface NotificationOutboxRepository extends JpaRepository<Notification
     @Query(value = """
             update notification_outbox
             set status = 'DEAD', locked_until = null, last_error = :error,
-                payload = case when event_type = 'ACTIVATION' then payload - 'token' else payload end
+                payload = case when event_type in ('ACTIVATION', 'PASSWORD_RESET')
+                               then payload - 'token' else payload end
             where id = :id
             """, nativeQuery = true)
     int markDead(@Param("id") UUID id, @Param("error") String error);

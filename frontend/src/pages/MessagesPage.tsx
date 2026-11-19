@@ -65,6 +65,7 @@ export default function MessagesPage() {
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [blockedIds, setBlockedIds] = useState<Set<string>>(new Set());
+  const [blockedByOther, setBlockedByOther] = useState(false);
   const [blocking, setBlocking] = useState(false);
   const [confirmBlockOpen, setConfirmBlockOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
@@ -146,6 +147,7 @@ export default function MessagesPage() {
       const seq = ++threadSeq.current;
       setOpenId(conversationId);
       setThreadError('');
+      setBlockedByOther(false);
 
       const cached = threadsRef.current.get(conversationId);
       if (cached) {
@@ -164,8 +166,10 @@ export default function MessagesPage() {
       }
       scrollToBottomRef.current = true;
 
+      let loaded = false;
       try {
         const thread = await api.conversationThread(conversationId);
+        loaded = true;
         const next: Thread = {
           other: thread.otherParticipant,
           messages: thread.messages,
@@ -180,9 +184,6 @@ export default function MessagesPage() {
           setNextBefore(next.nextBefore);
           scrollToBottomRef.current = true;
         }
-        // Opening the thread marks the other participant's messages as read.
-        await api.markConversationRead(conversationId);
-        void loadConversations(true);
       } catch (e) {
         if (seq === threadSeq.current) {
           setThreadError(
@@ -195,6 +196,14 @@ export default function MessagesPage() {
         if (seq === threadSeq.current) {
           setLoadingThread(false);
         }
+      }
+
+      // Marking read is secondary: a failure here must not turn a loaded thread into an error.
+      if (loaded && seq === threadSeq.current) {
+        void api
+          .markConversationRead(conversationId)
+          .then(() => loadConversations(true))
+          .catch(() => undefined);
       }
     },
     [loadConversations],
@@ -344,11 +353,12 @@ export default function MessagesPage() {
       setDraft('');
       void loadConversations(true);
     } catch (caught) {
-      setThreadError(
-        caught instanceof ApiError && caught.status === 403
-          ? 'No podés enviar mensajes en esta conversación.'
-          : 'No pudimos enviar el mensaje.',
-      );
+      if (caught instanceof ApiError && caught.status === 403) {
+        setBlockedByOther(true);
+        setThreadError('No podés enviar mensajes en esta conversación.');
+      } else {
+        setThreadError('No pudimos enviar el mensaje.');
+      }
     } finally {
       setSending(false);
       // Keep the caret where the user is writing (the send button may have taken the focus).
@@ -576,6 +586,10 @@ export default function MessagesPage() {
                   <Button variant="outline" size="sm" loading={blocking} onClick={() => void toggleBlock()}>
                     Desbloquear
                   </Button>
+                </div>
+              ) : blockedByOther ? (
+                <div className="space-y-2 border-t border-border p-3 text-sm text-content-muted">
+                  <p>No podés enviar mensajes en esta conversación.</p>
                 </div>
               ) : (
                 <form

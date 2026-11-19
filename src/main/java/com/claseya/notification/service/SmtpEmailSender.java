@@ -59,7 +59,8 @@ public class SmtpEmailSender implements EmailSender {
         try {
             sender.send(message);
         } catch (MailException ex) {
-            log.error("Activation or contact email could not be sent to {}", toEmail, ex);
+            log.error("Email delivery failed ({})", ex.getClass().getSimpleName());
+            log.debug("Email delivery failure detail", ex);
             throw new NotificationDeliveryException("Email delivery failed", ex);
         }
     }

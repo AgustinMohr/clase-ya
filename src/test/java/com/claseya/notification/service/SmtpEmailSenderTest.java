@@ -6,6 +6,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.mail.MailSendException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -17,7 +19,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-@ExtendWith(MockitoExtension.class)
+@ExtendWith({MockitoExtension.class, OutputCaptureExtension.class})
 class SmtpEmailSenderTest {
 
     private static final String FROM = "no-reply@claseya.app";
@@ -63,7 +65,7 @@ class SmtpEmailSenderTest {
     }
 
     @Test
-    void mapsMailFailuresToRetryable() {
+    void mapsMailFailuresToRetryableWithoutLoggingTheRecipient(CapturedOutput output) {
         when(provider.getIfAvailable()).thenReturn(mailSender);
         doThrow(new MailSendException("smtp down")).when(mailSender).send(any(SimpleMailMessage.class));
 
@@ -71,6 +73,8 @@ class SmtpEmailSenderTest {
 
         assertThatThrownBy(() -> sender.send("student@example.com", "asunto", "cuerpo"))
                 .isInstanceOf(NotificationDeliveryException.class);
+        assertThat(output.getOut()).doesNotContain("student@example.com");
+        assertThat(output.getErr()).doesNotContain("student@example.com");
     }
 
     @Test
