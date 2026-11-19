@@ -15,6 +15,27 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class ActuatorIntegrationTest extends AbstractWebIntegrationTest {
 
     @Test
+    void livenessProbe_isPublicAndLeaksNoDetails() throws Exception {
+        mockMvc.perform(get("/actuator/health/liveness"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("UP"))
+                .andExpect(jsonPath("$.components").doesNotExist());
+    }
+
+    @Test
+    void readinessProbe_isPublicAndLeaksNoDetails() throws Exception {
+        mockMvc.perform(get("/actuator/health/readiness"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("UP"))
+                .andExpect(jsonPath("$.components").doesNotExist());
+    }
+
+    @Test
+    void otherHealthSubpathsStayProtected() throws Exception {
+        mockMvc.perform(get("/actuator/health/db")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void metrics_requiresAuthentication() throws Exception {
         mockMvc.perform(get("/actuator/metrics")).andExpect(status().isUnauthorized());
     }

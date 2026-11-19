@@ -72,7 +72,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/human/**").permitAll()
                         // OPS-001: health is public; metrics are ADMIN-only.
-                        .requestMatchers("/actuator/health").permitAll()
+                        .requestMatchers("/actuator/health", "/actuator/health/liveness", "/actuator/health/readiness").permitAll()
                         .requestMatchers("/actuator/**").hasRole("ADMIN")
                         // SEO-001: crawlers fetch the sitemaps without a session.
                         .requestMatchers(HttpMethod.GET, "/sitemap.xml", "/sitemaps/**").permitAll()
