@@ -2,6 +2,7 @@ package com.claseya.oauth;
 
 import com.claseya.common.exception.BadRequestException;
 import com.claseya.common.exception.InvalidCredentialsException;
+import com.claseya.common.exception.ServiceUnavailableException;
 import com.claseya.oauth.service.GoogleIdTokenVerifier;
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.RSAKey;
@@ -9,7 +10,10 @@ import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
 import com.nimbusds.jose.jwk.source.JWKSource;
 import com.nimbusds.jose.proc.SecurityContext;
 import org.junit.jupiter.api.Test;
+import org.springframework.security.oauth2.jwt.BadJwtException;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
+import org.springframework.security.oauth2.jwt.JwtDecoderInitializationException;
+import org.springframework.security.oauth2.jwt.JwtException;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
@@ -98,6 +102,31 @@ class GoogleIdTokenVerifierTest {
         String good = validToken("a@example.com", "s");
         String tampered = good.substring(0, good.length() - 4) + "AAAA";
         assertThatThrownBy(() -> verifier.verify(tampered)).isInstanceOf(BadRequestException.class);
+    }
+
+    /** B-06: a bad token is the caller's fault (400); Google being unreachable is ours (503). */
+    @Test
+    void undecodableTokenIsABadRequest() {
+        GoogleIdTokenVerifier bad = new GoogleIdTokenVerifier(
+                token -> { throw new BadJwtException("malformed"); }, ISSUER, AUDIENCE);
+        assertThatThrownBy(() -> bad.verify("x")).isInstanceOf(BadRequestException.class);
+    }
+
+    @Test
+    void unreachableKeySetIsServiceUnavailable() {
+        GoogleIdTokenVerifier down = new GoogleIdTokenVerifier(
+                token -> { throw new JwtException("Couldn't retrieve remote JWK set"); },
+                ISSUER, AUDIENCE);
+        assertThatThrownBy(() -> down.verify("x")).isInstanceOf(ServiceUnavailableException.class);
+    }
+
+    @Test
+    void unreachableDiscoveryDocumentIsServiceUnavailable() {
+        GoogleIdTokenVerifier down = new GoogleIdTokenVerifier(
+                token -> { throw new JwtDecoderInitializationException("discovery failed",
+                        new IllegalStateException("timeout")); },
+                ISSUER, AUDIENCE);
+        assertThatThrownBy(() -> down.verify("x")).isInstanceOf(ServiceUnavailableException.class);
     }
 
     // ------------------------------------------------------------------ infra

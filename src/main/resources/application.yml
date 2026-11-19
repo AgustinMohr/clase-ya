@@ -143,6 +143,8 @@ oauth:
   google:
     issuer: ${GOOGLE_ISSUER:https://accounts.google.com}
     client-id: ${GOOGLE_CLIENT_ID:}
+    # Connect/read timeout when fetching Google's discovery document and keys (B-06).
+    api-call-timeout: ${GOOGLE_API_CALL_TIMEOUT:PT5S}
 
 # DEVELOPMENT ONLY: seed the demo dataset on startup (db/seed/demo-data.sql).
 # Opt-in on purpose: if DEMO_SEED is missing, nothing is seeded, so a production
@@ -202,6 +204,8 @@ app:
       enabled: ${CAPTCHA_ENABLED:false}
       secret: ${TURNSTILE_SECRET:}
       verify-url: ${TURNSTILE_VERIFY_URL:https://challenges.cloudflare.com/turnstile/v0/siteverify}
+      # Bounded on purpose: the check runs inside the registration request (B-06).
+      api-call-timeout: ${TURNSTILE_API_CALL_TIMEOUT:PT5S}
 
   # STOR-01: evidence storage. postgres = bytea (local/tests); s3 = private R2/S3 bucket.
   storage:

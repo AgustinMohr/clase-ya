@@ -4,6 +4,7 @@ import com.claseya.common.exception.BadRequestException;
 import com.claseya.common.exception.ServiceUnavailableException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -29,15 +30,13 @@ public class TurnstileCaptchaVerifier implements CaptchaVerifier {
     private final boolean enabled;
     private final String secret;
 
-    public TurnstileCaptchaVerifier(RestClient.Builder builder,
+    public TurnstileCaptchaVerifier(@Qualifier("captchaRestClient") RestClient captchaRestClient,
                                     @Value("${app.auth.captcha.enabled:false}") boolean enabled,
-                                    @Value("${app.auth.captcha.secret:}") String secret,
-                                    @Value("${app.auth.captcha.verify-url:https://challenges.cloudflare.com/turnstile/v0/siteverify}")
-                                    String verifyUrl) {
+                                    @Value("${app.auth.captcha.secret:}") String secret) {
         if (enabled && (secret == null || secret.isBlank())) {
             throw new IllegalStateException("TURNSTILE_SECRET is required when CAPTCHA_ENABLED=true");
         }
-        this.restClient = builder.baseUrl(verifyUrl).build();
+        this.restClient = captchaRestClient;
         this.enabled = enabled;
         this.secret = secret;
     }
