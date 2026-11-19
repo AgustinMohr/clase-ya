@@ -28,12 +28,13 @@ ENV JAVA_TOOL_OPTIONS="-Duser.timezone=UTC"
 # Render injects PORT=10000. Local Docker can override it with `-e PORT=8080 -p 8080:8080`.
 EXPOSE 10000
 
-# OPS-02: probe the public Actuator health endpoint (OPS-001). A 503 marks the container unhealthy.
+# OPS-02: probe the public Actuator liveness endpoint (OPS-001, RT-14). It does not depend on the
+# database, so a Neon outage does not mark a healthy JVM unhealthy. A 503 marks the container unhealthy.
 # Render injects PORT (10000 in the log above); the probe must use it, not a hardcoded 8080.
 # Force IPv4: `localhost` can resolve to ::1 while Tomcat binds 0.0.0.0.
 # Render Free + Neon can take ~200 s to boot, so keep the container in start-period long enough.
 HEALTHCHECK --interval=30s --timeout=30s --start-period=300s --retries=3 \
-  CMD curl -fsS "http://127.0.0.1:${PORT:-8080}/actuator/health" || exit 1
+  CMD curl -fsS "http://127.0.0.1:${PORT:-8080}/actuator/health/liveness" || exit 1
 
 USER app
 

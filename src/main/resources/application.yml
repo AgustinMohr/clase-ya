@@ -130,6 +130,14 @@ management:
   endpoint:
     health:
       show-details: never
+      # Separate probes (RT-14): liveness only says "the JVM is up", so a database outage (Neon
+      # autosuspend or downtime) never makes the platform restart a healthy process. Readiness
+      # additionally requires the database. The aggregate /actuator/health still includes it.
+      probes:
+        enabled: true
+      group:
+        readiness:
+          include: readinessState,db
   health:
     # Mail is optional (registration answers 503 without SMTP); it must not mark the
     # whole application as DOWN and trigger a restart loop on the platform.
