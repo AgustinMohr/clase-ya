@@ -39,7 +39,7 @@ Columnas: ID de tracker · origen (ID en informes) · severidad · estado · tip
 | RT-05 | 08 G-05, 06 I-03 | Sin uptime externo, error tracking ni alertas; métricas inaccesibles desde fuera | P1 | OPEN | Manual + N1/N2 | M | WP-3 |
 | RT-06 | 08 G-06, 02 B-01, 00 R-01 | Entrega de correo no demostrada; B-01 mitigado parcialmente; filas `DEAD`; remitente sin verificar | P1 | OPEN (parcial: PR #65; ver nota) | Manual (Brevo) + N1 | M | WP-2 |
 | RT-07 | 08 G-07, 04 DB-03, 01 S-04, 00 R-03 | Evidencia sin escanear; almacenamiento (`bytea`/R2) sin decidir ni verificar; sin retención | P1 | OPEN | Decisión + Manual + N2 | L | WP-5 |
-| RT-08 | 08 G-08, 00 R-04, 01 S-01 | Rate limiting por IP detrás de Vercel→Render sin configuración verificada | P1 | OPEN | Manual + N1 | M | WP-4 |
+| RT-08 | 08 G-08, 00 R-04, 01 S-01 | Rate limiting por IP detrás de Vercel→Render sin configuración verificada | P1 | CLOSED (verificado 2026-11-22; ver nota) | Manual + N1 | M | WP-4 |
 | RT-09 | 08 G-09, 04 DB-02, 02 B-08 | Sin Hikari/timeouts/`sslmode`/`statement_timeout` para Neon | P1 | OPEN (código fusionado, PR #68; falta validar en producción) | Manual (Neon) + N1 | M | WP-3 |
 | RT-10 | 08 G-10, 00 R-02 | Cuenta ADMIN con anuncio público contactable e ilegible | P1 | CLOSED (verificado por el propietario, 2026-11-17; ver nota) | Manual (datos) + Decisión | S | WP-0 |
 
@@ -88,6 +88,7 @@ Columnas: ID de tracker · origen (ID en informes) · severidad · estado · tip
 | RT-44 | 06 I-13..I-19, 00 R-09, R-12 | JVM (`ExitOnOutOfMemoryError`), `CODEOWNERS`, archivos de trabajo en la raíz, `SECURITY.md`, deriva documental (`codeql.yml`, `guia-proyecto.md`, versiones de migraciones) | P3 | OPEN | N0/N1 | S | WP-11 |
 | RT-45 | 00 R-06 | `main` 38 commits por delante de `dev`: reconciliar flujo de ramas | P3 | OPEN | Manual (git) + Decisión | S | WP-0 |
 | RT-46 | verificación 2026-11-17 | Neon corre PostgreSQL 18.7; tests (Testcontainers), `docker-compose` y CI usan `postgres:16`: diferencias de versión no detectadas por la suite | P3 | OPEN | N1 | S | WP-11 |
+| RT-47 | verificación 2026-11-22 | HTTP 500 en `/api/auth/login` bajo 60 peticiones concurrentes (41/60 directo, 7/60 por Vercel); causa sin determinar | P2 | OPEN | Investigación + N1 | S | WP-3 |
 
 ---
 
@@ -400,6 +401,8 @@ Incluso con todo el plan ejecutado:
 - **RT-28:** PR #66 (timeouts de 5 s en Turnstile y Google; caída de Google → 503; tests nuevos). Suite: 532 tests, 0 fallos. Residual: Turnstile sigue dentro de la transacción de `register()`.
 - Las suites se ejecutaron en local con `mvn -B clean verify` (JaCoCo en verde); CI de `main` en success tras las fusiones.
 - RT-06, RT-09, RT-14 y RT-28 permanecen OPEN hasta validar en producción.
+- **RT-08 (2026-11-22):** medición previa del propietario en producción: 60 logins fallidos en paralelo directo a Render con `X-Forwarded-For` distinto → 0 respuestas 429 (límite evadible); por Vercel → 28 × 429 (límite por IP correcto). Corrección: PR #70 (`OriginSecretFilter` + `ORIGIN_SECRET`, cabecera fijada por `vercel.json`; 6 tests unitarios; suite 543 tests, 0 fallos). Validación posterior al despliegue, informada por el propietario: Render directo → 403, Vercel → 401, sonda de salud directa → 200. Salvedades: no se repitió la carga de 60 peticiones tras el cambio, no se probó el reparto de buckets con dos IP reales distintas, y la confianza en `X-Forwarded-For` depende de que Vercel lo sobrescriba. `ORIGIN_SECRET` en blanco desactiva el control (no hay validador de arranque que lo exija: decisión pendiente). Rotación del secreto: cambiar ambos servicios y redeployar (corte breve).
+- **RT-47 (nuevo, OPEN, P2):** en esa misma carga, 41 de 60 respuestas directas a Render y 7 de 60 por Vercel fueron HTTP 500 en `/api/auth/login` (se esperaba 401/429). Causa sin determinar: faltan los logs `ERROR` del backend; hipótesis no verificadas: saturación del pool, CPU por BCrypt en la instancia gratuita, o un fallo no controlado.
 
 ### Notas sobre hallazgos con evidencia parcial (siguen OPEN)
 
