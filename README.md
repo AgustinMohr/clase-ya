@@ -460,6 +460,7 @@ desarrollo**:
 | `CLAMAV_HOST` / `CLAMAV_PORT` | `localhost` / `3310` | ClamAV INSTREAM |
 | `CLAMAV_TIMEOUT_MS` | `5000` | Timeout del escaneo |
 | `RATE_LIMIT_TRUST_FORWARDED_HEADERS` | `false` | Confía en `X-Forwarded-For`/`Forwarded` solo detrás de un proxy confiable |
+| `ORIGIN_SECRET` | vacío | Secreto compartido con Vercel (`X-Origin-Secret`). Si se define, el backend responde 403 a todo pedido que no lo traiga (salvo `/actuator/health/**`); evita falsificar `X-Forwarded-For` llamando directo a Render (RT-08) |
 | `BEHIND_TRUSTED_PROXY` | `false` | Declara que el backend está detrás de un proxy que sanea esos headers; obligatorio para habilitar `RATE_LIMIT_TRUST_FORWARDED_HEADERS` |
 | `LOGGING_STRUCTURED_FORMAT_CONSOLE` | *(vacío)* | `ecs` para logs JSON en producción; el `requestId` viaja en el MDC |
 
@@ -586,6 +587,7 @@ la cookie CSRF (`SameSite=Lax`) no viaja entre sitios y el login responde `403 A
   `COOKIE_SAME_SITE=Lax`, `COOKIE_SECURE=true`, `BEHIND_TRUSTED_PROXY=true` y
   `RATE_LIMIT_TRUST_FORWARDED_HEADERS=true` (Vercel sobrescribe `X-Forwarded-For`; sin esto todos
   los usuarios comparten el bucket de rate limit).
+- **RT-08 (secreto de origen):** generá un valor largo (`openssl rand -hex 32`) y cargalo **igual** como `ORIGIN_SECRET` en Vercel (variable de runtime) y en Render. `frontend/vercel.json` lo manda como `X-Origin-Secret` y el backend rechaza con 403 lo que no lo traiga, de modo que `onrender.com` ya no sirve para evadir el rate limit. Orden: primero Vercel + redeploy, después Render (si Render se activa antes, el sitio devuelve 403 hasta que Vercel lo envíe). Rotación: cambiar ambos y redeployar; hay un corte breve.
 - Para SEO-001, el mismo origen canónico debe estar en `APP_BASE_URL` (backend: canonical, sitemap y
   activación), `PUBLIC_SITE_URL` (función de prerender) y `VITE_SITE_URL` (build: `robots.txt`).
   Los tres sin barra final. Si `PUBLIC_SITE_URL` falta, la función usa el origen del request en

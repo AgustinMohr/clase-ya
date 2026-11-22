@@ -182,6 +182,9 @@ app:
   # X-Forwarded-For/Forwarded. It is required before trusting those headers for rate limiting.
   deployment:
     behind-trusted-proxy: ${BEHIND_TRUSTED_PROXY:false}
+    # RT-08: shared secret that Vercel sets as X-Origin-Secret on every proxied request. When set,
+    # requests without it (direct hits to the backend URL) are rejected with 403. Blank = disabled.
+    origin-secret: ${ORIGIN_SECRET:}
 
   human-check:
     ttl: ${HUMAN_CHECK_TTL:PT720H}
