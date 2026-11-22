@@ -10,16 +10,43 @@
     {
       "src": "/api/(.*)",
       "dest": "${BACKEND_URL}/api/$1",
+      "transforms": [
+        {
+          "type": "request.headers",
+          "op": "set",
+          "target": { "key": "x-origin-secret" },
+          "args": "$ORIGIN_SECRET",
+          "env": ["ORIGIN_SECRET"]
+        }
+      ],
       "env": ["BACKEND_URL"]
     },
     {
       "src": "/sitemap.xml",
       "dest": "${BACKEND_URL}/sitemap.xml",
+      "transforms": [
+        {
+          "type": "request.headers",
+          "op": "set",
+          "target": { "key": "x-origin-secret" },
+          "args": "$ORIGIN_SECRET",
+          "env": ["ORIGIN_SECRET"]
+        }
+      ],
       "env": ["BACKEND_URL"]
     },
     {
       "src": "/sitemaps/(.*)",
       "dest": "${BACKEND_URL}/sitemaps/$1",
+      "transforms": [
+        {
+          "type": "request.headers",
+          "op": "set",
+          "target": { "key": "x-origin-secret" },
+          "args": "$ORIGIN_SECRET",
+          "env": ["ORIGIN_SECRET"]
+        }
+      ],
       "env": ["BACKEND_URL"]
     },
     { "src": "/(.*)", "dest": "/index.html" }

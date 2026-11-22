@@ -719,7 +719,11 @@ function header(req: SeoRequest, name: string): string | undefined {
 async function fetchJson<T>(path: string): Promise<{ status: number; body: T | null }> {
   const base = (process.env.BACKEND_URL ?? 'http://localhost:8080').replace(/\/+$/, '');
   const response = await fetch(`${base}${path}`, {
-    headers: { Accept: 'application/json' },
+    // RT-08: the backend only accepts requests that carry the shared origin secret.
+    headers: {
+      Accept: 'application/json',
+      ...(process.env.ORIGIN_SECRET ? { 'X-Origin-Secret': process.env.ORIGIN_SECRET } : {}),
+    },
     signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
   });
   if (!response.ok) return { status: response.status, body: null };
