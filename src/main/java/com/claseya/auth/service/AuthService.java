@@ -117,7 +117,10 @@ public class AuthService {
         accountActivationService.resend(email);
     }
 
-    @Transactional
+    // RT-47: deliberately NOT @Transactional. A transaction holds a pooled DB connection, and BCrypt
+    // (inside authenticate) is slow on a small instance; wrapping it exhausted the pool under a few
+    // concurrent logins. The lookups and the last-login update below each run in their own short
+    // repository transaction, so no connection is held while the password is hashed.
     public IssuedSession login(LoginRequest request) {
         String email = normalizeEmail(request.email());
 
