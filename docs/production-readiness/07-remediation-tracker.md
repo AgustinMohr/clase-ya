@@ -33,14 +33,14 @@ Columnas: ID de tracker · origen (ID en informes) · severidad · estado · tip
 | ID | Origen | Hallazgo | Sev. | Estado | Intervención | Esf. | WP |
 |---|---|---|---|---|---|---|---|
 | RT-01 | 08 G-01, 06 I-02, 01 S-10 | Contradicción: enlace de activación en logs de Render vs validadores de producción; estado real de Render sin verificar | P1 | OPEN | Manual (Render) | S | WP-0 |
-| RT-02 | 08 G-02, 06 I-01, 00 R-06 | Sin evidencia de protección de `main`, revisiones y checks obligatorios; sin `CODEOWNERS` | P1 | OPEN | Manual (GitHub) + N0 | S | WP-0 |
-| RT-03 | 08 G-03 | `npm audit --audit-level=high` falla (12 high, `picomatch` ≤ 4.0.7); job `Frontend` de CI en rojo | P1 | OPEN | N1 | S | WP-1 |
+| RT-02 | 08 G-02, 06 I-01, 00 R-06 | Sin evidencia de protección de `main`, revisiones y checks obligatorios; sin `CODEOWNERS` | P1 | OPEN (parcial: protección aplicada 2026-11-19; falta CODEOWNERS) | Manual (GitHub) + N0 | S | WP-0 |
+| RT-03 | 08 G-03 | `npm audit --audit-level=high` falla (12 high, `picomatch` ≤ 4.0.7); job `Frontend` de CI en rojo | P1 | CLOSED (PR #64; job Frontend verde en main f21e95a, 2026-11-19; ver nota) | N1 | S | WP-1 |
 | RT-04 | 08 G-04, 04 DB-01, 06 I-04 | Recuperación no demostrada: sin restauración probada, RPO/RTO, runbook ni rollback de esquema; PITR 6 h | P1 | OPEN | Manual (Neon) + N0 | M | WP-0/3 |
 | RT-05 | 08 G-05, 06 I-03 | Sin uptime externo, error tracking ni alertas; métricas inaccesibles desde fuera | P1 | OPEN | Manual + N1/N2 | M | WP-3 |
-| RT-06 | 08 G-06, 02 B-01, 00 R-01 | Entrega de correo no demostrada; B-01 mitigado parcialmente; filas `DEAD`; remitente sin verificar | P1 | OPEN | Manual (Brevo) + N1 | M | WP-2 |
+| RT-06 | 08 G-06, 02 B-01, 00 R-01 | Entrega de correo no demostrada; B-01 mitigado parcialmente; filas `DEAD`; remitente sin verificar | P1 | OPEN (parcial: PR #65; ver nota) | Manual (Brevo) + N1 | M | WP-2 |
 | RT-07 | 08 G-07, 04 DB-03, 01 S-04, 00 R-03 | Evidencia sin escanear; almacenamiento (`bytea`/R2) sin decidir ni verificar; sin retención | P1 | OPEN | Decisión + Manual + N2 | L | WP-5 |
 | RT-08 | 08 G-08, 00 R-04, 01 S-01 | Rate limiting por IP detrás de Vercel→Render sin configuración verificada | P1 | OPEN | Manual + N1 | M | WP-4 |
-| RT-09 | 08 G-09, 04 DB-02, 02 B-08 | Sin Hikari/timeouts/`sslmode`/`statement_timeout` para Neon | P1 | OPEN | Manual (Neon) + N1 | M | WP-3 |
+| RT-09 | 08 G-09, 04 DB-02, 02 B-08 | Sin Hikari/timeouts/`sslmode`/`statement_timeout` para Neon | P1 | OPEN (código fusionado, PR #68; falta validar en producción) | Manual (Neon) + N1 | M | WP-3 |
 | RT-10 | 08 G-10, 00 R-02 | Cuenta ADMIN con anuncio público contactable e ilegible | P1 | CLOSED (verificado por el propietario, 2026-11-17; ver nota) | Manual (datos) + Decisión | S | WP-0 |
 
 ### P2
@@ -50,7 +50,7 @@ Columnas: ID de tracker · origen (ID en informes) · severidad · estado · tip
 | RT-11 | 06 I-05 | Acciones de GitHub sin fijar por SHA | P2 | OPEN | N1 | S | WP-1 |
 | RT-12 | 06 I-06 | Sin SAST/CodeQL | P2 | OPEN | N1 + Manual (activar code scanning) | S | WP-1 |
 | RT-13 | 06 I-07, I-08 | Trivy no bloquea ni corre en PR; imágenes base flotantes; sin Dependabot Docker | P2 | OPEN | N1 | M | WP-1 |
-| RT-14 | 06 I-10 | Sin sondas liveness/readiness separadas; ruta de health de `comandos.txt` inexistente; DB en health | P2 | OPEN | N1 + Manual (Render) | S | WP-3 |
+| RT-14 | 06 I-10 | Sin sondas liveness/readiness separadas; ruta de health de `comandos.txt` inexistente; DB en health | P2 | OPEN (código fusionado, PR #67; falta Health Check Path en Render) | N1 + Manual (Render) | S | WP-3 |
 | RT-15 | 06 I-12 | Logs en texto plano, sin agregador; email del destinatario en logs SMTP | P2 | OPEN | N1 + Manual | S | WP-3 |
 | RT-16 | 06 I-11 | Sin entorno de staging | P2 | OPEN | Manual + N0 | L | WP-9 |
 | RT-17 | 04 DB-04 | Email único sensible a mayúsculas en base | P2 | OPEN | N2 (migración) | S | WP-6 |
@@ -64,7 +64,7 @@ Columnas: ID de tracker · origen (ID en informes) · severidad · estado · tip
 | RT-25 | 01 S-05, 03 F-08 | "Human check" no exigido en backend; `HumanGate` bloquea toda la SPA si el backend cae | P2 | OPEN | Decisión + N2 | M | WP-4 |
 | RT-26 | 02 B-03, B-04 | Subida de documentos y edición de credencial en `UNDER_REVIEW`/`VERIFIED` | P2 | OPEN | Decisión + N2 | M | WP-7 |
 | RT-27 | 02 B-02 | Orden de bloqueos inconsistente subida vs decisión (posible deadlock) | P2 | OPEN | N1 | M | WP-7 |
-| RT-28 | 02 B-06 | Turnstile sin timeout dentro de transacción; fallo de JWKS devuelve 400 | P2 | OPEN | N1 | S | WP-7 |
+| RT-28 | 02 B-06 | Turnstile sin timeout dentro de transacción; fallo de JWKS devuelve 400 | P2 | OPEN (código fusionado, PR #66; falta validar en producción) | N1 | S | WP-7 |
 | RT-29 | 01 S-06, 03 F-02 | `photoUrl` https de host arbitrario: seguimiento de visitantes; CSP `img-src https:` | P2 | OPEN | Decisión + N2 | M | WP-8 |
 | RT-30 | 03 F-03, F-04, F-07 | Cliente HTTP: timeout 15 s en subidas, reintento de todo 403, respuestas no JSON no controladas | P2 | OPEN | N1 | M | WP-8 |
 | RT-31 | 03 F-05 | Timeout sin idempotencia en POST (registro, mensaje, reseña, reporte) | P2 | OPEN | Decisión + N2 | M | WP-8 |
@@ -87,6 +87,7 @@ Columnas: ID de tracker · origen (ID en informes) · severidad · estado · tip
 | RT-43 | 05 T-11..T-17, Q-04..Q-10 | Accesibilidad automatizada, carga, contrato front/back, migración con datos, cobertura frontend, esperas por tiempo | P3 | OPEN | N1 | L | WP-10 |
 | RT-44 | 06 I-13..I-19, 00 R-09, R-12 | JVM (`ExitOnOutOfMemoryError`), `CODEOWNERS`, archivos de trabajo en la raíz, `SECURITY.md`, deriva documental (`codeql.yml`, `guia-proyecto.md`, versiones de migraciones) | P3 | OPEN | N0/N1 | S | WP-11 |
 | RT-45 | 00 R-06 | `main` 38 commits por delante de `dev`: reconciliar flujo de ramas | P3 | OPEN | Manual (git) + Decisión | S | WP-0 |
+| RT-46 | verificación 2026-11-17 | Neon corre PostgreSQL 18.7; tests (Testcontainers), `docker-compose` y CI usan `postgres:16`: diferencias de versión no detectadas por la suite | P3 | OPEN | N1 | S | WP-11 |
 
 ---
 
@@ -387,6 +388,18 @@ Incluso con todo el plan ejecutado:
 8. **Cambios en terceros** (advisories nuevos como `picomatch`, cambios de API de Vercel/Render) pueden reabrir el gate de CI en cualquier momento; Dependabot y un monitoreo semanal lo mitigan, no lo eliminan.
 9. **Cobertura de pruebas** depende de lo que se añada: el E2E con estado compartido sigue siendo una fuente de flakiness hasta que se rediseñe (RT-35).
 10. **Incertidumbre de estimaciones:** los esfuerzos S/M/L son órdenes de magnitud sin base estadística; los ítems con decisión o acceso externo pueden demorarse por motivos ajenos al trabajo técnico.
+
+### Avance de remediación (2026-11-19) — evidencia
+
+- **RT-01:** el propietario informó haber revisado las variables de Render (sin capturas archivadas). Sigue OPEN hasta adjuntar la verificación (arranque sin perfil, ausencia de enlaces en logs tras un registro de prueba).
+- **RT-02 (parcial):** protección aplicada vía API de GitHub y verificada con la respuesta: `main` exige los checks `Backend (Maven + Testcontainers)`, `Frontend (typecheck + build + audit)` y `E2E (Playwright + demo seed)`, rama al día, 1 revisión, resolución de conversaciones y `enforce_admins=true`; `dev` exige PR y los mismos checks. Pendiente: `CODEOWNERS` y un PR de prueba que no se pueda fusionar con CI roja.
+- **RT-03:** PR #64 (auditoría bloqueante solo de dependencias de producción; la completa queda informativa). Evidencia: job `Frontend (typecheck + build + audit)` en success sobre `main` (f21e95a). El criterio original (`npm audit --audit-level=high` sobre todo el árbol) no se cumple; se acordó acotar a producción. Las vulnerabilidades de `picomatch` en dependencias de desarrollo siguen visibles en la auditoría informativa.
+- **RT-06 (parcial):** B-01 fusionado antes (401/403 reintentables, tests unitarios) y PR #65 con test de integración del outbox (falla de credenciales → FAILED reintentable → recupera con el token intacto). Suite: 529 tests, 0 fallos. Pendiente: entrega real de un correo con la API key vigente, remitente verificado, política tras agotar reintentos y filas `DEAD` en producción.
+- **RT-09:** PR #68 (pool de Hikari explícito, `connectTimeout`, `tcpKeepAlive`, `DataSourcePoolIntegrationTest`). Suite: 529 tests, 0 fallos. El propietario informa que Neon admite hasta 10000 conexiones, por lo que `DB_POOL_MAX_SIZE=10` no limita. Pendiente: validar en producción (arranque tras autosuspend); `statement_timeout` y `sslmode` no están incluidos.
+- **RT-14:** PR #67 (`/actuator/health/liveness` y `/readiness` públicos sin detalle; `HEALTHCHECK` de Docker en liveness; 3 tests nuevos). Suite: 531 tests, 0 fallos. El propietario informa haber actualizado Render; pendiente de captura.
+- **RT-28:** PR #66 (timeouts de 5 s en Turnstile y Google; caída de Google → 503; tests nuevos). Suite: 532 tests, 0 fallos. Residual: Turnstile sigue dentro de la transacción de `register()`.
+- Las suites se ejecutaron en local con `mvn -B clean verify` (JaCoCo en verde); CI de `main` en success tras las fusiones.
+- RT-06, RT-09, RT-14 y RT-28 permanecen OPEN hasta validar en producción.
 
 ### Notas sobre hallazgos con evidencia parcial (siguen OPEN)
 
