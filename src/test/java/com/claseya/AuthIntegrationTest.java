@@ -93,6 +93,9 @@ class AuthIntegrationTest extends AbstractWebIntegrationTest {
     @Test
     void register_existingActiveEmail_returns202WithoutQueueingMail() throws Exception {
         createUser("dup@example.com", UserRole.STUDENT, UserStatus.ACTIVE);
+        // Relative count: non-transactional tests (e.g. ActivationConcurrencyIntegrationTest) leave
+        // committed outbox rows behind, so an absolute zero depends on test execution order.
+        long outboxBefore = outboxRepository.count();
 
         mockMvc.perform(post("/api/auth/register")
                         .contentType("application/json")
@@ -100,7 +103,7 @@ class AuthIntegrationTest extends AbstractWebIntegrationTest {
                 .andExpect(status().isAccepted());
 
         // Anti-enumeration: nothing is queued for delivery to an address that already exists.
-        assertThat(outboxRepository.count()).isZero();
+        assertThat(outboxRepository.count()).isEqualTo(outboxBefore);
     }
 
     @Test
