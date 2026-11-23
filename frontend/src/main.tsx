@@ -13,6 +13,9 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import HumanGate from './components/HumanGate';
 import { ThemeProvider } from './theme/ThemeProvider';
 import { ToastProvider } from './components/ui/Toast';
+import { initSentry } from './observability/sentry';
+
+initSentry();
 
 const tree = (
   <React.StrictMode>
