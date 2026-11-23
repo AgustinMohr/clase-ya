@@ -33,10 +33,10 @@ Columnas: ID de tracker · origen (ID en informes) · severidad · estado · tip
 | ID | Origen | Hallazgo | Sev. | Estado | Intervención | Esf. | WP |
 |---|---|---|---|---|---|---|---|
 | RT-01 | 08 G-01, 06 I-02, 01 S-10 | Contradicción: enlace de activación en logs de Render vs validadores de producción; estado real de Render sin verificar | P1 | OPEN | Manual (Render) | S | WP-0 |
-| RT-02 | 08 G-02, 06 I-01, 00 R-06 | Sin evidencia de protección de `main`, revisiones y checks obligatorios; sin `CODEOWNERS` | P1 | OPEN (parcial: protección aplicada 2026-11-19; falta CODEOWNERS) | Manual (GitHub) + N0 | S | WP-0 |
+| RT-02 | 08 G-02, 06 I-01, 00 R-06 | Sin evidencia de protección de `main`, revisiones y checks obligatorios; sin `CODEOWNERS` | P1 | OPEN (protección aplicada 2026-11-19 y **desactivada por el propietario el 2026-11-23**; ver nota) | Manual (GitHub) + N0 | S | WP-0 |
 | RT-03 | 08 G-03 | `npm audit --audit-level=high` falla (12 high, `picomatch` ≤ 4.0.7); job `Frontend` de CI en rojo | P1 | CLOSED (PR #64; job Frontend verde en main f21e95a, 2026-11-19; ver nota) | N1 | S | WP-1 |
 | RT-04 | 08 G-04, 04 DB-01, 06 I-04 | Recuperación no demostrada: sin restauración probada, RPO/RTO, runbook ni rollback de esquema; PITR 6 h | P1 | OPEN | Manual (Neon) + N0 | M | WP-0/3 |
-| RT-05 | 08 G-05, 06 I-03 | Sin uptime externo, error tracking ni alertas; métricas inaccesibles desde fuera | P1 | OPEN | Manual + N1/N2 | M | WP-3 |
+| RT-05 | 08 G-05, 06 I-03 | Sin uptime externo, error tracking ni alertas; métricas inaccesibles desde fuera | P1 | OPEN (parcial: código mergeado; falta evidencia en producción) | Manual + N1/N2 | M | WP-3 |
 | RT-06 | 08 G-06, 02 B-01, 00 R-01 | Entrega de correo no demostrada; B-01 mitigado parcialmente; filas `DEAD`; remitente sin verificar | P1 | OPEN (parcial: PR #65; ver nota) | Manual (Brevo) + N1 | M | WP-2 |
 | RT-07 | 08 G-07, 04 DB-03, 01 S-04, 00 R-03 | Evidencia sin escanear; almacenamiento (`bytea`/R2) sin decidir ni verificar; sin retención | P1 | OPEN | Decisión + Manual + N2 | L | WP-5 |
 | RT-08 | 08 G-08, 00 R-04, 01 S-01 | Rate limiting por IP detrás de Vercel→Render sin configuración verificada | P1 | CLOSED (verificado 2026-11-22; ver nota) | Manual + N1 | M | WP-4 |
