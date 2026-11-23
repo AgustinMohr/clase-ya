@@ -1,5 +1,7 @@
 package com.claseya;
 
+import com.claseya.model.enums.UserRole;
+import com.claseya.model.enums.UserStatus;
 import com.claseya.security.SentryEventScrubber;
 import io.sentry.Hint;
 import io.sentry.SentryEvent;
@@ -13,6 +15,7 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -39,6 +42,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "sentry.environment=test"
 })
 @Import(SentryIntegrationTest.BoomConfig.class)
+@Transactional
 class SentryIntegrationTest extends AbstractWebIntegrationTest {
 
     @MockitoSpyBean
@@ -83,6 +87,38 @@ class SentryIntegrationTest extends AbstractWebIntegrationTest {
                 .andExpect(status().isUnauthorized());
         mockMvc.perform(get("/api/teachers/00000000-0000-0000-0000-000000000000"))
                 .andExpect(status().isNotFound());
+
+        verify(scrubber, never()).execute(any(), any());
+    }
+
+    @Test
+    void adminDiagnosticsEndpointProducesOneScrubbedEvent() throws Exception {
+        String admin = adminBearer();
+
+        mockMvc.perform(get("/api/admin/diagnostics/error-test")
+                        .queryParam("token", "secret-activation-token")
+                        .header("Authorization", admin))
+                .andExpect(status().isInternalServerError());
+
+        ArgumentCaptor<SentryEvent> captor = ArgumentCaptor.forClass(SentryEvent.class);
+        verify(scrubber, timeout(5000).times(1)).execute(captor.capture(), any(Hint.class));
+        SentryEvent event = captor.getValue();
+        assertThat(event.getRequest().getQueryString()).isNull();
+        assertThat(event.getRequest().getHeaders().keySet())
+                .noneMatch(name -> name.equalsIgnoreCase("authorization"));
+        assertThat(event.getUser()).isNull();
+    }
+
+    @Test
+    void adminDiagnosticsEndpointIsClosedToNonAdmins() throws Exception {
+        String student = bearer(createUser("student+" + java.util.UUID.randomUUID() + "@test.com",
+                UserRole.STUDENT, UserStatus.ACTIVE));
+
+        mockMvc.perform(get("/api/admin/diagnostics/error-test"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/admin/diagnostics/error-test")
+                        .header("Authorization", student))
+                .andExpect(status().isForbidden());
 
         verify(scrubber, never()).execute(any(), any());
     }
