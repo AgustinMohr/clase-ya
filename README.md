@@ -461,6 +461,8 @@ desarrollo**:
 | `CLAMAV_TIMEOUT_MS` | `5000` | Timeout del escaneo |
 | `RATE_LIMIT_TRUST_FORWARDED_HEADERS` | `false` | Confía en `X-Forwarded-For`/`Forwarded` solo detrás de un proxy confiable |
 | `ORIGIN_SECRET` | vacío | Secreto compartido con Vercel (`X-Origin-Secret`). Si se define, el backend responde 403 a todo pedido que no lo traiga (salvo `/actuator/health/**`); evita falsificar `X-Forwarded-For` llamando directo a Render (RT-08) |
+| `SENTRY_DSN` | vacío | DSN del proyecto Sentry `clase-ya-backend`. Vacío = error tracking desactivado. Solo se reportan 500 y logs ERROR, sin cuerpos, cookies, query strings, cabeceras de credenciales ni emails (`SentryEventScrubber`, RT-05) |
+| `SENTRY_ENVIRONMENT` | `local` | Entorno que Sentry muestra en cada evento; en Render poné `production` |
 | `BEHIND_TRUSTED_PROXY` | `false` | Declara que el backend está detrás de un proxy que sanea esos headers; obligatorio para habilitar `RATE_LIMIT_TRUST_FORWARDED_HEADERS` |
 | `LOGGING_STRUCTURED_FORMAT_CONSOLE` | *(vacío)* | `ecs` para logs JSON en producción; el `requestId` viaja en el MDC |
 
