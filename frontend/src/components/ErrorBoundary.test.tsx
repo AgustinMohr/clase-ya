@@ -31,3 +31,23 @@ describe('ErrorBoundary', () => {
     expect(screen.getByText('Contenido')).toBeInTheDocument();
   });
 });
+
+describe('ErrorBoundary reporting (RT-05)', () => {
+  it('reports the caught render error', async () => {
+    vi.resetModules();
+    const reportRenderError = vi.fn();
+    vi.doMock('../observability/sentry', () => ({ reportRenderError }));
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const { ErrorBoundary: Boundary } = await import('./ErrorBoundary');
+
+    render(
+      <Boundary>
+        <Boom />
+      </Boundary>,
+    );
+
+    expect(reportRenderError).toHaveBeenCalledTimes(1);
+    expect(reportRenderError.mock.calls[0][0]).toBeInstanceOf(Error);
+    vi.doUnmock('../observability/sentry');
+  });
+});
