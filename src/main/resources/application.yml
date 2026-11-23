@@ -139,6 +139,23 @@ logging:
   pattern:
     level: "%5p [%X{requestId:-}]"
 
+# RT-05: error tracking. With SENTRY_DSN blank the SDK stays disabled (nothing leaves the process).
+# Only ERROR logs and unhandled exceptions are reported; GlobalExceptionHandler logs every 500 with
+# log.error, so the logback appender already covers them. The exception resolver is moved to the
+# lowest precedence so handled 4xx exceptions are never reported (and 500s are not sent twice).
+# No PII, no request bodies, no tracing, no breadcrumbs; SentryEventScrubber strips the rest.
+sentry:
+  dsn: ${SENTRY_DSN:}
+  environment: ${SENTRY_ENVIRONMENT:local}
+  release: ${RENDER_GIT_COMMIT:unknown}
+  send-default-pii: false
+  max-request-body-size: none
+  traces-sample-rate: 0
+  max-breadcrumbs: 0
+  exception-resolver-order: 2147483647
+  logging:
+    minimum-event-level: error
+
 # OPS-001: health is public; metrics require ADMIN (see SecurityConfig). Details are
 # never shown, so the health endpoint cannot leak database/host information.
 management:
