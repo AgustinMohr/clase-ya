@@ -3,6 +3,10 @@ import { defineConfig, devices } from '@playwright/test';
 const BACKEND_URL = 'http://localhost:8080';
 const FRONTEND_URL = 'http://localhost:5173';
 
+// In CI the backend also writes its log to a file that the workflow uploads on failure, so a
+// start-up timeout can be diagnosed instead of guessed.
+const BACKEND_LOG_ARG = process.env.CI ? ' -Dlogging.file.name=target/e2e-backend.log' : '';
+
 /**
  * E2E suite. It drives the real stack (Spring Boot + PostgreSQL + Vite) against the local
  * demo database, so the flows are exercised exactly as a user would hit them.
@@ -14,7 +18,9 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   forbidOnly: !!process.env.CI,
-  retries: 0,
+  // CI runners are sometimes slow enough to miss a 5 s assertion; one retry (with a trace) keeps a
+  // single slow test from failing a PR without hiding a test that fails twice.
+  retries: process.env.CI ? 1 : 0,
   reporter: [['list']],
   use: {
     baseURL: FRONTEND_URL,
@@ -34,7 +40,9 @@ export default defineConfig({
       // SEC-002: the session cookie is HttpOnly+Secure in production; E2E runs over HTTP.
       // AUTH-001: without SMTP the activation link is logged instead of emailed (test-only).
       command:
-        'mvn -q spring-boot:run -Dspring-boot.run.profiles=local "-Dspring-boot.run.jvmArguments=-Duser.timezone=UTC -Dsecurity.rate-limit.enabled=false -Dauth.cookie.secure=false -Dapp.auth.activation.log-links=true -Dapp.notification.worker.enabled=false"',
+        'mvn -q spring-boot:run -Dspring-boot.run.profiles=local "-Dspring-boot.run.jvmArguments=-Duser.timezone=UTC -Dsecurity.rate-limit.enabled=false -Dauth.cookie.secure=false -Dapp.auth.activation.log-links=true -Dapp.notification.worker.enabled=false' +
+        BACKEND_LOG_ARG +
+        '"',
       cwd: '..',
       url: `${BACKEND_URL}/actuator/health`,
       reuseExistingServer: process.env.E2E_REUSE_BACKEND === 'true',
