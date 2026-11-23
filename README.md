@@ -556,6 +556,9 @@ que no hay CORS. Variables del frontend:
 | `VITE_GOOGLE_CLIENT_ID` | Client ID de Google (debe ser **el mismo** que `GOOGLE_CLIENT_ID` del backend) |
 | `VITE_TURNSTILE_SITE_KEY` | Site key pública de Turnstile; si falta, el widget no se renderiza |
 | `VITE_API_URL` | Origen del backend; **vacío** en local y en Vercel con el rewrite de `ADR-022` |
+| `VITE_SENTRY_DSN` | DSN del proyecto Sentry `clase-ya-web` (público por diseño). Vacío = error tracking desactivado. Se lee **en el build**: tras cargarlo hay que redeployar. Agrega el host de ingesta a `connect-src` de la CSP (RT-05) |
+| `VITE_SENTRY_ENVIRONMENT` | Entorno que Sentry muestra (por defecto `production`) |
+| `VITE_VERCEL_GIT_COMMIT_SHA` | Release de Sentry; Vercel lo define si activás "Automatically expose System Environment Variables" |
 | `VITE_SITE_URL` | Origen público canónico para `robots.txt` en el build. En Vercel cae a `VERCEL_PROJECT_PRODUCTION_URL`; en local, `http://localhost:5173` |
 
 ### Google OAuth (configuración externa necesaria)

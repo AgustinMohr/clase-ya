@@ -10,12 +10,13 @@ import { buildRobots } from './src/seo/robots.ts';
  * scripts/check-csp.mjs after the build. frame-ancestors is set by the host headers because a
  * meta tag cannot enforce it (see frontend/public/_headers).
  */
-function cspPlugin(dev: boolean, apiOrigin: string): Plugin {
+function cspPlugin(dev: boolean, apiOrigin: string, sentryOrigin: string): Plugin {
   const connect = [
     "'self'",
     'https://accounts.google.com',
     'https://challenges.cloudflare.com',
     apiOrigin,
+    sentryOrigin,
     dev ? 'ws:' : '',
   ]
     .filter(Boolean)
@@ -54,15 +55,28 @@ function cspPlugin(dev: boolean, apiOrigin: string): Plugin {
   };
 }
 
+/** Origin of the DSN's ingest host, or empty when there is no (valid) DSN. */
+function sentryOriginOf(dsn: string | undefined): string {
+  if (!dsn) return '';
+  try {
+    return new URL(dsn).origin;
+  } catch {
+    return '';
+  }
+}
+
 export default defineConfig(({ command, mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   const apiOrigin = (env.VITE_API_URL ?? '').replace(/\/+$/, '');
+  // RT-05: the Sentry ingest host (it depends on the project's region) is only allowed when a DSN
+  // is configured.
+  const sentryOrigin = sentryOriginOf(env.VITE_SENTRY_DSN);
   const siteUrl =
     env.VITE_SITE_URL ||
     (env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${env.VERCEL_PROJECT_PRODUCTION_URL}` : '');
 
   return {
-    plugins: [react(), cspPlugin(command === 'serve', apiOrigin), robotsPlugin(siteUrl)],
+    plugins: [react(), cspPlugin(command === 'serve', apiOrigin, sentryOrigin), robotsPlugin(siteUrl)],
     server: {
       port: 5173,
       proxy: {

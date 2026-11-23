@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
+import { reportRenderError } from '../observability/sentry';
 
 interface Props {
   children: ReactNode;
@@ -19,8 +20,10 @@ export class ErrorBoundary extends Component<Props, State> {
     return { hasError: true };
   }
 
-  componentDidCatch(_error: Error, _info: ErrorInfo): void {
-    // Intentionally no request call here: the boundary must not depend on the API.
+  componentDidCatch(error: Error, info: ErrorInfo): void {
+    // RT-05: reported to Sentry (a no-op when it is not configured). Never to our own API: the
+    // boundary must not depend on it.
+    reportRenderError(error, info.componentStack);
   }
 
   render() {
