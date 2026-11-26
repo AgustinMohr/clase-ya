@@ -6,6 +6,7 @@ import { Button } from '../components/ui/Button';
 import { Field, Input } from '../components/ui/Field';
 import { Card } from '../components/ui/primitives';
 import TurnstileWidget from '../components/TurnstileWidget';
+import ResendActivationButton from '../components/ResendActivationButton';
 import { useHumanCheckRequired } from '../components/HumanGate';
 import { validateRegistration } from '../lib/validation';
 import { ROUTES } from '../routes';
@@ -81,8 +82,11 @@ export default function RegisterPage({ onLogin }: Props) {
             contraseña. El enlace vence en 24 horas y se puede usar una sola vez.
           </p>
           <p className="mt-2 text-sm text-content-muted">
-            Si no llega en unos minutos, revisá spam o pedí un enlace nuevo desde el ingreso.
+            Si no llega en unos minutos, revisá spam o reenviá el correo.
           </p>
+          <div className="mt-4">
+            <ResendActivationButton email={sentTo} />
+          </div>
           <div className="mt-6 flex flex-col gap-2 sm:flex-row">
             <Button block onClick={onLogin}>
               Ya activé mi cuenta
