@@ -37,7 +37,7 @@ Columnas: ID de tracker · origen (ID en informes) · severidad · estado · tip
 | RT-03 | 08 G-03 | `npm audit --audit-level=high` falla (12 high, `picomatch` ≤ 4.0.7); job `Frontend` de CI en rojo | P1 | CLOSED (PR #64; job Frontend verde en main f21e95a, 2026-11-19; ver nota) | N1 | S | WP-1 |
 | RT-04 | 08 G-04, 04 DB-01, 06 I-04 | Recuperación no demostrada: sin restauración probada, RPO/RTO, runbook ni rollback de esquema; PITR 6 h | P1 | OPEN | Manual (Neon) + N0 | M | WP-0/3 |
 | RT-05 | 08 G-05, 06 I-03 | Sin uptime externo, error tracking ni alertas; métricas inaccesibles desde fuera | P1 | OPEN (parcial: código mergeado; falta evidencia en producción) | Manual + N1/N2 | M | WP-3 |
-| RT-06 | 08 G-06, 02 B-01, 00 R-01 | Entrega de correo no demostrada; B-01 mitigado parcialmente; filas `DEAD`; remitente sin verificar | P1 | OPEN (parcial: PR #65; ver nota) | Manual (Brevo) + N1 | M | WP-2 |
+| RT-06 | 08 G-06, 02 B-01, 00 R-01 | Entrega de correo no demostrada; B-01 mitigado parcialmente; filas `DEAD`; remitente sin verificar | P1 | CLOSED (PR #65; validado 2026-11-26; ver nota) | Manual (Brevo) + N1 | M | WP-2 |
 | RT-07 | 08 G-07, 04 DB-03, 01 S-04, 00 R-03 | Evidencia sin escanear; almacenamiento (`bytea`/R2) sin decidir ni verificar; sin retención | P1 | OPEN | Decisión + Manual + N2 | L | WP-5 |
 | RT-08 | 08 G-08, 00 R-04, 01 S-01 | Rate limiting por IP detrás de Vercel→Render sin configuración verificada | P1 | CLOSED (verificado 2026-11-22; ver nota) | Manual + N1 | M | WP-4 |
 | RT-09 | 08 G-09, 04 DB-02, 02 B-08 | Sin Hikari/timeouts/`sslmode`/`statement_timeout` para Neon | P1 | OPEN (código fusionado, PR #68; falta validar en producción) | Manual (Neon) + N1 | M | WP-3 |
@@ -275,7 +275,7 @@ Formato: causa raíz · componentes · dependencias · solución · archivos pro
 - **Tests:** provocar un error controlado y ver la alerta; test de que los eventos no contienen emails/tokens.
 - **Aceptación:** alerta recibida ante caída simulada y ante una fila `DEAD`; SPA reporta una excepción de prueba.
 
-### RT-06 — Entrega de correo (OPEN, P1, M)
+### RT-06 — Entrega de correo (CLOSED, P1, M)
 - **Causa raíz:** 401 de Brevo (API key/IPs) → antes `DEAD` inmediato con borrado de token (`BrevoEmailSender`, `NotificationOutboxWorker`). Cambio aplicado y sin commit: 401/403 reintentables con backoff 1/5/15/60 min.
 - **Componentes:** `notification` (sender, worker, outbox), Brevo.
 - **Dependencias:** RT-05 (alerta), WP-0 (acceso a Brevo).
@@ -420,6 +420,7 @@ Incluso con todo el plan ejecutado:
 - **RT-14, cierre (2026-11-26):** el propietario informa Health Check Path = `/actuator/health/liveness` en Render; el agente verificó las sondas en producción (200). Respaldo: PR #67 y sus tests.
 - **RT-28, cierre (2026-11-26):** el propietario informa que el login con Google funciona en producción y envió un registro nuevo. Las rutas de fallo (timeout de 5 s, Google caído → 503) solo están cubiertas por tests (PR #66). Residual aceptado: Turnstile sigue dentro de la transacción de `register()`.
 - **RT-06 (2026-11-26, falla en producción):** un registro nuevo no recibió el correo de activación. Causa sin determinar: faltan las filas del outbox y los logs. PR #86 agrega el botón de reenvío con espera de 30 s; no corrige la entrega.
+- **RT-06, cierre (2026-11-26):** con una dirección nueva, el propietario recibió el correo de activación y activó la cuenta en producción. La falla anterior no creó fila en el outbox (probable email ya registrado; no verificado). Consultas del propietario: 5 filas `SENT` y 6 `DEAD`; las 6 son `ACTIVATION`, 1 intento, `Email provider rejected the request (401)`, entre 2026-11-13 18:56 y 2026-11-16 22:25, todas anteriores al primer envío correcto posterior (2026-11-16 22:26) y a la corrección que vuelve reintentable el 401. Test de integración del reintento: PR #65; alerta de `DEAD`: PR #84. Residual: no se verificó el dominio remitente en Brevo y no hay política tras agotar los reintentos más allá de la alerta.
 
 ### Notas sobre hallazgos con evidencia parcial (siguen OPEN)
 
