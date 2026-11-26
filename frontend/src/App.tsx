@@ -414,6 +414,10 @@ export default function App() {
         }}
         onSuccess={() => {
           setLoginOpen(false);
+          // The sign-up screens have nothing left to show once there is a session.
+          if (location.pathname === ROUTES.activate || location.pathname === ROUTES.register) {
+            navigate(ROUTES.home, { replace: true });
+          }
           if (pendingContact) {
             setContactTarget(pendingContact);
             setPendingContact(null);

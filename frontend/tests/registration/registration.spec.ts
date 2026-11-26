@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { PASSWORD, STUDENT } from '../helpers';
 
 /**
  * AUTH-001: the password path is complete end to end. The activation link itself is delivered by
@@ -70,6 +71,25 @@ test.describe('Registro y activación de cuenta', () => {
       ).toBeVisible();
     },
   );
+
+  for (const path of ['/activar', '/registro']) {
+    test(
+      `ingresar desde ${path} lleva a la landing`,
+      { tag: ['@high', '@e2e', '@auth', '@AUTH-E2E-006'] },
+      async ({ page }) => {
+        await page.goto(path);
+        await page.getByRole('banner').getByRole('button', { name: 'Ingresar' }).click();
+        const dialog = page.getByRole('dialog');
+        await dialog.getByLabel('Email').fill(STUDENT);
+        await dialog.getByLabel('Contraseña').fill(PASSWORD);
+        await dialog.getByRole('button', { name: 'Ingresar', exact: true }).click();
+
+        await expect(dialog).toHaveCount(0);
+        await expect(page.getByRole('heading', { name: /Encontrá tu profesor/ })).toBeVisible();
+        expect(new URL(page.url()).pathname).toBe('/');
+      },
+    );
+  }
 
   test(
     'el modal de ingreso enlaza al registro',
