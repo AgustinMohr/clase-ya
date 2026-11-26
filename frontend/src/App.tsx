@@ -24,6 +24,7 @@ const AdminUsersPage = lazy(() => import('./pages/AdminUsersPage'));
 const AdminVerificationsPage = lazy(() => import('./pages/AdminVerificationsPage'));
 const AdminReviewsPage = lazy(() => import('./pages/AdminReviewsPage'));
 const AdminReportsPage = lazy(() => import('./pages/AdminReportsPage'));
+const AdminDiagnosticsPage = lazy(() => import('./pages/AdminDiagnosticsPage'));
 const LegalPage = lazy(() => import('./pages/LegalPage'));
 const FavoritesPage = lazy(() => import('./pages/FavoritesPage'));
 const RegisterPage = lazy(() => import('./pages/RegisterPage'));
@@ -380,6 +381,16 @@ export default function App() {
               element={
                 <ProtectedRoute role="ADMIN" onRequireLogin={requireLogin}>
                   <AdminReportsPage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* RT-05: temporary and unlinked; verifies browser error tracking. */}
+            <Route
+              path={`${ROUTES.admin}/diagnostico`}
+              element={
+                <ProtectedRoute role="ADMIN" onRequireLogin={requireLogin}>
+                  <AdminDiagnosticsPage />
                 </ProtectedRoute>
               }
             />
