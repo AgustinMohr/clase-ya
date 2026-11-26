@@ -50,7 +50,7 @@ Columnas: ID de tracker · origen (ID en informes) · severidad · estado · tip
 | RT-11 | 06 I-05 | Acciones de GitHub sin fijar por SHA | P2 | OPEN | N1 | S | WP-1 |
 | RT-12 | 06 I-06 | Sin SAST/CodeQL | P2 | OPEN | N1 + Manual (activar code scanning) | S | WP-1 |
 | RT-13 | 06 I-07, I-08 | Trivy no bloquea ni corre en PR; imágenes base flotantes; sin Dependabot Docker | P2 | OPEN | N1 | M | WP-1 |
-| RT-14 | 06 I-10 | Sin sondas liveness/readiness separadas; ruta de health de `comandos.txt` inexistente; DB en health | P2 | OPEN (código fusionado, PR #67; falta Health Check Path en Render) | N1 + Manual (Render) | S | WP-3 |
+| RT-14 | 06 I-10 | Sin sondas liveness/readiness separadas; ruta de health de `comandos.txt` inexistente; DB en health | P2 | CLOSED (PR #67; verificado 2026-11-26; ver nota) | N1 + Manual (Render) | S | WP-3 |
 | RT-15 | 06 I-12 | Logs en texto plano, sin agregador; email del destinatario en logs SMTP | P2 | OPEN | N1 + Manual | S | WP-3 |
 | RT-16 | 06 I-11 | Sin entorno de staging | P2 | OPEN | Manual + N0 | L | WP-9 |
 | RT-17 | 04 DB-04 | Email único sensible a mayúsculas en base | P2 | OPEN | N2 (migración) | S | WP-6 |
@@ -64,7 +64,7 @@ Columnas: ID de tracker · origen (ID en informes) · severidad · estado · tip
 | RT-25 | 01 S-05, 03 F-08 | "Human check" no exigido en backend; `HumanGate` bloquea toda la SPA si el backend cae | P2 | OPEN | Decisión + N2 | M | WP-4 |
 | RT-26 | 02 B-03, B-04 | Subida de documentos y edición de credencial en `UNDER_REVIEW`/`VERIFIED` | P2 | OPEN | Decisión + N2 | M | WP-7 |
 | RT-27 | 02 B-02 | Orden de bloqueos inconsistente subida vs decisión (posible deadlock) | P2 | OPEN | N1 | M | WP-7 |
-| RT-28 | 02 B-06 | Turnstile sin timeout dentro de transacción; fallo de JWKS devuelve 400 | P2 | OPEN (código fusionado, PR #66; falta validar en producción) | N1 | S | WP-7 |
+| RT-28 | 02 B-06 | Turnstile sin timeout dentro de transacción; fallo de JWKS devuelve 400 | P2 | CLOSED (PR #66; validado 2026-11-26; ver nota) | N1 | S | WP-7 |
 | RT-29 | 01 S-06, 03 F-02 | `photoUrl` https de host arbitrario: seguimiento de visitantes; CSP `img-src https:` | P2 | OPEN | Decisión + N2 | M | WP-8 |
 | RT-30 | 03 F-03, F-04, F-07 | Cliente HTTP: timeout 15 s en subidas, reintento de todo 403, respuestas no JSON no controladas | P2 | OPEN | N1 | M | WP-8 |
 | RT-31 | 03 F-05 | Timeout sin idempotencia en POST (registro, mensaje, reseña, reporte) | P2 | OPEN | Decisión + N2 | M | WP-8 |
@@ -417,6 +417,9 @@ Incluso con todo el plan ejecutado:
 - **RT-05 (2026-11-26, sigue OPEN):** el propietario informa que UptimeRobot le envía alertas por email, que creó la regla de alerta en Sentry y que retiró `SENTRY_DEBUG` de Render. PR #83: ruta temporal solo ADMIN `/admin/diagnostico` para provocar un error de render (136 tests de frontend; desplegada en Vercel, verificado por el agente en el bundle). PR #84: test de que una fila `DEAD` del outbox genera un solo evento de Sentry sin el email del destinatario (`SentryIntegrationTest`, 5 tests). **Único pendiente:** un evento real del frontend revisado sin datos personales (con su email de alerta). Al cerrar, borrar la página y `AdminDiagnosticsController`.
 - **RT-14 (2026-11-26):** el agente verificó en producción `liveness`, `readiness` y `/actuator/health` con 200 sin credenciales. Falta confirmar el Health Check Path en Render.
 - **RT-02 (2026-11-26):** verificado por API: `main` no tiene checks obligatorios ni revisiones exigidas.
+- **RT-14, cierre (2026-11-26):** el propietario informa Health Check Path = `/actuator/health/liveness` en Render; el agente verificó las sondas en producción (200). Respaldo: PR #67 y sus tests.
+- **RT-28, cierre (2026-11-26):** el propietario informa que el login con Google funciona en producción y envió un registro nuevo. Las rutas de fallo (timeout de 5 s, Google caído → 503) solo están cubiertas por tests (PR #66). Residual aceptado: Turnstile sigue dentro de la transacción de `register()`.
+- **RT-06 (2026-11-26, falla en producción):** un registro nuevo no recibió el correo de activación. Causa sin determinar: faltan las filas del outbox y los logs. PR #86 agrega el botón de reenvío con espera de 30 s; no corrige la entrega.
 
 ### Notas sobre hallazgos con evidencia parcial (siguen OPEN)
 
