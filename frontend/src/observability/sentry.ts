@@ -64,6 +64,8 @@ export function initSentry(): void {
     release: import.meta.env.VITE_VERCEL_GIT_COMMIT_SHA || undefined,
     tracesSampleRate: 0,
     maxBreadcrumbs: 0,
+    // The SDK defaults collect user data; userInfo=false also stops Sentry from inferring the IP.
+    dataCollection: { userInfo: false, cookies: false, httpBodies: [], urlQueryParams: false },
     // Browser noise that is not an application bug.
     ignoreErrors: [
       'ResizeObserver loop limit exceeded',

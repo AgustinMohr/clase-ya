@@ -1,10 +1,27 @@
+import * as Sentry from '@sentry/react';
 import type { ErrorEvent } from '@sentry/react';
-import { describe, expect, it } from 'vitest';
-import { redactEmails, scrubEvent, stripUrl } from './sentry';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { initSentry, redactEmails, scrubEvent, stripUrl } from './sentry';
 
 function baseEvent(overrides: Partial<ErrorEvent> = {}): ErrorEvent {
   return { type: undefined, ...overrides } as ErrorEvent;
 }
+
+describe('initSentry', () => {
+  afterEach(async () => {
+    await Sentry.close();
+    vi.unstubAllEnvs();
+  });
+
+  it('tells Sentry never to infer the visitor IP address', () => {
+    vi.stubEnv('VITE_SENTRY_DSN', 'https://publickey@o0.ingest.example.invalid/1');
+
+    initSentry();
+
+    const options = Sentry.getClient()!.getOptions();
+    expect(options._metadata?.sdk?.settings?.infer_ip).toBe('never');
+  });
+});
 
 describe('stripUrl', () => {
   it('drops the query string and fragment', () => {
