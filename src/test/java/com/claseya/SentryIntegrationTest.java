@@ -1,7 +1,11 @@
 package com.claseya;
 
+import com.claseya.model.NotificationOutboxEntry;
+import com.claseya.model.enums.NotificationEventType;
 import com.claseya.model.enums.UserRole;
 import com.claseya.model.enums.UserStatus;
+import com.claseya.notification.repository.NotificationOutboxRepository;
+import com.claseya.notification.service.NotificationOutboxWorker;
 import com.claseya.security.SentryEventScrubber;
 import io.sentry.Hint;
 import io.sentry.SentryEvent;
@@ -10,6 +14,7 @@ import io.sentry.NoOpTransportFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
@@ -47,6 +52,12 @@ class SentryIntegrationTest extends AbstractWebIntegrationTest {
 
     @MockitoSpyBean
     private SentryEventScrubber scrubber;
+
+    @Autowired
+    private NotificationOutboxRepository outboxRepository;
+
+    @Autowired
+    private NotificationOutboxWorker outboxWorker;
 
     @BeforeEach
     void resetSpy() {
@@ -121,6 +132,29 @@ class SentryIntegrationTest extends AbstractWebIntegrationTest {
                 .andExpect(status().isForbidden());
 
         verify(scrubber, never()).execute(any(), any());
+    }
+
+    @Test
+    void deadOutboxRowProducesOneEvent() throws Exception {
+        NotificationOutboxEntry entry = new NotificationOutboxEntry();
+        entry.setEventType(NotificationEventType.ACTIVATION);
+        entry.setRecipientUserId(createUser("dead+" + java.util.UUID.randomUUID() + "@test.com",
+                UserRole.STUDENT, UserStatus.PENDING).getId());
+        entry.setDedupeKey("sentry-dead-" + java.util.UUID.randomUUID());
+        // No token: a permanent failure, so the worker marks the row DEAD on the first attempt.
+        entry.setPayload(java.util.Map.of("email", "jane@example.com"));
+        // now() in the database is the start of this test transaction.
+        entry.setNextAttemptAt(java.time.Instant.now().minusSeconds(3600));
+        outboxRepository.saveAndFlush(entry);
+
+        outboxWorker.processDue();
+
+        ArgumentCaptor<SentryEvent> captor = ArgumentCaptor.forClass(SentryEvent.class);
+        verify(scrubber, timeout(5000).times(1)).execute(captor.capture(), any(Hint.class));
+        assertThat(captor.getValue().getMessage().getFormatted())
+                .contains(entry.getId().toString())
+                .contains("is DEAD")
+                .doesNotContain("jane@example.com");
     }
 
     @TestConfiguration
